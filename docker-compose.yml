@@ -1,0 +1,46 @@
+# Energia Power LLC - CRM & Brokerage Management
+# Containerized development and production environment
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: energia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: energia
+      POSTGRES_PASSWORD: energia_dev_password
+      POSTGRES_DB: energia_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U energia -d energia_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: energia-app
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://energia:energia_dev_password@postgres:5432/energia_db
+      NODE_ENV: development
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Mount source for hot-reload in development
+      - .:/app
+      - app_node_modules:/app/node_modules
+    command: sh -c "npm install && npx prisma generate && (npx prisma migrate deploy 2>/dev/null || npx prisma db push 2>/dev/null || true) && npm run dev -- -H 0.0.0.0"
+
+volumes:
+  postgres_data:
+  app_node_modules:

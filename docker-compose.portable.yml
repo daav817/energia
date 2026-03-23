@@ -1,0 +1,12 @@
+# Portable mode: no host mounts, runs from built image
+# Use: docker compose -f docker-compose.yml -f docker-compose.portable.yml up -d
+# For moving to another laptop - copy the project folder and run the above
+
+services:
+  app:
+    volumes:
+      - app_data:/app/data  # Persist Gmail tokens
+    command: sh -c "npx prisma generate && (npx prisma migrate deploy 2>/dev/null || npx prisma db push 2>/dev/null || true) && npm run dev -- -H 0.0.0.0"
+
+volumes:
+  app_data:

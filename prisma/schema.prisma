@@ -1,0 +1,460 @@
+// Energia Power LLC - CRM & Brokerage Management
+// Prisma Schema - PostgreSQL
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// DIRECTORY - Customers & Suppliers
+// =============================================================================
+
+// One unique entry per customer. Energy type (electric/natural gas) is on Contract, not here.
+model Customer {
+  id              String    @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  company         String?
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  notes           String?   @db.Text
+  hasElectric     Boolean   @default(false) @map("has_electric")
+  hasNaturalGas   Boolean   @default(false) @map("has_natural_gas")
+  googleContactId String?   @map("google_contact_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  contracts   Contract[]
+  tasks       Task[]
+  documents   Document[]
+  rfpRequests RfpRequest[]
+  emails      Email[]     @relation("CustomerEmails")
+  contacts    Contact[]
+
+  @@map("customers")
+}
+
+model Supplier {
+  id              String   @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  website         String?
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  notes           String?  @db.Text
+  isElectric      Boolean  @default(false) @map("is_electric")
+  isNaturalGas    Boolean  @default(false) @map("is_natural_gas")
+  googleContactId String?  @map("google_contact_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  contacts       SupplierContact[]
+  contactLinks   Contact[] @relation("SupplierContactLinks")
+  contracts      Contract[]
+  documents      Document[]
+  rfpRequests    RfpRequest[] @relation("RfpSuppliers")
+  rfpQuotes      RfpQuote[]
+  emails         Email[]  @relation("SupplierEmails")
+
+  @@map("suppliers")
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  supplierId String   @map("supplier_id")
+  name       String
+  email      String?
+  phone      String?
+  role       String?
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, email])
+  @@map("supplier_contacts")
+}
+
+// =============================================================================
+// PROSPECTS (unconverted leads)
+// =============================================================================
+
+model Prospect {
+  id                  String    @id @default(cuid())
+  name                String
+  email               String?
+  phone               String?
+  company             String?
+  address             String?
+  notes               String?   @db.Text
+  hasElectric         Boolean   @default(false) @map("has_electric")
+  hasNaturalGas       Boolean   @default(false) @map("has_natural_gas")
+  convertedToCustomerId String?  @map("converted_to_customer_id")
+  convertedAt         DateTime? @map("converted_at")
+  googleContactId     String?   @map("google_contact_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  tasks Task[]
+
+  @@map("prospects")
+}
+
+// =============================================================================
+// CONTRACTS
+// =============================================================================
+
+enum EnergyType {
+  ELECTRIC
+  NATURAL_GAS
+}
+
+enum PriceUnit {
+  KWH    // Kilowatt-hours (electric)
+  MCF    // Thousand cubic feet (gas)
+  CCF    // Hundred cubic feet (gas)
+  DTH    // Dekatherm (gas)
+}
+
+model Contract {
+  id               String     @id @default(cuid())
+  customerId       String     @map("customer_id")
+  supplierId       String     @map("supplier_id")
+  mainContactId    String?    @map("main_contact_id")
+  energyType       EnergyType @map("energy_type")
+  priceUnit        PriceUnit  @map("price_unit")
+  pricePerUnit     Decimal    @map("price_per_unit") @db.Decimal(10, 6) // e.g., $/KWH or $/MCF
+  startDate        DateTime   @map("start_date") @db.Date
+  expirationDate   DateTime   @map("expiration_date") @db.Date
+  termMonths       Int        @map("term_months")
+  annualUsage      Decimal?   @map("annual_usage") @db.Decimal(14, 2)   // KWH or MCF/CCF
+  avgMonthlyUsage  Decimal?   @map("avg_monthly_usage") @db.Decimal(14, 2)
+  contractIncome   Decimal?   @map("contract_income") @db.Decimal(12, 2)  // Total expected income
+  brokerMargin     Decimal?   @map("broker_margin") @db.Decimal(10, 6)   // Per-unit margin
+  customerUtility  String?    @map("customer_utility")
+  signedDate       DateTime?  @map("signed_date") @db.Date
+  totalMeters      Int?       @map("total_meters")
+  status           String     @default("active") // active, archived, cancelled, pending
+  notes            String?    @db.Text
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  supplier          Supplier         @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  mainContact       Contact?         @relation(fields: [mainContactId], references: [id], onDelete: SetNull)
+  commissionPayments CommissionPayment[]
+  documents         Document[]
+  rfpQuotes         RfpQuote[]
+
+  @@map("contracts")
+}
+
+model CommissionPayment {
+  id          String    @id @default(cuid())
+  contractId  String    @map("contract_id")
+  amount      Decimal   @db.Decimal(12, 2)
+  paymentDate DateTime @map("payment_date") @db.Date
+  source      String    // "email" | "portal" | "manual"
+  reference   String?   // Email subject, invoice #, etc.
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@map("commission_payments")
+}
+
+// =============================================================================
+// TASKS / PROSPECTING
+// =============================================================================
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskType {
+  TASK
+  NOTE
+  PROSPECT
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?    @db.Text
+  type        TaskType   @default(TASK)
+  status      TaskStatus @default(PENDING)
+  dueDate     DateTime?  @map("due_date") @db.Date
+  priority    Int        @default(0)
+  customerId  String?    @map("customer_id")
+  prospectId  String?    @map("prospect_id")
+  completedAt DateTime?  @map("completed_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@map("tasks")
+}
+
+// =============================================================================
+// DOCUMENTS (Google Drive integration)
+// =============================================================================
+
+enum DocumentType {
+  BILL
+  CONTRACT
+  RFP
+  SPREADSHEET
+  OTHER
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  name         String
+  type         DocumentType @default(OTHER)
+  googleDriveId String?     @map("google_drive_id")
+  googleDriveUrl String?    @map("google_drive_url")
+  mimeType     String?      @map("mime_type")
+  fileSize     Int?         @map("file_size")
+  sourceEmail  String?      @map("source_email")
+  customerId   String?      @map("customer_id")
+  supplierId   String?      @map("supplier_id")
+  contractId   String?      @map("contract_id")
+  uploadedAt   DateTime     @default(now()) @map("uploaded_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  customer Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  contract Contract?  @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  @@map("documents")
+}
+
+// =============================================================================
+// LICENSES (CRNGS, CRES - 2-year expiration from issue)
+// =============================================================================
+
+enum LicenseType {
+  CRNGS  // Natural Gas
+  CRES   // Electric
+}
+
+model License {
+  id             String     @id @default(cuid())
+  licenseType    LicenseType @map("license_type")
+  licenseNumber  String     @map("license_number")
+  state          String?
+  issueDate      DateTime   @map("issue_date") @db.Date
+  expirationDate DateTime   @map("expiration_date") @db.Date // Auto-calculated: issueDate + 2 years
+  status         String     @default("active") // active, expired, suspended
+  notes          String?    @db.Text
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  @@map("licenses")
+}
+
+// =============================================================================
+// RFP (Request for Pricing) Workflow
+// =============================================================================
+
+model RfpRequest {
+  id               String     @id @default(cuid())
+  customerId       String     @map("customer_id")
+  energyType       EnergyType @map("energy_type")
+  annualUsage      Decimal?   @map("annual_usage") @db.Decimal(14, 2)
+  avgMonthlyUsage  Decimal?   @map("avg_monthly_usage") @db.Decimal(14, 2)
+  billDocumentId   String?    @map("bill_document_id")
+  termMonths       Int?       @map("term_months")
+  sentAt           DateTime?  @map("sent_at")
+  status           String     @default("draft") // draft, sent, quotes_received
+  notes            String?    @db.Text
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  suppliers  Supplier[] @relation("RfpSuppliers")
+  quotes     RfpQuote[] @relation("RfpQuoteToRequest")
+
+  @@map("rfp_requests")
+}
+
+model RfpQuote {
+  id             String     @id @default(cuid())
+  rfpRequestId   String?    @map("rfp_request_id")
+  rfpRequest     RfpRequest? @relation("RfpQuoteToRequest", fields: [rfpRequestId], references: [id], onDelete: SetNull)
+  supplierId     String     @map("supplier_id")
+  contractId     String?    @map("contract_id")
+  rate           Decimal    @db.Decimal(10, 6)
+  priceUnit      PriceUnit  @map("price_unit")
+  termMonths     Int        @map("term_months")
+  brokerMargin   Decimal?   @map("broker_margin") @db.Decimal(10, 6)
+  totalMargin    Decimal?   @map("total_margin") @db.Decimal(12, 2)
+  isBestOffer    Boolean    @default(false) @map("is_best_offer")
+  sourceEmailId  String?    @map("source_email_id")
+  receivedAt     DateTime   @default(now()) @map("received_at")
+  notes          String?    @db.Text
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  contract Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  @@map("rfp_quotes")
+}
+
+// =============================================================================
+// COMMUNICATION HUB - Contacts
+// =============================================================================
+
+model Contact {
+  id                 String    @id @default(cuid())
+  firstName          String?   @map("first_name")
+  lastName           String?   @map("last_name")
+  name               String    // Display name
+  email              String?   // Legacy / primary for display
+  phone              String?   // Legacy / primary for display
+  company            String?
+  isPriority         Boolean   @default(false) @map("is_priority")
+  jobTitle           String?   @map("job_title")
+  label              String?
+  website            String?
+  notes              String?   @db.Text
+  source             String    @default("local") // local | google
+  googleResourceName String?   @map("google_resource_name")
+  addedToContactsAt  DateTime? @map("added_to_contacts_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  customerId         String?   @map("customer_id")
+  supplierId         String?   @map("supplier_id")
+
+  emails             ContactEmail[]
+  phones             ContactPhone[]
+  addresses          ContactAddress[]
+  significantDates   ContactSignificantDate[]
+  relatedPersons     ContactRelatedPerson[]
+  contractsAsMain    Contract[]
+
+  customer           Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier           Supplier? @relation("SupplierContactLinks", fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@map("contacts")
+}
+
+model ContactEmail {
+  id        String  @id @default(cuid())
+  contactId String  @map("contact_id")
+  email     String
+  type      String? // work, home, other
+  order     Int     @default(0)
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("contact_emails")
+}
+
+model ContactPhone {
+  id        String  @id @default(cuid())
+  contactId String  @map("contact_id")
+  phone     String
+  type      String? // work, home, mobile, fax, other
+  order     Int     @default(0)
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("contact_phones")
+}
+
+model ContactAddress {
+  id        String  @id @default(cuid())
+  contactId String  @map("contact_id")
+  street    String?
+  city      String?
+  state     String?
+  zip       String?
+  type      String? // work, home, other
+  order     Int     @default(0)
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("contact_addresses")
+}
+
+model ContactSignificantDate {
+  id        String   @id @default(cuid())
+  contactId String   @map("contact_id")
+  label     String   // e.g. "Contract Expiration"
+  date      DateTime @db.Date
+  order     Int      @default(0)
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("contact_significant_dates")
+}
+
+model ContactRelatedPerson {
+  id        String @id @default(cuid())
+  contactId String @map("contact_id")
+  name      String
+  relation  String? // e.g. "Manager", "Assistant"
+  order     Int    @default(0)
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("contact_related_persons")
+}
+
+// =============================================================================
+// COMMUNICATION HUB - Emails
+// =============================================================================
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model Email {
+  id           String        @id @default(cuid())
+  messageId    String?       @map("message_id") @unique // Gmail message ID
+  threadId     String?       @map("thread_id")
+  direction    EmailDirection
+  subject      String?
+  body         String?       @db.Text
+  bodyHtml     String?       @map("body_html") @db.Text
+  fromAddress  String        @map("from_address")
+  toAddresses  String[]      @map("to_addresses")
+  ccAddresses  String[]      @map("cc_addresses")
+  sentAt       DateTime      @map("sent_at")
+  receivedAt   DateTime?     @map("received_at")
+  customerId   String?       @map("customer_id")
+  supplierId   String?       @map("supplier_id")
+  isRead       Boolean       @default(false) @map("is_read")
+  isRfp        Boolean       @default(false) @map("is_rfp")
+  isRfpResponse Boolean      @default(false) @map("is_rfp_response")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  customer Customer? @relation("CustomerEmails", fields: [customerId], references: [id], onDelete: SetNull)
+  supplier Supplier? @relation("SupplierEmails", fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@map("emails")
+}

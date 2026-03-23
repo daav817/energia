@@ -1,0 +1,45 @@
+Project Overview:
+I need to build a proprietary, containerized CRM and Brokerage Management web application for my energy brokerage firm, "Energia Power LLC". The application needs to run locally via Docker but must be designed for eventual cloud deployment.
+
+Tech Stack:
+
+Frontend: Next.js (App Router), Tailwind CSS, Shadcn UI (for clean, fast components).
+
+Backend: Next.js API Routes (Node.js).
+
+Database: PostgreSQL.
+
+ORM: Prisma.
+
+Core Architecture & Database Needs:
+Please generate the Prisma schema.prisma model and the accompanying frontend/backend boilerplate for the following entities:
+
+Customers: Must track basic CRM data. Crucially, must include boolean flags for has_electric and has_natural_gas.
+
+Suppliers: Must track supplier details and contacts, also with is_electric and is_natural_gas flags.
+
+Contracts: Linked to Customers and Suppliers. Must track energy type, start date, expiration date, and pricing.  There needs to be a way to track not only the price per energy type (i.e., $/MCF or $/CCF or $/KWH) but also a way to record contract income.  Ideally it would great if the system could either read emails from supplier which pertain to a monthly payment or access the supplier's portal to retrieve the latest monthly commission payment.
+
+Tasks/Prospecting: A todo/note-taking system tied to either existing Customers or un-converted Prospects.
+
+Documents: A table to store metadata and URLs (specifically Google Drive links) for attached bills and contracts.
+
+Licenses: To track my CRNGS and CRES licenses. When a new license is entered with an "issue date", the system must automatically calculate and store an "expiration date" exactly 2 years out.
+
+Required Features & Modules to Build:
+
+Module 1: Directory (Customers & Suppliers): CRUD interfaces for both, ensuring the user can filter by Electric, Natural Gas, or Both.  There could be a mechanism to injest customer or supplier contact data from Google Contacts
+
+Module 2: Communication Hub: >  I need to be able to write, send, and receive emails specific to my energy brokerage email address with is in Gmail.   * Provide UI and backend logic to trigger emails to customers/suppliers.  I would like this email system functionality to ping the applicable email system (in my case Gmail) on a regular basis so that new emails will be scene promptly.  
+
+Create an "RFP (Request for Pricing) Generator": There will be a template email sent for the RFP.  It will have a feature that allows me to select an energy type (e.g., Natural Gas), select a customer, and blast a standardized RFP email to all Suppliers who match that energy type.  The app will scrape key data from the PDF bill received from the customer's previous email.  The RFP email will need to have the annual usage, average monthly usage, attach a link to the customer's bill (in the form of a PDF) and perhaps other spreadsheets highlighting the accounts which the customer may already have.   I would like a small calculator specifically fashioned to help me understand what my broker margin is and what might be the total brokerage margin over the life of the contract by multiplying the suggested margin amount by the average monthly usage mutiplied by the number of months in the contract.  I would also like a calculator fashioned to analyze the customer's current bill rate and annual usage and then compare it to the new suggested rates whenever they are received from the supplier's RFP return reponse to the initial RFP email.
+
+When the RFP qutoes are then emailed  back to me from the suppliers, I will want the quotes to be filtered and added into a pricing table highlighting which offer is the best for a given contract timeframe.  This table will then need to be formatted to be sent to the customer.  In this email template
+
+Module 3: Document Automation (Google Workspace Integration): I have Google Workspace and a folder system in Google Drive which I will need to define the location so that PDF files, sppreadsheets, and other files from either the customer or the supplier can be stored.  Write the backend webhook/API logic needed to parse incoming emails. If an email has a bill attached, the logic should upload the attachment to Google Drive via the Google Drive API, and save the Drive URL to the Postgres Documents table linked to the sender's email.
+
+Module 4: Calendar & Reminders: A dashboard widget that pulls from the Contracts and Licenses tables to show upcoming expirations (30, 60, and 90 days out) to trigger renewal workflows.
+
+Module 5: Market Research & News: A dedicated tab that fetches and displays real-time Electric and Natural Gas market pricing and industry news (prepare the UI and suggest free/standard APIs like EIA.gov or NewsAPI to plug in).
+
+Please start by providing the docker-compose.yml, the Dockerfile, and the schema.prisma file to establish the foundational database and containerized environment.  Also do the development in a virtual environment.
