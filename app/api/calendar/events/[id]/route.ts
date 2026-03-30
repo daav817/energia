@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CalendarEventType } from "@/generated/prisma/client";
+import {
+  deleteGoogleCalendarEvent,
+  patchGoogleCalendarEvent,
+} from "@/lib/google-calendar-sync";
 
 function parseEventTypeStrict(raw: unknown): CalendarEventType | null {
   if (raw == null || raw === "") return null;
@@ -155,6 +159,20 @@ export async function PATCH(
       include: eventInclude,
     });
 
+    if (event.googleEventId) {
+      try {
+        await patchGoogleCalendarEvent(event.googleEventId, {
+          title: event.title,
+          description: event.description,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          allDay: event.allDay,
+        });
+      } catch (syncErr) {
+        console.error("Google Calendar patch error:", syncErr);
+      }
+    }
+
     return NextResponse.json(event);
   } catch (error) {
     console.error("Calendar event update error:", error);
@@ -174,6 +192,13 @@ export async function DELETE(
     const existing = await prisma.calendarEvent.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (existing.googleEventId) {
+      try {
+        await deleteGoogleCalendarEvent(existing.googleEventId);
+      } catch (syncErr) {
+        console.error("Google Calendar delete error:", syncErr);
+      }
     }
     await prisma.calendarEvent.delete({ where: { id } });
     return NextResponse.json({ ok: true });

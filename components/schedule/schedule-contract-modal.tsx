@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ComposeEmailModal, type ComposeEmailTarget } from "@/components/compose-email-modal";
 
 type ContractPayload = {
   id: string;
@@ -52,6 +53,22 @@ function fmtDate(s: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
 }
 
+function contactEmailList(c: ContactDetail): Array<{ email: string; type?: string | null }> {
+  const seen = new Set<string>();
+  const out: Array<{ email: string; type?: string | null }> = [];
+  const add = (email: string, type?: string | null) => {
+    const k = email.trim().toLowerCase();
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push({ email, type: type ?? null });
+  };
+  if (c.emails?.length) {
+    for (const r of c.emails) add(r.email, r.type ?? null);
+  }
+  if (c.email) add(c.email, null);
+  return out;
+}
+
 export function ScheduleContractModal(props: {
   contractId: string | null;
   open: boolean;
@@ -67,6 +84,7 @@ export function ScheduleContractModal(props: {
   const [contactData, setContactData] = useState<ContactDetail | null>(null);
   const [contactLoading, setContactLoading] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [emailComposeTo, setEmailComposeTo] = useState<ComposeEmailTarget | null>(null);
 
   useEffect(() => {
     if (!open || !contractId) {
@@ -74,6 +92,7 @@ export function ScheduleContractModal(props: {
       setError(null);
       setContactOpen(false);
       setContactId(null);
+      setEmailComposeTo(null);
       return;
     }
     let cancelled = false;
@@ -136,6 +155,11 @@ export function ScheduleContractModal(props: {
     setContactId(id);
     setContactOpen(true);
   };
+
+  const contactEmails = useMemo(
+    () => (contactData ? contactEmailList(contactData) : []),
+    [contactData]
+  );
 
   return (
     <>
@@ -227,7 +251,10 @@ export function ScheduleContractModal(props: {
         open={contactOpen}
         onOpenChange={(o) => {
           setContactOpen(o);
-          if (!o) setContactId(null);
+          if (!o) {
+            setContactId(null);
+            setEmailComposeTo(null);
+          }
         }}
       >
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto sm:max-w-lg">
@@ -255,25 +282,27 @@ export function ScheduleContractModal(props: {
               {contactData.label && (
                 <p className="text-xs text-muted-foreground">Label: {contactData.label}</p>
               )}
-              {contactData.email && (
-                <p>
-                  <span className="text-muted-foreground">Email</span>
-                  <br />
-                  <a className="text-primary hover:underline break-all" href={`mailto:${contactData.email}`}>
-                    {contactData.email}
-                  </a>
-                </p>
-              )}
-              {contactData.emails && contactData.emails.length > 0 && (
+              {contactEmails.length > 0 && (
                 <div>
-                  <span className="text-muted-foreground">Emails</span>
+                  <span className="text-muted-foreground">Email{contactEmails.length > 1 ? "s" : ""}</span>
                   <ul className="mt-1 space-y-1">
-                    {contactData.emails.map((row, i) => (
-                      <li key={i}>
-                        <a className="text-primary hover:underline break-all" href={`mailto:${row.email}`}>
+                    {contactEmails.map((row, i) => (
+                      <li key={`${row.email}-${i}`}>
+                        <button
+                          type="button"
+                          className="text-primary hover:underline break-all text-left"
+                          onClick={() =>
+                            setEmailComposeTo({
+                              email: row.email,
+                              name: contactData.name ?? undefined,
+                            })
+                          }
+                        >
                           {row.email}
-                        </a>
-                        {row.type ? <span className="text-xs text-muted-foreground ml-1">({row.type})</span> : null}
+                        </button>
+                        {row.type ? (
+                          <span className="text-xs text-muted-foreground ml-1">({row.type})</span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -351,6 +380,12 @@ export function ScheduleContractModal(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ComposeEmailModal
+        to={emailComposeTo}
+        onClose={() => setEmailComposeTo(null)}
+        onSent={() => setEmailComposeTo(null)}
+      />
     </>
   );
 }

@@ -273,6 +273,7 @@ export const CalendarEventScalarFieldEnum = {
   endAt: 'endAt',
   allDay: 'allDay',
   eventType: 'eventType',
+  googleEventId: 'googleEventId',
   customerId: 'customerId',
   contactId: 'contactId',
   contractId: 'contractId',

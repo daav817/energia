@@ -32,6 +32,7 @@ export type CalendarEventMinAggregateOutputType = {
   endAt: Date | null
   allDay: boolean | null
   eventType: $Enums.CalendarEventType | null
+  googleEventId: string | null
   customerId: string | null
   contactId: string | null
   contractId: string | null
@@ -50,6 +51,7 @@ export type CalendarEventMaxAggregateOutputType = {
   endAt: Date | null
   allDay: boolean | null
   eventType: $Enums.CalendarEventType | null
+  googleEventId: string | null
   customerId: string | null
   contactId: string | null
   contractId: string | null
@@ -68,6 +70,7 @@ export type CalendarEventCountAggregateOutputType = {
   endAt: number
   allDay: number
   eventType: number
+  googleEventId: number
   customerId: number
   contactId: number
   contractId: number
@@ -88,6 +91,7 @@ export type CalendarEventMinAggregateInputType = {
   endAt?: true
   allDay?: true
   eventType?: true
+  googleEventId?: true
   customerId?: true
   contactId?: true
   contractId?: true
@@ -106,6 +110,7 @@ export type CalendarEventMaxAggregateInputType = {
   endAt?: true
   allDay?: true
   eventType?: true
+  googleEventId?: true
   customerId?: true
   contactId?: true
   contractId?: true
@@ -124,6 +129,7 @@ export type CalendarEventCountAggregateInputType = {
   endAt?: true
   allDay?: true
   eventType?: true
+  googleEventId?: true
   customerId?: true
   contactId?: true
   contractId?: true
@@ -215,6 +221,7 @@ export type CalendarEventGroupByOutputType = {
   endAt: Date | null
   allDay: boolean
   eventType: $Enums.CalendarEventType
+  googleEventId: string | null
   customerId: string | null
   contactId: string | null
   contractId: string | null
@@ -254,6 +261,7 @@ export type CalendarEventWhereInput = {
   endAt?: Prisma.DateTimeNullableFilter<"CalendarEvent"> | Date | string | null
   allDay?: Prisma.BoolFilter<"CalendarEvent"> | boolean
   eventType?: Prisma.EnumCalendarEventTypeFilter<"CalendarEvent"> | $Enums.CalendarEventType
+  googleEventId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
   customerId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
   contactId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
   contractId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
@@ -278,6 +286,7 @@ export type CalendarEventOrderByWithRelationInput = {
   endAt?: Prisma.SortOrderInput | Prisma.SortOrder
   allDay?: Prisma.SortOrder
   eventType?: Prisma.SortOrder
+  googleEventId?: Prisma.SortOrderInput | Prisma.SortOrder
   customerId?: Prisma.SortOrderInput | Prisma.SortOrder
   contactId?: Prisma.SortOrderInput | Prisma.SortOrder
   contractId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -296,6 +305,7 @@ export type CalendarEventOrderByWithRelationInput = {
 
 export type CalendarEventWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  googleEventId?: string
   AND?: Prisma.CalendarEventWhereInput | Prisma.CalendarEventWhereInput[]
   OR?: Prisma.CalendarEventWhereInput[]
   NOT?: Prisma.CalendarEventWhereInput | Prisma.CalendarEventWhereInput[]
@@ -319,7 +329,7 @@ export type CalendarEventWhereUniqueInput = Prisma.AtLeast<{
   task?: Prisma.XOR<Prisma.TaskNullableScalarRelationFilter, Prisma.TaskWhereInput> | null
   license?: Prisma.XOR<Prisma.LicenseNullableScalarRelationFilter, Prisma.LicenseWhereInput> | null
   rfpRequest?: Prisma.XOR<Prisma.RfpRequestNullableScalarRelationFilter, Prisma.RfpRequestWhereInput> | null
-}, "id">
+}, "id" | "googleEventId">
 
 export type CalendarEventOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -329,6 +339,7 @@ export type CalendarEventOrderByWithAggregationInput = {
   endAt?: Prisma.SortOrderInput | Prisma.SortOrder
   allDay?: Prisma.SortOrder
   eventType?: Prisma.SortOrder
+  googleEventId?: Prisma.SortOrderInput | Prisma.SortOrder
   customerId?: Prisma.SortOrderInput | Prisma.SortOrder
   contactId?: Prisma.SortOrderInput | Prisma.SortOrder
   contractId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -353,6 +364,7 @@ export type CalendarEventScalarWhereWithAggregatesInput = {
   endAt?: Prisma.DateTimeNullableWithAggregatesFilter<"CalendarEvent"> | Date | string | null
   allDay?: Prisma.BoolWithAggregatesFilter<"CalendarEvent"> | boolean
   eventType?: Prisma.EnumCalendarEventTypeWithAggregatesFilter<"CalendarEvent"> | $Enums.CalendarEventType
+  googleEventId?: Prisma.StringNullableWithAggregatesFilter<"CalendarEvent"> | string | null
   customerId?: Prisma.StringNullableWithAggregatesFilter<"CalendarEvent"> | string | null
   contactId?: Prisma.StringNullableWithAggregatesFilter<"CalendarEvent"> | string | null
   contractId?: Prisma.StringNullableWithAggregatesFilter<"CalendarEvent"> | string | null
@@ -371,6 +383,7 @@ export type CalendarEventCreateInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutCalendarEventsInput
@@ -389,6 +402,7 @@ export type CalendarEventUncheckedCreateInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -407,6 +421,7 @@ export type CalendarEventUpdateInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutCalendarEventsNestedInput
@@ -425,6 +440,7 @@ export type CalendarEventUncheckedUpdateInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -443,6 +459,7 @@ export type CalendarEventCreateManyInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -461,6 +478,7 @@ export type CalendarEventUpdateManyMutationInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -473,6 +491,7 @@ export type CalendarEventUncheckedUpdateManyInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -501,6 +520,7 @@ export type CalendarEventCountOrderByAggregateInput = {
   endAt?: Prisma.SortOrder
   allDay?: Prisma.SortOrder
   eventType?: Prisma.SortOrder
+  googleEventId?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
@@ -519,6 +539,7 @@ export type CalendarEventMaxOrderByAggregateInput = {
   endAt?: Prisma.SortOrder
   allDay?: Prisma.SortOrder
   eventType?: Prisma.SortOrder
+  googleEventId?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
@@ -537,6 +558,7 @@ export type CalendarEventMinOrderByAggregateInput = {
   endAt?: Prisma.SortOrder
   allDay?: Prisma.SortOrder
   eventType?: Prisma.SortOrder
+  googleEventId?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
@@ -811,6 +833,7 @@ export type CalendarEventCreateWithoutCustomerInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   contact?: Prisma.ContactCreateNestedOneWithoutCalendarEventsInput
@@ -828,6 +851,7 @@ export type CalendarEventUncheckedCreateWithoutCustomerInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   contactId?: string | null
   contractId?: string | null
   taskId?: string | null
@@ -874,6 +898,7 @@ export type CalendarEventScalarWhereInput = {
   endAt?: Prisma.DateTimeNullableFilter<"CalendarEvent"> | Date | string | null
   allDay?: Prisma.BoolFilter<"CalendarEvent"> | boolean
   eventType?: Prisma.EnumCalendarEventTypeFilter<"CalendarEvent"> | $Enums.CalendarEventType
+  googleEventId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
   customerId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
   contactId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
   contractId?: Prisma.StringNullableFilter<"CalendarEvent"> | string | null
@@ -892,6 +917,7 @@ export type CalendarEventCreateWithoutContractInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutCalendarEventsInput
@@ -909,6 +935,7 @@ export type CalendarEventUncheckedCreateWithoutContractInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   taskId?: string | null
@@ -952,6 +979,7 @@ export type CalendarEventCreateWithoutTaskInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutCalendarEventsInput
@@ -969,6 +997,7 @@ export type CalendarEventUncheckedCreateWithoutTaskInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -1012,6 +1041,7 @@ export type CalendarEventCreateWithoutLicenseInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutCalendarEventsInput
@@ -1029,6 +1059,7 @@ export type CalendarEventUncheckedCreateWithoutLicenseInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -1072,6 +1103,7 @@ export type CalendarEventCreateWithoutRfpRequestInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutCalendarEventsInput
@@ -1089,6 +1121,7 @@ export type CalendarEventUncheckedCreateWithoutRfpRequestInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -1132,6 +1165,7 @@ export type CalendarEventCreateWithoutContactInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutCalendarEventsInput
@@ -1149,6 +1183,7 @@ export type CalendarEventUncheckedCreateWithoutContactInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contractId?: string | null
   taskId?: string | null
@@ -1192,6 +1227,7 @@ export type CalendarEventCreateManyCustomerInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   contactId?: string | null
   contractId?: string | null
   taskId?: string | null
@@ -1209,6 +1245,7 @@ export type CalendarEventUpdateWithoutCustomerInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contact?: Prisma.ContactUpdateOneWithoutCalendarEventsNestedInput
@@ -1226,6 +1263,7 @@ export type CalendarEventUncheckedUpdateWithoutCustomerInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1243,6 +1281,7 @@ export type CalendarEventUncheckedUpdateManyWithoutCustomerInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1260,6 +1299,7 @@ export type CalendarEventCreateManyContractInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   taskId?: string | null
@@ -1277,6 +1317,7 @@ export type CalendarEventUpdateWithoutContractInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutCalendarEventsNestedInput
@@ -1294,6 +1335,7 @@ export type CalendarEventUncheckedUpdateWithoutContractInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1311,6 +1353,7 @@ export type CalendarEventUncheckedUpdateManyWithoutContractInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1328,6 +1371,7 @@ export type CalendarEventCreateManyTaskInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -1345,6 +1389,7 @@ export type CalendarEventUpdateWithoutTaskInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutCalendarEventsNestedInput
@@ -1362,6 +1407,7 @@ export type CalendarEventUncheckedUpdateWithoutTaskInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1379,6 +1425,7 @@ export type CalendarEventUncheckedUpdateManyWithoutTaskInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1396,6 +1443,7 @@ export type CalendarEventCreateManyLicenseInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -1413,6 +1461,7 @@ export type CalendarEventUpdateWithoutLicenseInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutCalendarEventsNestedInput
@@ -1430,6 +1479,7 @@ export type CalendarEventUncheckedUpdateWithoutLicenseInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1447,6 +1497,7 @@ export type CalendarEventUncheckedUpdateManyWithoutLicenseInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1464,6 +1515,7 @@ export type CalendarEventCreateManyRfpRequestInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contactId?: string | null
   contractId?: string | null
@@ -1481,6 +1533,7 @@ export type CalendarEventUpdateWithoutRfpRequestInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutCalendarEventsNestedInput
@@ -1498,6 +1551,7 @@ export type CalendarEventUncheckedUpdateWithoutRfpRequestInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1515,6 +1569,7 @@ export type CalendarEventUncheckedUpdateManyWithoutRfpRequestInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1532,6 +1587,7 @@ export type CalendarEventCreateManyContactInput = {
   endAt?: Date | string | null
   allDay?: boolean
   eventType?: $Enums.CalendarEventType
+  googleEventId?: string | null
   customerId?: string | null
   contractId?: string | null
   taskId?: string | null
@@ -1549,6 +1605,7 @@ export type CalendarEventUpdateWithoutContactInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutCalendarEventsNestedInput
@@ -1566,6 +1623,7 @@ export type CalendarEventUncheckedUpdateWithoutContactInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1583,6 +1641,7 @@ export type CalendarEventUncheckedUpdateManyWithoutContactInput = {
   endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
   eventType?: Prisma.EnumCalendarEventTypeFieldUpdateOperationsInput | $Enums.CalendarEventType
+  googleEventId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1602,6 +1661,7 @@ export type CalendarEventSelect<ExtArgs extends runtime.Types.Extensions.Interna
   endAt?: boolean
   allDay?: boolean
   eventType?: boolean
+  googleEventId?: boolean
   customerId?: boolean
   contactId?: boolean
   contractId?: boolean
@@ -1626,6 +1686,7 @@ export type CalendarEventSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   endAt?: boolean
   allDay?: boolean
   eventType?: boolean
+  googleEventId?: boolean
   customerId?: boolean
   contactId?: boolean
   contractId?: boolean
@@ -1650,6 +1711,7 @@ export type CalendarEventSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   endAt?: boolean
   allDay?: boolean
   eventType?: boolean
+  googleEventId?: boolean
   customerId?: boolean
   contactId?: boolean
   contractId?: boolean
@@ -1674,6 +1736,7 @@ export type CalendarEventSelectScalar = {
   endAt?: boolean
   allDay?: boolean
   eventType?: boolean
+  googleEventId?: boolean
   customerId?: boolean
   contactId?: boolean
   contractId?: boolean
@@ -1684,7 +1747,7 @@ export type CalendarEventSelectScalar = {
   updatedAt?: boolean
 }
 
-export type CalendarEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "startAt" | "endAt" | "allDay" | "eventType" | "customerId" | "contactId" | "contractId" | "taskId" | "licenseId" | "rfpRequestId" | "createdAt" | "updatedAt", ExtArgs["result"]["calendarEvent"]>
+export type CalendarEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "startAt" | "endAt" | "allDay" | "eventType" | "googleEventId" | "customerId" | "contactId" | "contractId" | "taskId" | "licenseId" | "rfpRequestId" | "createdAt" | "updatedAt", ExtArgs["result"]["calendarEvent"]>
 export type CalendarEventInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.CalendarEvent$customerArgs<ExtArgs>
   contact?: boolean | Prisma.CalendarEvent$contactArgs<ExtArgs>
@@ -1728,6 +1791,10 @@ export type $CalendarEventPayload<ExtArgs extends runtime.Types.Extensions.Inter
     endAt: Date | null
     allDay: boolean
     eventType: $Enums.CalendarEventType
+    /**
+     * Set when this row is linked to a Google Calendar event (primary calendar). Used for sync.
+     */
+    googleEventId: string | null
     customerId: string | null
     contactId: string | null
     contractId: string | null
@@ -2172,6 +2239,7 @@ export interface CalendarEventFieldRefs {
   readonly endAt: Prisma.FieldRef<"CalendarEvent", 'DateTime'>
   readonly allDay: Prisma.FieldRef<"CalendarEvent", 'Boolean'>
   readonly eventType: Prisma.FieldRef<"CalendarEvent", 'CalendarEventType'>
+  readonly googleEventId: Prisma.FieldRef<"CalendarEvent", 'String'>
   readonly customerId: Prisma.FieldRef<"CalendarEvent", 'String'>
   readonly contactId: Prisma.FieldRef<"CalendarEvent", 'String'>
   readonly contractId: Prisma.FieldRef<"CalendarEvent", 'String'>

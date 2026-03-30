@@ -13,6 +13,7 @@ import {
   Plus,
   Check,
   Trash2,
+  Search,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -260,6 +261,12 @@ export default function SchedulePage() {
   const [contractModalId, setContractModalId] = useState<string | null>(null);
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [yearDetailMonth, setYearDetailMonth] = useState<number | null>(null);
+  const [contractExpSearch, setContractExpSearch] = useState("");
+  const [gotoDateInput, setGotoDateInput] = useState("");
+  const [yearHighlightedMonth, setYearHighlightedMonth] = useState<number | null>(null);
+  const [googleCalendarSyncing, setGoogleCalendarSyncing] = useState(false);
+  const yearHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const yearMonthCardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     try {
@@ -276,6 +283,22 @@ export default function SchedulePage() {
       pulseTimersRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (yearHighlightTimerRef.current) clearTimeout(yearHighlightTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (calendarView === "month") {
+      if (yearHighlightTimerRef.current) {
+        clearTimeout(yearHighlightTimerRef.current);
+        yearHighlightTimerRef.current = null;
+      }
+      setYearHighlightedMonth(null);
+    }
+  }, [calendarView]);
 
   useEffect(() => {
     const el = calScrollRef.current;
@@ -305,13 +328,16 @@ export default function SchedulePage() {
     }
   };
 
-  const flashDayOnCalendar = useCallback((dateKey: string) => {
-    const parts = dateKey.split("-").map(Number);
-    const y = parts[0];
-    const mo = parts[1];
-    if (!y || !mo) return;
-    persistCalendarView("month");
+  const clearYearMonthHighlight = useCallback(() => {
+    if (yearHighlightTimerRef.current) {
+      clearTimeout(yearHighlightTimerRef.current);
+      yearHighlightTimerRef.current = null;
+    }
+    setYearHighlightedMonth(null);
+  }, []);
 
+  /** Green pulse on a day cell; `mo` is 1–12. Does not change month/year view mode. */
+  const applyDayPulse = useCallback((dateKey: string, y: number, mo: number) => {
     const anchor = pulseAnchorRef.current;
     const sameMonthAsAnchor =
       anchor != null && anchor.y === y && anchor.mo === mo;
@@ -349,6 +375,65 @@ export default function SchedulePage() {
     }, 5000);
     pulseTimersRef.current.set(dateKey, t);
   }, []);
+
+  const flashDayOnCalendar = useCallback(
+    (dateKey: string) => {
+      const parts = dateKey.split("-").map(Number);
+      const y = parts[0];
+      const mo = parts[1];
+      if (!y || !mo) return;
+      persistCalendarView("month");
+      applyDayPulse(dateKey, y, mo);
+    },
+    [applyDayPulse]
+  );
+
+  const goToScheduleDate = useCallback(
+    (dateKey: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+      const parts = dateKey.split("-").map(Number);
+      const y = parts[0]!;
+      const mo = parts[1]!;
+      const day = parts[2]!;
+      if (!y || !mo || mo < 1 || mo > 12 || !day || day < 1 || day > 31) return;
+
+      const test = new Date(y, mo - 1, day);
+      if (
+        test.getFullYear() !== y ||
+        test.getMonth() !== mo - 1 ||
+        test.getDate() !== day
+      ) {
+        return;
+      }
+
+      if (calendarView === "year") {
+        clearYearMonthHighlight();
+        pulseTimersRef.current.forEach((t) => clearTimeout(t));
+        pulseTimersRef.current.clear();
+        setPulseHighlightKeys(new Set());
+        pulseAnchorRef.current = null;
+
+        setViewYear(y);
+        setViewMonth(mo - 1);
+        setYearHighlightedMonth(mo - 1);
+        yearHighlightTimerRef.current = setTimeout(() => {
+          setYearHighlightedMonth(null);
+          yearHighlightTimerRef.current = null;
+        }, 5000);
+
+        requestAnimationFrame(() => {
+          yearMonthCardRefs.current.get(mo - 1)?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+          });
+        });
+      } else {
+        clearYearMonthHighlight();
+        applyDayPulse(dateKey, y, mo);
+      }
+    },
+    [calendarView, applyDayPulse, clearYearMonthHighlight]
+  );
 
   const flashFromUrl = searchParams.get("flashDate");
   useEffect(() => {
@@ -472,6 +557,36 @@ export default function SchedulePage() {
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [contracts]);
 
+  const contractsGroupedByMonthYearFiltered = useMemo(() => {
+    const q = contractExpSearch.trim().toLowerCase();
+    if (!q) return contractsGroupedByMonthYear;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return contractsGroupedByMonthYear
+      .map(([ym, group]) => {
+        const items = group.items.filter((c) => {
+          const exp = parseApiDateOnlyKey(c.expirationDate);
+          const expD = exp
+            ? new Date(exp + "T12:00:00").toLocaleDateString().toLowerCase()
+            : "";
+          const hay = [
+            c.customer?.name,
+            c.supplier?.name,
+            (c.energyType ?? "").replaceAll("_", " "),
+            exp,
+            expD,
+            group.label,
+            ym,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return tokens.every((t) => hay.includes(t));
+        });
+        return [ym, { ...group, items }] as const;
+      })
+      .filter(([, g]) => g.items.length > 0);
+  }, [contractsGroupedByMonthYear, contractExpSearch]);
+
   const licensesGroupedByMonthYear = useMemo(() => {
     const sorted = [...licenses].sort(
       (a, b) =>
@@ -581,12 +696,14 @@ export default function SchedulePage() {
   }, [events, scheduledTasks, contracts, licenses, viewYear]);
 
   const goMonth = (delta: number) => {
+    clearYearMonthHighlight();
     const { y, m } = addMonths(viewYear, viewMonth, delta);
     setViewYear(y);
     setViewMonth(m);
   };
 
   const goYear = (delta: number) => {
+    clearYearMonthHighlight();
     const { y, m } = addYears(viewYear, viewMonth, delta);
     setViewYear(y);
     setViewMonth(m);
@@ -755,32 +872,42 @@ export default function SchedulePage() {
     await refresh();
   };
 
-  const googleSyncSoon = () => {
-    window.alert(
-      "Google Calendar sync is not connected yet. This will be available in a future update."
-    );
-  };
-
-  const googleImportSoon = () => {
-    window.alert(
-      "Import from Google Calendar is not available yet. This will be added in a future update."
-    );
+  const runGoogleCalendarSync = async () => {
+    setGoogleCalendarSyncing(true);
+    try {
+      const res = await fetch("/api/calendar/google-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const hint = typeof data.hint === "string" ? `\n\n${data.hint}` : "";
+        window.alert((data.error ?? "Sync failed") + hint);
+        return;
+      }
+      await refresh();
+      window.alert(
+        typeof data.message === "string" ? data.message : "Google Calendar sync completed."
+      );
+    } catch {
+      window.alert("Could not reach the server to sync Google Calendar.");
+    } finally {
+      setGoogleCalendarSyncing(false);
+    }
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2 sm:text-2xl">
-          <CalendarDays className="h-5 w-5 shrink-0 text-primary sm:h-6 sm:w-6" />
-          Schedule
-        </h1>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_minmax(280px,340px)]">
-        <Card className="border-border/50 shadow-md rounded-2xl bg-card/80 backdrop-blur-sm">
-          <CardHeader className="space-y-3 border-b border-border/40 bg-muted/20 pb-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center justify-center gap-1 sm:flex-1 sm:justify-center">
+    <div className="flex flex-col gap-4 lg:h-[calc(100dvh-6.5rem)] lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[1fr_minmax(280px,340px)] lg:items-stretch">
+        <Card className="border-border/50 shadow-md rounded-2xl bg-card/80 backdrop-blur-sm lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+          <CardHeader className="shrink-0 space-y-3 border-b border-border/40 bg-muted/20 pb-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-3">
+              <h1 className="text-lg font-semibold tracking-tight flex items-center gap-2 shrink-0 sm:text-xl md:text-2xl">
+                <CalendarDays className="h-5 w-5 shrink-0 text-primary sm:h-6 sm:w-6" />
+                Schedule
+              </h1>
+              <div className="flex flex-1 flex-wrap items-center justify-center gap-1 min-w-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -801,7 +928,7 @@ export default function SchedulePage() {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                 )}
-                <h2 className="min-w-[11rem] text-center text-2xl font-bold tracking-tight sm:min-w-[14rem] sm:text-3xl md:text-4xl">
+                <h2 className="min-w-[9rem] text-center text-xl font-bold tracking-tight tabular-nums sm:min-w-[12rem] sm:text-2xl md:text-3xl">
                   {calendarView === "year" ? String(viewYear) : monthLabel}
                 </h2>
                 {calendarView === "month" && (
@@ -825,7 +952,7 @@ export default function SchedulePage() {
                   <ChevronsRight className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
+              <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end shrink-0">
                 <Button
                   type="button"
                   variant="outline"
@@ -854,11 +981,13 @@ export default function SchedulePage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onSelect={googleSyncSoon}>
-                      Sync with Google Calendar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={googleImportSoon}>
-                      Import from Google Calendar
+                    <DropdownMenuItem
+                      disabled={googleCalendarSyncing}
+                      onSelect={() => {
+                        void runGoogleCalendarSync();
+                      }}
+                    >
+                      {googleCalendarSyncing ? "Syncing…" : "Sync with Google Calendar"}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -889,14 +1018,46 @@ export default function SchedulePage() {
                 Click a day for the agenda or to add an event.
               </span>
             </div>
+            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start pt-2 border-t border-border/30">
+              <Label htmlFor="schedule-goto-date" className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                Go to date
+              </Label>
+              <Input
+                id="schedule-goto-date"
+                type="date"
+                className="h-9 w-auto max-w-[11rem]"
+                value={gotoDateInput}
+                onChange={(e) => setGotoDateInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && gotoDateInput) {
+                    e.preventDefault();
+                    goToScheduleDate(gotoDateInput);
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={!gotoDateInput}
+                onClick={() => gotoDateInput && goToScheduleDate(gotoDateInput)}
+              >
+                Show
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                {calendarView === "year"
+                  ? "Highlights that month for 5 seconds."
+                  : "Highlights that day for 5 seconds."}
+              </span>
+            </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-4 sm:p-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
             {loading ? (
               <p className="text-center text-muted-foreground py-16">Loading…</p>
             ) : calendarView === "year" ? (
               <div
                 ref={calScrollRef}
-                className="max-h-[min(80vh,880px)] h-[min(80vh,880px)] overflow-y-auto overflow-x-hidden overscroll-contain select-none pr-1 space-y-3"
+                className="max-h-[min(80vh,880px)] h-[min(80vh,880px)] overflow-y-auto overflow-x-hidden overscroll-contain select-none pr-1 space-y-3 lg:h-full lg:max-h-none lg:min-h-0 lg:flex-1"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {Array.from({ length: 12 }, (_, m) => {
@@ -905,10 +1066,20 @@ export default function SchedulePage() {
                     const monthTitle = new Date(viewYear, m, 1).toLocaleString("en-US", {
                       month: "long",
                     });
+                    const isYearMonthPulse = yearHighlightedMonth === m;
                     return (
                       <div
                         key={m}
-                        className="rounded-xl border border-border/50 bg-background/80 p-3 shadow-sm flex flex-col min-h-[140px]"
+                        ref={(el) => {
+                          if (el) yearMonthCardRefs.current.set(m, el);
+                          else yearMonthCardRefs.current.delete(m);
+                        }}
+                        className={cn(
+                          "rounded-xl border bg-background/80 p-3 shadow-sm flex flex-col min-h-[140px] transition-shadow duration-200",
+                          isYearMonthPulse
+                            ? "z-[4] border-green-500 ring-4 ring-green-500 shadow-[0_0_24px_8px_rgba(34,197,94,0.45)] dark:shadow-[0_0_28px_10px_rgba(34,197,94,0.35)]"
+                            : "border-border/50"
+                        )}
                       >
                         <h3 className="text-sm font-bold mb-2 text-primary">{monthTitle}</h3>
                         {rows.length === 0 ? (
@@ -954,7 +1125,7 @@ export default function SchedulePage() {
             ) : (
               <div
                 ref={calScrollRef}
-                className="max-h-[min(72vh,760px)] h-[min(72vh,760px)] overflow-y-auto overflow-x-hidden overscroll-contain space-y-3 select-none pr-1 [scrollbar-gutter:stable]"
+                className="max-h-[min(72vh,760px)] h-[min(72vh,760px)] overflow-y-auto overflow-x-hidden overscroll-contain space-y-3 select-none pr-1 [scrollbar-gutter:stable] lg:h-full lg:max-h-none lg:min-h-0 lg:flex-1"
               >
                 <div className="sticky top-0 z-10 rounded-lg border border-emerald-200/90 bg-emerald-100 shadow-sm dark:border-emerald-800/55 dark:bg-emerald-950/85">
                   <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-wider text-emerald-950 dark:text-emerald-100 sm:text-xs">
@@ -1158,17 +1329,32 @@ export default function SchedulePage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-5">
-          <Card className="border-border/50 shadow-sm rounded-xl max-h-[min(70vh,520px)] flex flex-col">
-            <CardHeader className="pb-2 border-b border-border/40">
-              <h3 className="text-base font-semibold leading-none">Contract expirations</h3>
-              <CardDescription>All active contracts, grouped by expiration month.</CardDescription>
+        <div className="flex min-h-0 flex-col gap-5 overflow-hidden lg:h-full lg:min-h-0">
+          <Card className="border-border/50 shadow-sm rounded-xl flex max-h-[min(70vh,520px)] flex-col overflow-hidden lg:max-h-none lg:min-h-0 lg:flex-1">
+            <CardHeader className="shrink-0 pb-2 border-b border-border/40 space-y-3">
+              <div>
+                <h3 className="text-base font-semibold leading-none">Contract expirations</h3>
+                <CardDescription>All active contracts, grouped by expiration month.</CardDescription>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
+                <Input
+                  type="search"
+                  placeholder="Search customer, supplier, energy, date…"
+                  className="h-9 pl-9"
+                  value={contractExpSearch}
+                  onChange={(e) => setContractExpSearch(e.target.value)}
+                  aria-label="Filter contract expirations"
+                />
+              </div>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto pt-4 space-y-6 text-sm">
+            <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-4 space-y-6 text-sm">
               {contractsGroupedByMonthYear.length === 0 ? (
                 <p className="text-muted-foreground">No active contracts.</p>
+              ) : contractsGroupedByMonthYearFiltered.length === 0 ? (
+                <p className="text-muted-foreground">No contracts match your search.</p>
               ) : (
-                contractsGroupedByMonthYear.map(([ym, group]) => (
+                contractsGroupedByMonthYearFiltered.map(([ym, group]) => (
                   <section key={ym} className="space-y-2">
                     <h4 className="sticky top-0 z-[1] -mx-1 bg-card/95 px-1 py-1 text-xs font-bold uppercase tracking-wide text-primary backdrop-blur">
                       {group.label}
@@ -1225,7 +1411,7 @@ export default function SchedulePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 shadow-sm rounded-xl max-h-[min(50vh,420px)] flex flex-col border-violet-200/60 dark:border-violet-900/40">
+          <Card className="border-border/50 shadow-sm rounded-xl max-h-[min(50vh,420px)] shrink-0 flex flex-col overflow-hidden border-violet-200/60 dark:border-violet-900/40">
             <CardHeader className="pb-2 border-b border-border/40">
               <h3 className="text-base font-semibold leading-none text-violet-900 dark:text-violet-100">
                 License expirations

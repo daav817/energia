@@ -297,6 +297,8 @@ model CalendarEvent {
   endAt       DateTime?         @map("end_at")
   allDay      Boolean           @default(false) @map("all_day")
   eventType   CalendarEventType @default(OTHER) @map("event_type")
+  /// Set when this row is linked to a Google Calendar event (primary calendar). Used for sync.
+  googleEventId String?         @unique @map("google_event_id")
 
   customerId   String? @map("customer_id")
   contactId    String? @map("contact_id")

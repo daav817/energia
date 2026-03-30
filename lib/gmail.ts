@@ -44,6 +44,7 @@ export function getAuthUrl(loginHint?: string): string {
       "https://www.googleapis.com/auth/contacts.readonly",
       "https://www.googleapis.com/auth/contacts",
       "https://www.googleapis.com/auth/tasks",
+      "https://www.googleapis.com/auth/calendar.events",
     ],
     prompt: "select_account consent",
     ...(loginHint && { login_hint: loginHint }),
