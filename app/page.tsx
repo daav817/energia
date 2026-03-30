@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Users, Building2 } from "lucide-react";
+import { Users, Building2, CalendarDays, ListTodo } from "lucide-react";
 
 export default function Home() {
   return (
@@ -11,7 +11,7 @@ export default function Home() {
       <p className="text-muted-foreground text-center max-w-md mb-8">
         CRM & Brokerage Management System
       </p>
-      <div className="flex gap-4">
+      <div className="flex flex-wrap justify-center gap-4">
         <Button asChild>
           <Link href="/directory" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -22,6 +22,18 @@ export default function Home() {
           <Link href="/communications" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Communications
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/schedule" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Schedule
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/tasks" className="flex items-center gap-2">
+            <ListTodo className="h-4 w-4" />
+            Tasks
           </Link>
         </Button>
       </div>

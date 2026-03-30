@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Send, FileText, LayoutDashboard, Table2, Inbox, Users } from "lucide-react";
+import { Send, FileText, LayoutDashboard, Table2, Inbox, Users, CalendarDays } from "lucide-react";
 import { TodayEmailNavLink } from "@/components/communications/TodayEmailNavLink";
 
 const navLinks = [
@@ -8,6 +8,7 @@ const navLinks = [
   { href: "/communications/compose", icon: Send, label: "Compose", title: undefined },
   { href: "/communications/rfp", icon: FileText, label: "RFP Generator", title: "Send Request for Pricing to matching suppliers" },
   { href: "/communications/quotes", icon: Table2, label: "Quotes", title: "Compare supplier quotes and build pricing" },
+  { href: "/schedule", icon: CalendarDays, label: "Schedule", title: "Calendar and reminders" },
 ];
 
 export default function CommunicationsLayout({

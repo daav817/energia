@@ -32,12 +32,13 @@ model Customer {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  contracts   Contract[]
-  tasks       Task[]
-  documents   Document[]
-  rfpRequests RfpRequest[]
-  emails      Email[]     @relation("CustomerEmails")
-  contacts    Contact[]
+  contracts        Contract[]
+  tasks            Task[]
+  documents        Document[]
+  rfpRequests      RfpRequest[]
+  emails           Email[]          @relation("CustomerEmails")
+  contacts         Contact[]
+  calendarEvents   CalendarEvent[]
 
   @@map("customers")
 }
@@ -157,6 +158,7 @@ model Contract {
   commissionPayments CommissionPayment[]
   documents         Document[]
   rfpQuotes         RfpQuote[]
+  calendarEvents    CalendarEvent[]
 
   @@map("contracts")
 }
@@ -193,6 +195,19 @@ enum TaskType {
   PROSPECT
 }
 
+model TaskList {
+  id           String   @id @default(cuid())
+  name         String
+  sortOrder    Int      @default(0) @map("sort_order")
+  googleListId String?  @map("google_list_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tasks Task[]
+
+  @@map("task_lists")
+}
+
 model Task {
   id          String     @id @default(cuid())
   title       String
@@ -200,16 +215,28 @@ model Task {
   type        TaskType   @default(TASK)
   status      TaskStatus @default(PENDING)
   dueDate     DateTime?  @map("due_date") @db.Date
+  dueAt       DateTime?  @map("due_at")
+  allDay      Boolean    @default(false) @map("all_day")
+  starred     Boolean    @default(false)
+  repeatRule  String?    @map("repeat_rule") @db.Text
+  googleTaskId String?   @map("google_task_id")
   priority    Int        @default(0)
+  listSortOrder Int      @default(0) @map("list_sort_order")
   customerId  String?    @map("customer_id")
   prospectId  String?    @map("prospect_id")
+  taskListId  String?    @map("task_list_id")
   completedAt DateTime?  @map("completed_at")
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
   prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  taskList TaskList?   @relation(fields: [taskListId], references: [id], onDelete: SetNull)
+  calendarEvents CalendarEvent[]
 
+  @@index([taskListId])
+  @@index([dueDate])
+  @@index([dueAt])
   @@map("tasks")
 }
 
@@ -249,6 +276,50 @@ model Document {
 }
 
 // =============================================================================
+// SCHEDULER / CALENDAR
+// =============================================================================
+
+enum CalendarEventType {
+  CONTRACT_RENEWAL
+  LICENSE_EXPIRY
+  RFP_DEADLINE
+  FOLLOW_UP
+  MEETING
+  TASK
+  OTHER
+}
+
+model CalendarEvent {
+  id          String            @id @default(cuid())
+  title       String
+  description String?           @db.Text
+  startAt     DateTime          @map("start_at")
+  endAt       DateTime?         @map("end_at")
+  allDay      Boolean           @default(false) @map("all_day")
+  eventType   CalendarEventType @default(OTHER) @map("event_type")
+
+  customerId   String? @map("customer_id")
+  contactId    String? @map("contact_id")
+  contractId   String? @map("contract_id")
+  taskId       String? @map("task_id")
+  licenseId    String? @map("license_id")
+  rfpRequestId String? @map("rfp_request_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  customer   Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  contact    Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contract   Contract?   @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  task       Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  license    License?    @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+  rfpRequest RfpRequest? @relation(fields: [rfpRequestId], references: [id], onDelete: SetNull)
+
+  @@index([startAt])
+  @@map("calendar_events")
+}
+
+// =============================================================================
 // LICENSES (CRNGS, CRES - 2-year expiration from issue)
 // =============================================================================
 
@@ -269,6 +340,8 @@ model License {
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
+  calendarEvents CalendarEvent[]
+
   @@map("licenses")
 }
 
@@ -284,17 +357,46 @@ model RfpRequest {
   avgMonthlyUsage  Decimal?   @map("avg_monthly_usage") @db.Decimal(14, 2)
   billDocumentId   String?    @map("bill_document_id")
   termMonths       Int?       @map("term_months")
+  googleDriveFolderUrl  String?  @map("google_drive_folder_url") @db.Text
+  summarySpreadsheetUrl String?  @map("summary_spreadsheet_url") @db.Text
+  quoteDueDate          DateTime? @map("quote_due_date") @db.Date
+  contractStartMonth    Int?      @map("contract_start_month")
+  contractStartYear     Int?      @map("contract_start_year")
+  brokerMargin          Decimal?  @map("broker_margin") @db.Decimal(10, 6)
+  brokerMarginUnit      PriceUnit? @map("broker_margin_unit")
+  ldcUtility            String?   @map("ldc_utility")
+  requestedTerms        Json?     @map("requested_terms")
+  customerContactId     String?   @map("customer_contact_id")
   sentAt           DateTime?  @map("sent_at")
   status           String     @default("draft") // draft, sent, quotes_received
   notes            String?    @db.Text
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  suppliers  Supplier[] @relation("RfpSuppliers")
-  quotes     RfpQuote[] @relation("RfpQuoteToRequest")
+  customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerContact  Contact?         @relation("RfpCustomerContact", fields: [customerContactId], references: [id], onDelete: SetNull)
+  suppliers        Supplier[]       @relation("RfpSuppliers")
+  quotes           RfpQuote[]       @relation("RfpQuoteToRequest")
+  accountLines     RfpAccountLine[]
+  calendarEvents   CalendarEvent[]
 
   @@map("rfp_requests")
+}
+
+model RfpAccountLine {
+  id              String   @id @default(cuid())
+  rfpRequestId    String   @map("rfp_request_id")
+  accountNumber   String   @map("account_number")
+  serviceAddress  String?  @map("service_address") @db.Text
+  annualUsage     Decimal  @map("annual_usage") @db.Decimal(14, 2)
+  avgMonthlyUsage Decimal  @map("avg_monthly_usage") @db.Decimal(14, 2)
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  rfpRequest RfpRequest @relation(fields: [rfpRequestId], references: [id], onDelete: Cascade)
+
+  @@index([rfpRequestId])
+  @@map("rfp_account_lines")
 }
 
 model RfpQuote {
@@ -356,6 +458,8 @@ model Contact {
 
   customer           Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   supplier           Supplier? @relation("SupplierContactLinks", fields: [supplierId], references: [id], onDelete: SetNull)
+  calendarEvents     CalendarEvent[]
+  rfpRequestsAsCustomerContact RfpRequest[] @relation("RfpCustomerContact")
 
   @@map("contacts")
 }

@@ -374,6 +374,7 @@ export type ContractWhereInput = {
   commissionPayments?: Prisma.CommissionPaymentListRelationFilter
   documents?: Prisma.DocumentListRelationFilter
   rfpQuotes?: Prisma.RfpQuoteListRelationFilter
+  calendarEvents?: Prisma.CalendarEventListRelationFilter
 }
 
 export type ContractOrderByWithRelationInput = {
@@ -404,6 +405,7 @@ export type ContractOrderByWithRelationInput = {
   commissionPayments?: Prisma.CommissionPaymentOrderByRelationAggregateInput
   documents?: Prisma.DocumentOrderByRelationAggregateInput
   rfpQuotes?: Prisma.RfpQuoteOrderByRelationAggregateInput
+  calendarEvents?: Prisma.CalendarEventOrderByRelationAggregateInput
 }
 
 export type ContractWhereUniqueInput = Prisma.AtLeast<{
@@ -437,6 +439,7 @@ export type ContractWhereUniqueInput = Prisma.AtLeast<{
   commissionPayments?: Prisma.CommissionPaymentListRelationFilter
   documents?: Prisma.DocumentListRelationFilter
   rfpQuotes?: Prisma.RfpQuoteListRelationFilter
+  calendarEvents?: Prisma.CalendarEventListRelationFilter
 }, "id">
 
 export type ContractOrderByWithAggregationInput = {
@@ -520,6 +523,7 @@ export type ContractCreateInput = {
   commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateInput = {
@@ -547,6 +551,7 @@ export type ContractUncheckedCreateInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractUpdateInput = {
@@ -574,6 +579,7 @@ export type ContractUpdateInput = {
   commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateInput = {
@@ -601,6 +607,7 @@ export type ContractUncheckedUpdateInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
 }
 
 export type ContractCreateManyInput = {
@@ -938,6 +945,22 @@ export type ContractUpdateOneWithoutDocumentsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ContractUpdateToOneWithWhereWithoutDocumentsInput, Prisma.ContractUpdateWithoutDocumentsInput>, Prisma.ContractUncheckedUpdateWithoutDocumentsInput>
 }
 
+export type ContractCreateNestedOneWithoutCalendarEventsInput = {
+  create?: Prisma.XOR<Prisma.ContractCreateWithoutCalendarEventsInput, Prisma.ContractUncheckedCreateWithoutCalendarEventsInput>
+  connectOrCreate?: Prisma.ContractCreateOrConnectWithoutCalendarEventsInput
+  connect?: Prisma.ContractWhereUniqueInput
+}
+
+export type ContractUpdateOneWithoutCalendarEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.ContractCreateWithoutCalendarEventsInput, Prisma.ContractUncheckedCreateWithoutCalendarEventsInput>
+  connectOrCreate?: Prisma.ContractCreateOrConnectWithoutCalendarEventsInput
+  upsert?: Prisma.ContractUpsertWithoutCalendarEventsInput
+  disconnect?: Prisma.ContractWhereInput | boolean
+  delete?: Prisma.ContractWhereInput | boolean
+  connect?: Prisma.ContractWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ContractUpdateToOneWithWhereWithoutCalendarEventsInput, Prisma.ContractUpdateWithoutCalendarEventsInput>, Prisma.ContractUncheckedUpdateWithoutCalendarEventsInput>
+}
+
 export type ContractCreateNestedOneWithoutRfpQuotesInput = {
   create?: Prisma.XOR<Prisma.ContractCreateWithoutRfpQuotesInput, Prisma.ContractUncheckedCreateWithoutRfpQuotesInput>
   connectOrCreate?: Prisma.ContractCreateOrConnectWithoutRfpQuotesInput
@@ -1020,6 +1043,7 @@ export type ContractCreateWithoutCustomerInput = {
   commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutCustomerInput = {
@@ -1046,6 +1070,7 @@ export type ContractUncheckedCreateWithoutCustomerInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutCustomerInput = {
@@ -1125,6 +1150,7 @@ export type ContractCreateWithoutSupplierInput = {
   commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutSupplierInput = {
@@ -1151,6 +1177,7 @@ export type ContractUncheckedCreateWithoutSupplierInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutSupplierInput = {
@@ -1203,6 +1230,7 @@ export type ContractCreateWithoutCommissionPaymentsInput = {
   mainContact?: Prisma.ContactCreateNestedOneWithoutContractsAsMainInput
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutCommissionPaymentsInput = {
@@ -1229,6 +1257,7 @@ export type ContractUncheckedCreateWithoutCommissionPaymentsInput = {
   updatedAt?: Date | string
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutCommissionPaymentsInput = {
@@ -1271,6 +1300,7 @@ export type ContractUpdateWithoutCommissionPaymentsInput = {
   mainContact?: Prisma.ContactUpdateOneWithoutContractsAsMainNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutCommissionPaymentsInput = {
@@ -1297,6 +1327,7 @@ export type ContractUncheckedUpdateWithoutCommissionPaymentsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutDocumentsInput = {
@@ -1323,6 +1354,7 @@ export type ContractCreateWithoutDocumentsInput = {
   mainContact?: Prisma.ContactCreateNestedOneWithoutContractsAsMainInput
   commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutDocumentsInput = {
@@ -1349,6 +1381,7 @@ export type ContractUncheckedCreateWithoutDocumentsInput = {
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutDocumentsInput = {
@@ -1391,6 +1424,7 @@ export type ContractUpdateWithoutDocumentsInput = {
   mainContact?: Prisma.ContactUpdateOneWithoutContractsAsMainNestedInput
   commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutDocumentsInput = {
@@ -1416,6 +1450,131 @@ export type ContractUncheckedUpdateWithoutDocumentsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
+  rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
+}
+
+export type ContractCreateWithoutCalendarEventsInput = {
+  id?: string
+  energyType: $Enums.EnergyType
+  priceUnit: $Enums.PriceUnit
+  pricePerUnit: runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate: Date | string
+  expirationDate: Date | string
+  termMonths: number
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: string | null
+  signedDate?: Date | string | null
+  totalMeters?: number | null
+  status?: string
+  notes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
+  supplier: Prisma.SupplierCreateNestedOneWithoutContractsInput
+  mainContact?: Prisma.ContactCreateNestedOneWithoutContractsAsMainInput
+  commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
+  documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
+  rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+}
+
+export type ContractUncheckedCreateWithoutCalendarEventsInput = {
+  id?: string
+  customerId: string
+  supplierId: string
+  mainContactId?: string | null
+  energyType: $Enums.EnergyType
+  priceUnit: $Enums.PriceUnit
+  pricePerUnit: runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate: Date | string
+  expirationDate: Date | string
+  termMonths: number
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: string | null
+  signedDate?: Date | string | null
+  totalMeters?: number | null
+  status?: string
+  notes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
+  documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
+  rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+}
+
+export type ContractCreateOrConnectWithoutCalendarEventsInput = {
+  where: Prisma.ContractWhereUniqueInput
+  create: Prisma.XOR<Prisma.ContractCreateWithoutCalendarEventsInput, Prisma.ContractUncheckedCreateWithoutCalendarEventsInput>
+}
+
+export type ContractUpsertWithoutCalendarEventsInput = {
+  update: Prisma.XOR<Prisma.ContractUpdateWithoutCalendarEventsInput, Prisma.ContractUncheckedUpdateWithoutCalendarEventsInput>
+  create: Prisma.XOR<Prisma.ContractCreateWithoutCalendarEventsInput, Prisma.ContractUncheckedCreateWithoutCalendarEventsInput>
+  where?: Prisma.ContractWhereInput
+}
+
+export type ContractUpdateToOneWithWhereWithoutCalendarEventsInput = {
+  where?: Prisma.ContractWhereInput
+  data: Prisma.XOR<Prisma.ContractUpdateWithoutCalendarEventsInput, Prisma.ContractUncheckedUpdateWithoutCalendarEventsInput>
+}
+
+export type ContractUpdateWithoutCalendarEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
+  pricePerUnit?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
+  supplier?: Prisma.SupplierUpdateOneRequiredWithoutContractsNestedInput
+  mainContact?: Prisma.ContactUpdateOneWithoutContractsAsMainNestedInput
+  commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
+  documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
+  rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+}
+
+export type ContractUncheckedUpdateWithoutCalendarEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierId?: Prisma.StringFieldUpdateOperationsInput | string
+  mainContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
+  pricePerUnit?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
+  documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
 }
 
@@ -1443,6 +1602,7 @@ export type ContractCreateWithoutRfpQuotesInput = {
   mainContact?: Prisma.ContactCreateNestedOneWithoutContractsAsMainInput
   commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutRfpQuotesInput = {
@@ -1469,6 +1629,7 @@ export type ContractUncheckedCreateWithoutRfpQuotesInput = {
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutRfpQuotesInput = {
@@ -1511,6 +1672,7 @@ export type ContractUpdateWithoutRfpQuotesInput = {
   mainContact?: Prisma.ContactUpdateOneWithoutContractsAsMainNestedInput
   commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutRfpQuotesInput = {
@@ -1537,6 +1699,7 @@ export type ContractUncheckedUpdateWithoutRfpQuotesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutMainContactInput = {
@@ -1563,6 +1726,7 @@ export type ContractCreateWithoutMainContactInput = {
   commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutMainContactInput = {
@@ -1589,6 +1753,7 @@ export type ContractUncheckedCreateWithoutMainContactInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutMainContactInput = {
@@ -1664,6 +1829,7 @@ export type ContractUpdateWithoutCustomerInput = {
   commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutCustomerInput = {
@@ -1690,6 +1856,7 @@ export type ContractUncheckedUpdateWithoutCustomerInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateManyWithoutCustomerInput = {
@@ -1762,6 +1929,7 @@ export type ContractUpdateWithoutSupplierInput = {
   commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutSupplierInput = {
@@ -1788,6 +1956,7 @@ export type ContractUncheckedUpdateWithoutSupplierInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateManyWithoutSupplierInput = {
@@ -1860,6 +2029,7 @@ export type ContractUpdateWithoutMainContactInput = {
   commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutMainContactInput = {
@@ -1886,6 +2056,7 @@ export type ContractUncheckedUpdateWithoutMainContactInput = {
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateManyWithoutMainContactInput = {
@@ -1920,12 +2091,14 @@ export type ContractCountOutputType = {
   commissionPayments: number
   documents: number
   rfpQuotes: number
+  calendarEvents: number
 }
 
 export type ContractCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   commissionPayments?: boolean | ContractCountOutputTypeCountCommissionPaymentsArgs
   documents?: boolean | ContractCountOutputTypeCountDocumentsArgs
   rfpQuotes?: boolean | ContractCountOutputTypeCountRfpQuotesArgs
+  calendarEvents?: boolean | ContractCountOutputTypeCountCalendarEventsArgs
 }
 
 /**
@@ -1959,6 +2132,13 @@ export type ContractCountOutputTypeCountRfpQuotesArgs<ExtArgs extends runtime.Ty
   where?: Prisma.RfpQuoteWhereInput
 }
 
+/**
+ * ContractCountOutputType without action
+ */
+export type ContractCountOutputTypeCountCalendarEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CalendarEventWhereInput
+}
+
 
 export type ContractSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1988,6 +2168,7 @@ export type ContractSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   commissionPayments?: boolean | Prisma.Contract$commissionPaymentsArgs<ExtArgs>
   documents?: boolean | Prisma.Contract$documentsArgs<ExtArgs>
   rfpQuotes?: boolean | Prisma.Contract$rfpQuotesArgs<ExtArgs>
+  calendarEvents?: boolean | Prisma.Contract$calendarEventsArgs<ExtArgs>
   _count?: boolean | Prisma.ContractCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contract"]>
 
@@ -2077,6 +2258,7 @@ export type ContractInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   commissionPayments?: boolean | Prisma.Contract$commissionPaymentsArgs<ExtArgs>
   documents?: boolean | Prisma.Contract$documentsArgs<ExtArgs>
   rfpQuotes?: boolean | Prisma.Contract$rfpQuotesArgs<ExtArgs>
+  calendarEvents?: boolean | Prisma.Contract$calendarEventsArgs<ExtArgs>
   _count?: boolean | Prisma.ContractCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ContractIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2099,6 +2281,7 @@ export type $ContractPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     commissionPayments: Prisma.$CommissionPaymentPayload<ExtArgs>[]
     documents: Prisma.$DocumentPayload<ExtArgs>[]
     rfpQuotes: Prisma.$RfpQuotePayload<ExtArgs>[]
+    calendarEvents: Prisma.$CalendarEventPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2522,6 +2705,7 @@ export interface Prisma__ContractClient<T, Null = never, ExtArgs extends runtime
   commissionPayments<T extends Prisma.Contract$commissionPaymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$commissionPaymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommissionPaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   documents<T extends Prisma.Contract$documentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$documentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DocumentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   rfpQuotes<T extends Prisma.Contract$rfpQuotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$rfpQuotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpQuotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  calendarEvents<T extends Prisma.Contract$calendarEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$calendarEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CalendarEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3061,6 +3245,30 @@ export type Contract$rfpQuotesArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.RfpQuoteScalarFieldEnum | Prisma.RfpQuoteScalarFieldEnum[]
+}
+
+/**
+ * Contract.calendarEvents
+ */
+export type Contract$calendarEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CalendarEvent
+   */
+  select?: Prisma.CalendarEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CalendarEvent
+   */
+  omit?: Prisma.CalendarEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CalendarEventInclude<ExtArgs> | null
+  where?: Prisma.CalendarEventWhereInput
+  orderBy?: Prisma.CalendarEventOrderByWithRelationInput | Prisma.CalendarEventOrderByWithRelationInput[]
+  cursor?: Prisma.CalendarEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CalendarEventScalarFieldEnum | Prisma.CalendarEventScalarFieldEnum[]
 }
 
 /**

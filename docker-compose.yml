@@ -26,8 +26,9 @@ services:
       dockerfile: Dockerfile
     container_name: energia-app
     restart: unless-stopped
+    # next dev uses -p 3001 (package.json); map host 3001 → container 3001
     ports:
-      - "3001:3000"
+      - "3001:3001"
     environment:
       DATABASE_URL: postgresql://energia:energia_dev_password@postgres:5432/energia_db
       NODE_ENV: development
@@ -39,8 +40,11 @@ services:
       # Mount source for hot-reload in development
       - .:/app
       - app_node_modules:/app/node_modules
+      # Avoid Turbopack/Next lockfile permission errors on Windows bind mounts
+      - app_next:/app/.next
     command: sh -c "npm install && npx prisma generate && (npx prisma migrate deploy 2>/dev/null || npx prisma db push 2>/dev/null || true) && npm run dev -- -H 0.0.0.0"
 
 volumes:
   postgres_data:
   app_node_modules:
+  app_next:

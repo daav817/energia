@@ -390,10 +390,13 @@ export const ModelName = {
   Prospect: 'Prospect',
   Contract: 'Contract',
   CommissionPayment: 'CommissionPayment',
+  TaskList: 'TaskList',
   Task: 'Task',
   Document: 'Document',
+  CalendarEvent: 'CalendarEvent',
   License: 'License',
   RfpRequest: 'RfpRequest',
+  RfpAccountLine: 'RfpAccountLine',
   RfpQuote: 'RfpQuote',
   Contact: 'Contact',
   ContactEmail: 'ContactEmail',
@@ -417,7 +420,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "customer" | "supplier" | "supplierContact" | "prospect" | "contract" | "commissionPayment" | "task" | "document" | "license" | "rfpRequest" | "rfpQuote" | "contact" | "contactEmail" | "contactPhone" | "contactAddress" | "contactSignificantDate" | "contactRelatedPerson" | "email"
+    modelProps: "customer" | "supplier" | "supplierContact" | "prospect" | "contract" | "commissionPayment" | "taskList" | "task" | "document" | "calendarEvent" | "license" | "rfpRequest" | "rfpAccountLine" | "rfpQuote" | "contact" | "contactEmail" | "contactPhone" | "contactAddress" | "contactSignificantDate" | "contactRelatedPerson" | "email"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -865,6 +868,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    TaskList: {
+      payload: Prisma.$TaskListPayload<ExtArgs>
+      fields: Prisma.TaskListFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TaskListFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TaskListFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>
+        }
+        findFirst: {
+          args: Prisma.TaskListFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TaskListFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>
+        }
+        findMany: {
+          args: Prisma.TaskListFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>[]
+        }
+        create: {
+          args: Prisma.TaskListCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>
+        }
+        createMany: {
+          args: Prisma.TaskListCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TaskListCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>[]
+        }
+        delete: {
+          args: Prisma.TaskListDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>
+        }
+        update: {
+          args: Prisma.TaskListUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>
+        }
+        deleteMany: {
+          args: Prisma.TaskListDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TaskListUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TaskListUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>[]
+        }
+        upsert: {
+          args: Prisma.TaskListUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TaskListPayload>
+        }
+        aggregate: {
+          args: Prisma.TaskListAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTaskList>
+        }
+        groupBy: {
+          args: Prisma.TaskListGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TaskListGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TaskListCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TaskListCountAggregateOutputType> | number
+        }
+      }
+    }
     Task: {
       payload: Prisma.$TaskPayload<ExtArgs>
       fields: Prisma.TaskFieldRefs
@@ -1013,6 +1090,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    CalendarEvent: {
+      payload: Prisma.$CalendarEventPayload<ExtArgs>
+      fields: Prisma.CalendarEventFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CalendarEventFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CalendarEventFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>
+        }
+        findFirst: {
+          args: Prisma.CalendarEventFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CalendarEventFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>
+        }
+        findMany: {
+          args: Prisma.CalendarEventFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>[]
+        }
+        create: {
+          args: Prisma.CalendarEventCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>
+        }
+        createMany: {
+          args: Prisma.CalendarEventCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CalendarEventCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>[]
+        }
+        delete: {
+          args: Prisma.CalendarEventDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>
+        }
+        update: {
+          args: Prisma.CalendarEventUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>
+        }
+        deleteMany: {
+          args: Prisma.CalendarEventDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CalendarEventUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CalendarEventUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>[]
+        }
+        upsert: {
+          args: Prisma.CalendarEventUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CalendarEventPayload>
+        }
+        aggregate: {
+          args: Prisma.CalendarEventAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCalendarEvent>
+        }
+        groupBy: {
+          args: Prisma.CalendarEventGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CalendarEventGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CalendarEventCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CalendarEventCountAggregateOutputType> | number
+        }
+      }
+    }
     License: {
       payload: Prisma.$LicensePayload<ExtArgs>
       fields: Prisma.LicenseFieldRefs
@@ -1158,6 +1309,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.RfpRequestCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.RfpRequestCountAggregateOutputType> | number
+        }
+      }
+    }
+    RfpAccountLine: {
+      payload: Prisma.$RfpAccountLinePayload<ExtArgs>
+      fields: Prisma.RfpAccountLineFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RfpAccountLineFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RfpAccountLineFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>
+        }
+        findFirst: {
+          args: Prisma.RfpAccountLineFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RfpAccountLineFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>
+        }
+        findMany: {
+          args: Prisma.RfpAccountLineFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>[]
+        }
+        create: {
+          args: Prisma.RfpAccountLineCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>
+        }
+        createMany: {
+          args: Prisma.RfpAccountLineCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RfpAccountLineCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>[]
+        }
+        delete: {
+          args: Prisma.RfpAccountLineDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>
+        }
+        update: {
+          args: Prisma.RfpAccountLineUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>
+        }
+        deleteMany: {
+          args: Prisma.RfpAccountLineDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RfpAccountLineUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RfpAccountLineUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>[]
+        }
+        upsert: {
+          args: Prisma.RfpAccountLineUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RfpAccountLinePayload>
+        }
+        aggregate: {
+          args: Prisma.RfpAccountLineAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRfpAccountLine>
+        }
+        groupBy: {
+          args: Prisma.RfpAccountLineGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RfpAccountLineGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RfpAccountLineCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RfpAccountLineCountAggregateOutputType> | number
         }
       }
     }
@@ -1910,6 +2135,18 @@ export const CommissionPaymentScalarFieldEnum = {
 export type CommissionPaymentScalarFieldEnum = (typeof CommissionPaymentScalarFieldEnum)[keyof typeof CommissionPaymentScalarFieldEnum]
 
 
+export const TaskListScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  sortOrder: 'sortOrder',
+  googleListId: 'googleListId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TaskListScalarFieldEnum = (typeof TaskListScalarFieldEnum)[keyof typeof TaskListScalarFieldEnum]
+
+
 export const TaskScalarFieldEnum = {
   id: 'id',
   title: 'title',
@@ -1917,9 +2154,16 @@ export const TaskScalarFieldEnum = {
   type: 'type',
   status: 'status',
   dueDate: 'dueDate',
+  dueAt: 'dueAt',
+  allDay: 'allDay',
+  starred: 'starred',
+  repeatRule: 'repeatRule',
+  googleTaskId: 'googleTaskId',
   priority: 'priority',
+  listSortOrder: 'listSortOrder',
   customerId: 'customerId',
   prospectId: 'prospectId',
+  taskListId: 'taskListId',
   completedAt: 'completedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -1948,6 +2192,27 @@ export const DocumentScalarFieldEnum = {
 export type DocumentScalarFieldEnum = (typeof DocumentScalarFieldEnum)[keyof typeof DocumentScalarFieldEnum]
 
 
+export const CalendarEventScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  startAt: 'startAt',
+  endAt: 'endAt',
+  allDay: 'allDay',
+  eventType: 'eventType',
+  customerId: 'customerId',
+  contactId: 'contactId',
+  contractId: 'contractId',
+  taskId: 'taskId',
+  licenseId: 'licenseId',
+  rfpRequestId: 'rfpRequestId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CalendarEventScalarFieldEnum = (typeof CalendarEventScalarFieldEnum)[keyof typeof CalendarEventScalarFieldEnum]
+
+
 export const LicenseScalarFieldEnum = {
   id: 'id',
   licenseType: 'licenseType',
@@ -1972,6 +2237,16 @@ export const RfpRequestScalarFieldEnum = {
   avgMonthlyUsage: 'avgMonthlyUsage',
   billDocumentId: 'billDocumentId',
   termMonths: 'termMonths',
+  googleDriveFolderUrl: 'googleDriveFolderUrl',
+  summarySpreadsheetUrl: 'summarySpreadsheetUrl',
+  quoteDueDate: 'quoteDueDate',
+  contractStartMonth: 'contractStartMonth',
+  contractStartYear: 'contractStartYear',
+  brokerMargin: 'brokerMargin',
+  brokerMarginUnit: 'brokerMarginUnit',
+  ldcUtility: 'ldcUtility',
+  requestedTerms: 'requestedTerms',
+  customerContactId: 'customerContactId',
   sentAt: 'sentAt',
   status: 'status',
   notes: 'notes',
@@ -1980,6 +2255,20 @@ export const RfpRequestScalarFieldEnum = {
 } as const
 
 export type RfpRequestScalarFieldEnum = (typeof RfpRequestScalarFieldEnum)[keyof typeof RfpRequestScalarFieldEnum]
+
+
+export const RfpAccountLineScalarFieldEnum = {
+  id: 'id',
+  rfpRequestId: 'rfpRequestId',
+  accountNumber: 'accountNumber',
+  serviceAddress: 'serviceAddress',
+  annualUsage: 'annualUsage',
+  avgMonthlyUsage: 'avgMonthlyUsage',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt'
+} as const
+
+export type RfpAccountLineScalarFieldEnum = (typeof RfpAccountLineScalarFieldEnum)[keyof typeof RfpAccountLineScalarFieldEnum]
 
 
 export const RfpQuoteScalarFieldEnum = {
@@ -2119,6 +2408,14 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
 export const QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
@@ -2133,6 +2430,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -2275,6 +2581,20 @@ export type ListEnumDocumentTypeFieldRefInput<$PrismaModel> = FieldRefInputType<
 
 
 /**
+ * Reference to a field of type 'CalendarEventType'
+ */
+export type EnumCalendarEventTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CalendarEventType'>
+    
+
+
+/**
+ * Reference to a field of type 'CalendarEventType[]'
+ */
+export type ListEnumCalendarEventTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CalendarEventType[]'>
+    
+
+
+/**
  * Reference to a field of type 'LicenseType'
  */
 export type EnumLicenseTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'LicenseType'>
@@ -2285,6 +2605,20 @@ export type EnumLicenseTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$Pris
  * Reference to a field of type 'LicenseType[]'
  */
 export type ListEnumLicenseTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'LicenseType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -2416,10 +2750,13 @@ export type GlobalOmitConfig = {
   prospect?: Prisma.ProspectOmit
   contract?: Prisma.ContractOmit
   commissionPayment?: Prisma.CommissionPaymentOmit
+  taskList?: Prisma.TaskListOmit
   task?: Prisma.TaskOmit
   document?: Prisma.DocumentOmit
+  calendarEvent?: Prisma.CalendarEventOmit
   license?: Prisma.LicenseOmit
   rfpRequest?: Prisma.RfpRequestOmit
+  rfpAccountLine?: Prisma.RfpAccountLineOmit
   rfpQuote?: Prisma.RfpQuoteOmit
   contact?: Prisma.ContactOmit
   contactEmail?: Prisma.ContactEmailOmit

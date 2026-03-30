@@ -17,7 +17,7 @@ RUN npm install
 # Copy rest of app (will be overwritten by volume mount in dev)
 COPY . .
 
-EXPOSE 3000
+EXPOSE 3001
 
 # Default: run dev server (overridden by docker-compose)
 CMD ["sh", "-c", "npx prisma migrate deploy 2>/dev/null || npx prisma db push && npm run dev"]

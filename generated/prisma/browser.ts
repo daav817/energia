@@ -48,6 +48,11 @@ export type Contract = Prisma.ContractModel
  */
 export type CommissionPayment = Prisma.CommissionPaymentModel
 /**
+ * Model TaskList
+ * 
+ */
+export type TaskList = Prisma.TaskListModel
+/**
  * Model Task
  * 
  */
@@ -58,6 +63,11 @@ export type Task = Prisma.TaskModel
  */
 export type Document = Prisma.DocumentModel
 /**
+ * Model CalendarEvent
+ * 
+ */
+export type CalendarEvent = Prisma.CalendarEventModel
+/**
  * Model License
  * 
  */
@@ -67,6 +77,11 @@ export type License = Prisma.LicenseModel
  * 
  */
 export type RfpRequest = Prisma.RfpRequestModel
+/**
+ * Model RfpAccountLine
+ * 
+ */
+export type RfpAccountLine = Prisma.RfpAccountLineModel
 /**
  * Model RfpQuote
  * 

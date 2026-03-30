@@ -57,6 +57,19 @@ export const DocumentType = {
 export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType]
 
 
+export const CalendarEventType = {
+  CONTRACT_RENEWAL: 'CONTRACT_RENEWAL',
+  LICENSE_EXPIRY: 'LICENSE_EXPIRY',
+  RFP_DEADLINE: 'RFP_DEADLINE',
+  FOLLOW_UP: 'FOLLOW_UP',
+  MEETING: 'MEETING',
+  TASK: 'TASK',
+  OTHER: 'OTHER'
+} as const
+
+export type CalendarEventType = (typeof CalendarEventType)[keyof typeof CalendarEventType]
+
+
 export const LicenseType = {
   CRNGS: 'CRNGS',
   CRES: 'CRES'

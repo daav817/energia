@@ -37,7 +37,36 @@ Use this section as the live execution plan. Update checkboxes and notes at the 
 
 ### Progress Notes
 - Keep short dated entries here, newest first.
+- 2026-03-27: Documented parallel feature branches (RFP + scheduler), merge order, and cross-session PR review in **Parallel feature development** below.
 - YYYY-MM-DD: Added initial Current Sprint section for ongoing planning and tracking.
+
+## Parallel feature development
+
+RFP and scheduler/calendar MVP work proceed **in parallel on separate branches** (optionally via **git worktrees** so two working trees stay checked out at once). Database and Prisma changes may land on each branch independently; coordinate before merging to `main`.
+
+### Active branches (current split)
+
+| Focus | Branch | Notes |
+|-------|--------|--------|
+| RFP MVP | `feature/rfp-mvp` | RFP/quote functionality and related schema/API/UI. |
+| Scheduler / calendar MVP | `feature/scheduler-mvp` | Calendar events, scheduling UX, and related schema/API/UI. |
+
+### Merge order into `main`
+
+1. **`feature/scheduler-mvp` merges first.**
+2. **`feature/rfp-mvp` merges after** (rebase or merge `main` after scheduler is in, resolve conflicts, then open/complete the RFP PR).
+
+This order reduces repeated migration conflict churn: RFP work can absorb scheduler schema/migrations once scheduler is on `main`.
+
+### Prisma / schema coordination
+
+- Treat migrations and `prisma/schema.prisma` as **shared contract**: both streams should avoid divergent renames or incompatible edits to the same models without discussion.
+- **Assistants working in the RFP context** (`feature/rfp-mvp`): if a change would **conflict with or duplicate** schema work you know exists on **`feature/scheduler-mvp`** (or vice versa), **call that out explicitly** so the human can reconcile before merge.
+- After scheduler merges, **re-sync RFP branch with `main`** and re-run migrations locally before final RFP merge.
+
+### Cross-session PR review (two Cursor tabs / agents)
+
+When one branch opens a **Pull Request** toward `main`, the **other Cursor context** (the tab working the sibling branch) should **review that PR**: schema/migrations, API shape, naming, and anything that will affect the merge order above. Reciprocate when the second PR goes up. This catches integration issues early without relying on a single thread of work.
 
 ## Product Phases
 
@@ -87,6 +116,7 @@ Use this section as the live execution plan. Update checkboxes and notes at the 
 ### Source Control and Collaboration
 - Push project to GitHub.
 - Establish branch/PR workflow (protect main branch).
+- Feature work uses dedicated branches; see **Parallel feature development** for the current RFP vs scheduler split, merge order, and PR review expectations.
 - Ensure `.gitignore` and secret hygiene are complete before first push.
 
 ### Containerization

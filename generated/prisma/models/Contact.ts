@@ -302,6 +302,8 @@ export type ContactWhereInput = {
   contractsAsMain?: Prisma.ContractListRelationFilter
   customer?: Prisma.XOR<Prisma.CustomerNullableScalarRelationFilter, Prisma.CustomerWhereInput> | null
   supplier?: Prisma.XOR<Prisma.SupplierNullableScalarRelationFilter, Prisma.SupplierWhereInput> | null
+  calendarEvents?: Prisma.CalendarEventListRelationFilter
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestListRelationFilter
 }
 
 export type ContactOrderByWithRelationInput = {
@@ -332,6 +334,8 @@ export type ContactOrderByWithRelationInput = {
   contractsAsMain?: Prisma.ContractOrderByRelationAggregateInput
   customer?: Prisma.CustomerOrderByWithRelationInput
   supplier?: Prisma.SupplierOrderByWithRelationInput
+  calendarEvents?: Prisma.CalendarEventOrderByRelationAggregateInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestOrderByRelationAggregateInput
 }
 
 export type ContactWhereUniqueInput = Prisma.AtLeast<{
@@ -365,6 +369,8 @@ export type ContactWhereUniqueInput = Prisma.AtLeast<{
   contractsAsMain?: Prisma.ContractListRelationFilter
   customer?: Prisma.XOR<Prisma.CustomerNullableScalarRelationFilter, Prisma.CustomerWhereInput> | null
   supplier?: Prisma.XOR<Prisma.SupplierNullableScalarRelationFilter, Prisma.SupplierWhereInput> | null
+  calendarEvents?: Prisma.CalendarEventListRelationFilter
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestListRelationFilter
 }, "id">
 
 export type ContactOrderByWithAggregationInput = {
@@ -443,6 +449,8 @@ export type ContactCreateInput = {
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateInput = {
@@ -471,6 +479,8 @@ export type ContactUncheckedCreateInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUpdateInput = {
@@ -499,6 +509,8 @@ export type ContactUpdateInput = {
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateInput = {
@@ -527,6 +539,8 @@ export type ContactUncheckedUpdateInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactCreateManyInput = {
@@ -779,6 +793,38 @@ export type ContactUpdateOneWithoutContractsAsMainNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ContactUpdateToOneWithWhereWithoutContractsAsMainInput, Prisma.ContactUpdateWithoutContractsAsMainInput>, Prisma.ContactUncheckedUpdateWithoutContractsAsMainInput>
 }
 
+export type ContactCreateNestedOneWithoutCalendarEventsInput = {
+  create?: Prisma.XOR<Prisma.ContactCreateWithoutCalendarEventsInput, Prisma.ContactUncheckedCreateWithoutCalendarEventsInput>
+  connectOrCreate?: Prisma.ContactCreateOrConnectWithoutCalendarEventsInput
+  connect?: Prisma.ContactWhereUniqueInput
+}
+
+export type ContactUpdateOneWithoutCalendarEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.ContactCreateWithoutCalendarEventsInput, Prisma.ContactUncheckedCreateWithoutCalendarEventsInput>
+  connectOrCreate?: Prisma.ContactCreateOrConnectWithoutCalendarEventsInput
+  upsert?: Prisma.ContactUpsertWithoutCalendarEventsInput
+  disconnect?: Prisma.ContactWhereInput | boolean
+  delete?: Prisma.ContactWhereInput | boolean
+  connect?: Prisma.ContactWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ContactUpdateToOneWithWhereWithoutCalendarEventsInput, Prisma.ContactUpdateWithoutCalendarEventsInput>, Prisma.ContactUncheckedUpdateWithoutCalendarEventsInput>
+}
+
+export type ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput = {
+  create?: Prisma.XOR<Prisma.ContactCreateWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUncheckedCreateWithoutRfpRequestsAsCustomerContactInput>
+  connectOrCreate?: Prisma.ContactCreateOrConnectWithoutRfpRequestsAsCustomerContactInput
+  connect?: Prisma.ContactWhereUniqueInput
+}
+
+export type ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput = {
+  create?: Prisma.XOR<Prisma.ContactCreateWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUncheckedCreateWithoutRfpRequestsAsCustomerContactInput>
+  connectOrCreate?: Prisma.ContactCreateOrConnectWithoutRfpRequestsAsCustomerContactInput
+  upsert?: Prisma.ContactUpsertWithoutRfpRequestsAsCustomerContactInput
+  disconnect?: Prisma.ContactWhereInput | boolean
+  delete?: Prisma.ContactWhereInput | boolean
+  connect?: Prisma.ContactWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ContactUpdateToOneWithWhereWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUpdateWithoutRfpRequestsAsCustomerContactInput>, Prisma.ContactUncheckedUpdateWithoutRfpRequestsAsCustomerContactInput>
+}
+
 export type ContactCreateNestedOneWithoutEmailsInput = {
   create?: Prisma.XOR<Prisma.ContactCreateWithoutEmailsInput, Prisma.ContactUncheckedCreateWithoutEmailsInput>
   connectOrCreate?: Prisma.ContactCreateOrConnectWithoutEmailsInput
@@ -874,6 +920,8 @@ export type ContactCreateWithoutCustomerInput = {
   relatedPersons?: Prisma.ContactRelatedPersonCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutCustomerInput = {
@@ -901,6 +949,8 @@ export type ContactUncheckedCreateWithoutCustomerInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutCustomerInput = {
@@ -979,6 +1029,8 @@ export type ContactCreateWithoutSupplierInput = {
   relatedPersons?: Prisma.ContactRelatedPersonCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutSupplierInput = {
@@ -1006,6 +1058,8 @@ export type ContactUncheckedCreateWithoutSupplierInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutSupplierInput = {
@@ -1059,6 +1113,8 @@ export type ContactCreateWithoutContractsAsMainInput = {
   relatedPersons?: Prisma.ContactRelatedPersonCreateNestedManyWithoutContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutContractsAsMainInput = {
@@ -1086,6 +1142,8 @@ export type ContactUncheckedCreateWithoutContractsAsMainInput = {
   addresses?: Prisma.ContactAddressUncheckedCreateNestedManyWithoutContactInput
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutContractsAsMainInput = {
@@ -1129,6 +1187,8 @@ export type ContactUpdateWithoutContractsAsMainInput = {
   relatedPersons?: Prisma.ContactRelatedPersonUpdateManyWithoutContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutContractsAsMainInput = {
@@ -1156,6 +1216,272 @@ export type ContactUncheckedUpdateWithoutContractsAsMainInput = {
   addresses?: Prisma.ContactAddressUncheckedUpdateManyWithoutContactNestedInput
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
+}
+
+export type ContactCreateWithoutCalendarEventsInput = {
+  id?: string
+  firstName?: string | null
+  lastName?: string | null
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  isPriority?: boolean
+  jobTitle?: string | null
+  label?: string | null
+  website?: string | null
+  notes?: string | null
+  source?: string
+  googleResourceName?: string | null
+  addedToContactsAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emails?: Prisma.ContactEmailCreateNestedManyWithoutContactInput
+  phones?: Prisma.ContactPhoneCreateNestedManyWithoutContactInput
+  addresses?: Prisma.ContactAddressCreateNestedManyWithoutContactInput
+  significantDates?: Prisma.ContactSignificantDateCreateNestedManyWithoutContactInput
+  relatedPersons?: Prisma.ContactRelatedPersonCreateNestedManyWithoutContactInput
+  contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
+  customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
+  supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
+}
+
+export type ContactUncheckedCreateWithoutCalendarEventsInput = {
+  id?: string
+  firstName?: string | null
+  lastName?: string | null
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  isPriority?: boolean
+  jobTitle?: string | null
+  label?: string | null
+  website?: string | null
+  notes?: string | null
+  source?: string
+  googleResourceName?: string | null
+  addedToContactsAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customerId?: string | null
+  supplierId?: string | null
+  emails?: Prisma.ContactEmailUncheckedCreateNestedManyWithoutContactInput
+  phones?: Prisma.ContactPhoneUncheckedCreateNestedManyWithoutContactInput
+  addresses?: Prisma.ContactAddressUncheckedCreateNestedManyWithoutContactInput
+  significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
+  relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
+  contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
+}
+
+export type ContactCreateOrConnectWithoutCalendarEventsInput = {
+  where: Prisma.ContactWhereUniqueInput
+  create: Prisma.XOR<Prisma.ContactCreateWithoutCalendarEventsInput, Prisma.ContactUncheckedCreateWithoutCalendarEventsInput>
+}
+
+export type ContactUpsertWithoutCalendarEventsInput = {
+  update: Prisma.XOR<Prisma.ContactUpdateWithoutCalendarEventsInput, Prisma.ContactUncheckedUpdateWithoutCalendarEventsInput>
+  create: Prisma.XOR<Prisma.ContactCreateWithoutCalendarEventsInput, Prisma.ContactUncheckedCreateWithoutCalendarEventsInput>
+  where?: Prisma.ContactWhereInput
+}
+
+export type ContactUpdateToOneWithWhereWithoutCalendarEventsInput = {
+  where?: Prisma.ContactWhereInput
+  data: Prisma.XOR<Prisma.ContactUpdateWithoutCalendarEventsInput, Prisma.ContactUncheckedUpdateWithoutCalendarEventsInput>
+}
+
+export type ContactUpdateWithoutCalendarEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isPriority?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  jobTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  googleResourceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  addedToContactsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emails?: Prisma.ContactEmailUpdateManyWithoutContactNestedInput
+  phones?: Prisma.ContactPhoneUpdateManyWithoutContactNestedInput
+  addresses?: Prisma.ContactAddressUpdateManyWithoutContactNestedInput
+  significantDates?: Prisma.ContactSignificantDateUpdateManyWithoutContactNestedInput
+  relatedPersons?: Prisma.ContactRelatedPersonUpdateManyWithoutContactNestedInput
+  contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
+  customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
+  supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
+}
+
+export type ContactUncheckedUpdateWithoutCalendarEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isPriority?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  jobTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  googleResourceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  addedToContactsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emails?: Prisma.ContactEmailUncheckedUpdateManyWithoutContactNestedInput
+  phones?: Prisma.ContactPhoneUncheckedUpdateManyWithoutContactNestedInput
+  addresses?: Prisma.ContactAddressUncheckedUpdateManyWithoutContactNestedInput
+  significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
+  relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
+  contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
+}
+
+export type ContactCreateWithoutRfpRequestsAsCustomerContactInput = {
+  id?: string
+  firstName?: string | null
+  lastName?: string | null
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  isPriority?: boolean
+  jobTitle?: string | null
+  label?: string | null
+  website?: string | null
+  notes?: string | null
+  source?: string
+  googleResourceName?: string | null
+  addedToContactsAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emails?: Prisma.ContactEmailCreateNestedManyWithoutContactInput
+  phones?: Prisma.ContactPhoneCreateNestedManyWithoutContactInput
+  addresses?: Prisma.ContactAddressCreateNestedManyWithoutContactInput
+  significantDates?: Prisma.ContactSignificantDateCreateNestedManyWithoutContactInput
+  relatedPersons?: Prisma.ContactRelatedPersonCreateNestedManyWithoutContactInput
+  contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
+  customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
+  supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+}
+
+export type ContactUncheckedCreateWithoutRfpRequestsAsCustomerContactInput = {
+  id?: string
+  firstName?: string | null
+  lastName?: string | null
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  isPriority?: boolean
+  jobTitle?: string | null
+  label?: string | null
+  website?: string | null
+  notes?: string | null
+  source?: string
+  googleResourceName?: string | null
+  addedToContactsAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customerId?: string | null
+  supplierId?: string | null
+  emails?: Prisma.ContactEmailUncheckedCreateNestedManyWithoutContactInput
+  phones?: Prisma.ContactPhoneUncheckedCreateNestedManyWithoutContactInput
+  addresses?: Prisma.ContactAddressUncheckedCreateNestedManyWithoutContactInput
+  significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
+  relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
+  contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+}
+
+export type ContactCreateOrConnectWithoutRfpRequestsAsCustomerContactInput = {
+  where: Prisma.ContactWhereUniqueInput
+  create: Prisma.XOR<Prisma.ContactCreateWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUncheckedCreateWithoutRfpRequestsAsCustomerContactInput>
+}
+
+export type ContactUpsertWithoutRfpRequestsAsCustomerContactInput = {
+  update: Prisma.XOR<Prisma.ContactUpdateWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUncheckedUpdateWithoutRfpRequestsAsCustomerContactInput>
+  create: Prisma.XOR<Prisma.ContactCreateWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUncheckedCreateWithoutRfpRequestsAsCustomerContactInput>
+  where?: Prisma.ContactWhereInput
+}
+
+export type ContactUpdateToOneWithWhereWithoutRfpRequestsAsCustomerContactInput = {
+  where?: Prisma.ContactWhereInput
+  data: Prisma.XOR<Prisma.ContactUpdateWithoutRfpRequestsAsCustomerContactInput, Prisma.ContactUncheckedUpdateWithoutRfpRequestsAsCustomerContactInput>
+}
+
+export type ContactUpdateWithoutRfpRequestsAsCustomerContactInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isPriority?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  jobTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  googleResourceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  addedToContactsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emails?: Prisma.ContactEmailUpdateManyWithoutContactNestedInput
+  phones?: Prisma.ContactPhoneUpdateManyWithoutContactNestedInput
+  addresses?: Prisma.ContactAddressUpdateManyWithoutContactNestedInput
+  significantDates?: Prisma.ContactSignificantDateUpdateManyWithoutContactNestedInput
+  relatedPersons?: Prisma.ContactRelatedPersonUpdateManyWithoutContactNestedInput
+  contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
+  customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
+  supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+}
+
+export type ContactUncheckedUpdateWithoutRfpRequestsAsCustomerContactInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isPriority?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  jobTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  source?: Prisma.StringFieldUpdateOperationsInput | string
+  googleResourceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  addedToContactsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emails?: Prisma.ContactEmailUncheckedUpdateManyWithoutContactNestedInput
+  phones?: Prisma.ContactPhoneUncheckedUpdateManyWithoutContactNestedInput
+  addresses?: Prisma.ContactAddressUncheckedUpdateManyWithoutContactNestedInput
+  significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
+  relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
+  contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
 }
 
 export type ContactCreateWithoutEmailsInput = {
@@ -1183,6 +1509,8 @@ export type ContactCreateWithoutEmailsInput = {
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutEmailsInput = {
@@ -1210,6 +1538,8 @@ export type ContactUncheckedCreateWithoutEmailsInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutEmailsInput = {
@@ -1253,6 +1583,8 @@ export type ContactUpdateWithoutEmailsInput = {
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutEmailsInput = {
@@ -1280,6 +1612,8 @@ export type ContactUncheckedUpdateWithoutEmailsInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactCreateWithoutPhonesInput = {
@@ -1307,6 +1641,8 @@ export type ContactCreateWithoutPhonesInput = {
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutPhonesInput = {
@@ -1334,6 +1670,8 @@ export type ContactUncheckedCreateWithoutPhonesInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutPhonesInput = {
@@ -1377,6 +1715,8 @@ export type ContactUpdateWithoutPhonesInput = {
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutPhonesInput = {
@@ -1404,6 +1744,8 @@ export type ContactUncheckedUpdateWithoutPhonesInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactCreateWithoutAddressesInput = {
@@ -1431,6 +1773,8 @@ export type ContactCreateWithoutAddressesInput = {
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutAddressesInput = {
@@ -1458,6 +1802,8 @@ export type ContactUncheckedCreateWithoutAddressesInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutAddressesInput = {
@@ -1501,6 +1847,8 @@ export type ContactUpdateWithoutAddressesInput = {
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutAddressesInput = {
@@ -1528,6 +1876,8 @@ export type ContactUncheckedUpdateWithoutAddressesInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactCreateWithoutSignificantDatesInput = {
@@ -1555,6 +1905,8 @@ export type ContactCreateWithoutSignificantDatesInput = {
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutSignificantDatesInput = {
@@ -1582,6 +1934,8 @@ export type ContactUncheckedCreateWithoutSignificantDatesInput = {
   addresses?: Prisma.ContactAddressUncheckedCreateNestedManyWithoutContactInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutSignificantDatesInput = {
@@ -1625,6 +1979,8 @@ export type ContactUpdateWithoutSignificantDatesInput = {
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutSignificantDatesInput = {
@@ -1652,6 +2008,8 @@ export type ContactUncheckedUpdateWithoutSignificantDatesInput = {
   addresses?: Prisma.ContactAddressUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactCreateWithoutRelatedPersonsInput = {
@@ -1679,6 +2037,8 @@ export type ContactCreateWithoutRelatedPersonsInput = {
   contractsAsMain?: Prisma.ContractCreateNestedManyWithoutMainContactInput
   customer?: Prisma.CustomerCreateNestedOneWithoutContactsInput
   supplier?: Prisma.SupplierCreateNestedOneWithoutContactLinksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactUncheckedCreateWithoutRelatedPersonsInput = {
@@ -1706,6 +2066,8 @@ export type ContactUncheckedCreateWithoutRelatedPersonsInput = {
   addresses?: Prisma.ContactAddressUncheckedCreateNestedManyWithoutContactInput
   significantDates?: Prisma.ContactSignificantDateUncheckedCreateNestedManyWithoutContactInput
   contractsAsMain?: Prisma.ContractUncheckedCreateNestedManyWithoutMainContactInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContactInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerContactInput
 }
 
 export type ContactCreateOrConnectWithoutRelatedPersonsInput = {
@@ -1749,6 +2111,8 @@ export type ContactUpdateWithoutRelatedPersonsInput = {
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutRelatedPersonsInput = {
@@ -1776,6 +2140,8 @@ export type ContactUncheckedUpdateWithoutRelatedPersonsInput = {
   addresses?: Prisma.ContactAddressUncheckedUpdateManyWithoutContactNestedInput
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactCreateManyCustomerInput = {
@@ -1824,6 +2190,8 @@ export type ContactUpdateWithoutCustomerInput = {
   relatedPersons?: Prisma.ContactRelatedPersonUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   supplier?: Prisma.SupplierUpdateOneWithoutContactLinksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutCustomerInput = {
@@ -1851,6 +2219,8 @@ export type ContactUncheckedUpdateWithoutCustomerInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateManyWithoutCustomerInput = {
@@ -1920,6 +2290,8 @@ export type ContactUpdateWithoutSupplierInput = {
   relatedPersons?: Prisma.ContactRelatedPersonUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUpdateManyWithoutMainContactNestedInput
   customer?: Prisma.CustomerUpdateOneWithoutContactsNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateWithoutSupplierInput = {
@@ -1947,6 +2319,8 @@ export type ContactUncheckedUpdateWithoutSupplierInput = {
   significantDates?: Prisma.ContactSignificantDateUncheckedUpdateManyWithoutContactNestedInput
   relatedPersons?: Prisma.ContactRelatedPersonUncheckedUpdateManyWithoutContactNestedInput
   contractsAsMain?: Prisma.ContractUncheckedUpdateManyWithoutMainContactNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContactNestedInput
+  rfpRequestsAsCustomerContact?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerContactNestedInput
 }
 
 export type ContactUncheckedUpdateManyWithoutSupplierInput = {
@@ -1982,6 +2356,8 @@ export type ContactCountOutputType = {
   significantDates: number
   relatedPersons: number
   contractsAsMain: number
+  calendarEvents: number
+  rfpRequestsAsCustomerContact: number
 }
 
 export type ContactCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1991,6 +2367,8 @@ export type ContactCountOutputTypeSelect<ExtArgs extends runtime.Types.Extension
   significantDates?: boolean | ContactCountOutputTypeCountSignificantDatesArgs
   relatedPersons?: boolean | ContactCountOutputTypeCountRelatedPersonsArgs
   contractsAsMain?: boolean | ContactCountOutputTypeCountContractsAsMainArgs
+  calendarEvents?: boolean | ContactCountOutputTypeCountCalendarEventsArgs
+  rfpRequestsAsCustomerContact?: boolean | ContactCountOutputTypeCountRfpRequestsAsCustomerContactArgs
 }
 
 /**
@@ -2045,6 +2423,20 @@ export type ContactCountOutputTypeCountContractsAsMainArgs<ExtArgs extends runti
   where?: Prisma.ContractWhereInput
 }
 
+/**
+ * ContactCountOutputType without action
+ */
+export type ContactCountOutputTypeCountCalendarEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CalendarEventWhereInput
+}
+
+/**
+ * ContactCountOutputType without action
+ */
+export type ContactCountOutputTypeCountRfpRequestsAsCustomerContactArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RfpRequestWhereInput
+}
+
 
 export type ContactSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2074,6 +2466,8 @@ export type ContactSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   contractsAsMain?: boolean | Prisma.Contact$contractsAsMainArgs<ExtArgs>
   customer?: boolean | Prisma.Contact$customerArgs<ExtArgs>
   supplier?: boolean | Prisma.Contact$supplierArgs<ExtArgs>
+  calendarEvents?: boolean | Prisma.Contact$calendarEventsArgs<ExtArgs>
+  rfpRequestsAsCustomerContact?: boolean | Prisma.Contact$rfpRequestsAsCustomerContactArgs<ExtArgs>
   _count?: boolean | Prisma.ContactCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contact"]>
 
@@ -2157,6 +2551,8 @@ export type ContactInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs
   contractsAsMain?: boolean | Prisma.Contact$contractsAsMainArgs<ExtArgs>
   customer?: boolean | Prisma.Contact$customerArgs<ExtArgs>
   supplier?: boolean | Prisma.Contact$supplierArgs<ExtArgs>
+  calendarEvents?: boolean | Prisma.Contact$calendarEventsArgs<ExtArgs>
+  rfpRequestsAsCustomerContact?: boolean | Prisma.Contact$rfpRequestsAsCustomerContactArgs<ExtArgs>
   _count?: boolean | Prisma.ContactCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ContactIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2179,6 +2575,8 @@ export type $ContactPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     contractsAsMain: Prisma.$ContractPayload<ExtArgs>[]
     customer: Prisma.$CustomerPayload<ExtArgs> | null
     supplier: Prisma.$SupplierPayload<ExtArgs> | null
+    calendarEvents: Prisma.$CalendarEventPayload<ExtArgs>[]
+    rfpRequestsAsCustomerContact: Prisma.$RfpRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2602,6 +3000,8 @@ export interface Prisma__ContactClient<T, Null = never, ExtArgs extends runtime.
   contractsAsMain<T extends Prisma.Contact$contractsAsMainArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contact$contractsAsMainArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContractPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   customer<T extends Prisma.Contact$customerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contact$customerArgs<ExtArgs>>): Prisma.Prisma__CustomerClient<runtime.Types.Result.GetResult<Prisma.$CustomerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   supplier<T extends Prisma.Contact$supplierArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contact$supplierArgs<ExtArgs>>): Prisma.Prisma__SupplierClient<runtime.Types.Result.GetResult<Prisma.$SupplierPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  calendarEvents<T extends Prisma.Contact$calendarEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contact$calendarEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CalendarEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  rfpRequestsAsCustomerContact<T extends Prisma.Contact$rfpRequestsAsCustomerContactArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contact$rfpRequestsAsCustomerContactArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3230,6 +3630,54 @@ export type Contact$supplierArgs<ExtArgs extends runtime.Types.Extensions.Intern
    */
   include?: Prisma.SupplierInclude<ExtArgs> | null
   where?: Prisma.SupplierWhereInput
+}
+
+/**
+ * Contact.calendarEvents
+ */
+export type Contact$calendarEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CalendarEvent
+   */
+  select?: Prisma.CalendarEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CalendarEvent
+   */
+  omit?: Prisma.CalendarEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CalendarEventInclude<ExtArgs> | null
+  where?: Prisma.CalendarEventWhereInput
+  orderBy?: Prisma.CalendarEventOrderByWithRelationInput | Prisma.CalendarEventOrderByWithRelationInput[]
+  cursor?: Prisma.CalendarEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CalendarEventScalarFieldEnum | Prisma.CalendarEventScalarFieldEnum[]
+}
+
+/**
+ * Contact.rfpRequestsAsCustomerContact
+ */
+export type Contact$rfpRequestsAsCustomerContactArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RfpRequest
+   */
+  select?: Prisma.RfpRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RfpRequest
+   */
+  omit?: Prisma.RfpRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RfpRequestInclude<ExtArgs> | null
+  where?: Prisma.RfpRequestWhereInput
+  orderBy?: Prisma.RfpRequestOrderByWithRelationInput | Prisma.RfpRequestOrderByWithRelationInput[]
+  cursor?: Prisma.RfpRequestWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RfpRequestScalarFieldEnum | Prisma.RfpRequestScalarFieldEnum[]
 }
 
 /**

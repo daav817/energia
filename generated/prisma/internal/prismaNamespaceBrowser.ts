@@ -57,10 +57,13 @@ export const ModelName = {
   Prospect: 'Prospect',
   Contract: 'Contract',
   CommissionPayment: 'CommissionPayment',
+  TaskList: 'TaskList',
   Task: 'Task',
   Document: 'Document',
+  CalendarEvent: 'CalendarEvent',
   License: 'License',
   RfpRequest: 'RfpRequest',
+  RfpAccountLine: 'RfpAccountLine',
   RfpQuote: 'RfpQuote',
   Contact: 'Contact',
   ContactEmail: 'ContactEmail',
@@ -205,6 +208,18 @@ export const CommissionPaymentScalarFieldEnum = {
 export type CommissionPaymentScalarFieldEnum = (typeof CommissionPaymentScalarFieldEnum)[keyof typeof CommissionPaymentScalarFieldEnum]
 
 
+export const TaskListScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  sortOrder: 'sortOrder',
+  googleListId: 'googleListId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TaskListScalarFieldEnum = (typeof TaskListScalarFieldEnum)[keyof typeof TaskListScalarFieldEnum]
+
+
 export const TaskScalarFieldEnum = {
   id: 'id',
   title: 'title',
@@ -212,9 +227,16 @@ export const TaskScalarFieldEnum = {
   type: 'type',
   status: 'status',
   dueDate: 'dueDate',
+  dueAt: 'dueAt',
+  allDay: 'allDay',
+  starred: 'starred',
+  repeatRule: 'repeatRule',
+  googleTaskId: 'googleTaskId',
   priority: 'priority',
+  listSortOrder: 'listSortOrder',
   customerId: 'customerId',
   prospectId: 'prospectId',
+  taskListId: 'taskListId',
   completedAt: 'completedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -243,6 +265,27 @@ export const DocumentScalarFieldEnum = {
 export type DocumentScalarFieldEnum = (typeof DocumentScalarFieldEnum)[keyof typeof DocumentScalarFieldEnum]
 
 
+export const CalendarEventScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  startAt: 'startAt',
+  endAt: 'endAt',
+  allDay: 'allDay',
+  eventType: 'eventType',
+  customerId: 'customerId',
+  contactId: 'contactId',
+  contractId: 'contractId',
+  taskId: 'taskId',
+  licenseId: 'licenseId',
+  rfpRequestId: 'rfpRequestId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CalendarEventScalarFieldEnum = (typeof CalendarEventScalarFieldEnum)[keyof typeof CalendarEventScalarFieldEnum]
+
+
 export const LicenseScalarFieldEnum = {
   id: 'id',
   licenseType: 'licenseType',
@@ -267,6 +310,16 @@ export const RfpRequestScalarFieldEnum = {
   avgMonthlyUsage: 'avgMonthlyUsage',
   billDocumentId: 'billDocumentId',
   termMonths: 'termMonths',
+  googleDriveFolderUrl: 'googleDriveFolderUrl',
+  summarySpreadsheetUrl: 'summarySpreadsheetUrl',
+  quoteDueDate: 'quoteDueDate',
+  contractStartMonth: 'contractStartMonth',
+  contractStartYear: 'contractStartYear',
+  brokerMargin: 'brokerMargin',
+  brokerMarginUnit: 'brokerMarginUnit',
+  ldcUtility: 'ldcUtility',
+  requestedTerms: 'requestedTerms',
+  customerContactId: 'customerContactId',
   sentAt: 'sentAt',
   status: 'status',
   notes: 'notes',
@@ -275,6 +328,20 @@ export const RfpRequestScalarFieldEnum = {
 } as const
 
 export type RfpRequestScalarFieldEnum = (typeof RfpRequestScalarFieldEnum)[keyof typeof RfpRequestScalarFieldEnum]
+
+
+export const RfpAccountLineScalarFieldEnum = {
+  id: 'id',
+  rfpRequestId: 'rfpRequestId',
+  accountNumber: 'accountNumber',
+  serviceAddress: 'serviceAddress',
+  annualUsage: 'annualUsage',
+  avgMonthlyUsage: 'avgMonthlyUsage',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt'
+} as const
+
+export type RfpAccountLineScalarFieldEnum = (typeof RfpAccountLineScalarFieldEnum)[keyof typeof RfpAccountLineScalarFieldEnum]
 
 
 export const RfpQuoteScalarFieldEnum = {
@@ -414,6 +481,14 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
 export const QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
@@ -428,4 +503,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

@@ -222,6 +222,7 @@ export type LicenseWhereInput = {
   notes?: Prisma.StringNullableFilter<"License"> | string | null
   createdAt?: Prisma.DateTimeFilter<"License"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"License"> | Date | string
+  calendarEvents?: Prisma.CalendarEventListRelationFilter
 }
 
 export type LicenseOrderByWithRelationInput = {
@@ -235,6 +236,7 @@ export type LicenseOrderByWithRelationInput = {
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  calendarEvents?: Prisma.CalendarEventOrderByRelationAggregateInput
 }
 
 export type LicenseWhereUniqueInput = Prisma.AtLeast<{
@@ -251,6 +253,7 @@ export type LicenseWhereUniqueInput = Prisma.AtLeast<{
   notes?: Prisma.StringNullableFilter<"License"> | string | null
   createdAt?: Prisma.DateTimeFilter<"License"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"License"> | Date | string
+  calendarEvents?: Prisma.CalendarEventListRelationFilter
 }, "id">
 
 export type LicenseOrderByWithAggregationInput = {
@@ -296,6 +299,7 @@ export type LicenseCreateInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutLicenseInput
 }
 
 export type LicenseUncheckedCreateInput = {
@@ -309,6 +313,7 @@ export type LicenseUncheckedCreateInput = {
   notes?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutLicenseInput
 }
 
 export type LicenseUpdateInput = {
@@ -322,6 +327,7 @@ export type LicenseUpdateInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutLicenseNestedInput
 }
 
 export type LicenseUncheckedUpdateInput = {
@@ -335,6 +341,7 @@ export type LicenseUncheckedUpdateInput = {
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutLicenseNestedInput
 }
 
 export type LicenseCreateManyInput = {
@@ -376,6 +383,11 @@ export type LicenseUncheckedUpdateManyInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type LicenseNullableScalarRelationFilter = {
+  is?: Prisma.LicenseWhereInput | null
+  isNot?: Prisma.LicenseWhereInput | null
+}
+
 export type LicenseCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   licenseType?: Prisma.SortOrder
@@ -415,10 +427,123 @@ export type LicenseMinOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
 }
 
+export type LicenseCreateNestedOneWithoutCalendarEventsInput = {
+  create?: Prisma.XOR<Prisma.LicenseCreateWithoutCalendarEventsInput, Prisma.LicenseUncheckedCreateWithoutCalendarEventsInput>
+  connectOrCreate?: Prisma.LicenseCreateOrConnectWithoutCalendarEventsInput
+  connect?: Prisma.LicenseWhereUniqueInput
+}
+
+export type LicenseUpdateOneWithoutCalendarEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.LicenseCreateWithoutCalendarEventsInput, Prisma.LicenseUncheckedCreateWithoutCalendarEventsInput>
+  connectOrCreate?: Prisma.LicenseCreateOrConnectWithoutCalendarEventsInput
+  upsert?: Prisma.LicenseUpsertWithoutCalendarEventsInput
+  disconnect?: Prisma.LicenseWhereInput | boolean
+  delete?: Prisma.LicenseWhereInput | boolean
+  connect?: Prisma.LicenseWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.LicenseUpdateToOneWithWhereWithoutCalendarEventsInput, Prisma.LicenseUpdateWithoutCalendarEventsInput>, Prisma.LicenseUncheckedUpdateWithoutCalendarEventsInput>
+}
+
 export type EnumLicenseTypeFieldUpdateOperationsInput = {
   set?: $Enums.LicenseType
 }
 
+export type LicenseCreateWithoutCalendarEventsInput = {
+  id?: string
+  licenseType: $Enums.LicenseType
+  licenseNumber: string
+  state?: string | null
+  issueDate: Date | string
+  expirationDate: Date | string
+  status?: string
+  notes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type LicenseUncheckedCreateWithoutCalendarEventsInput = {
+  id?: string
+  licenseType: $Enums.LicenseType
+  licenseNumber: string
+  state?: string | null
+  issueDate: Date | string
+  expirationDate: Date | string
+  status?: string
+  notes?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type LicenseCreateOrConnectWithoutCalendarEventsInput = {
+  where: Prisma.LicenseWhereUniqueInput
+  create: Prisma.XOR<Prisma.LicenseCreateWithoutCalendarEventsInput, Prisma.LicenseUncheckedCreateWithoutCalendarEventsInput>
+}
+
+export type LicenseUpsertWithoutCalendarEventsInput = {
+  update: Prisma.XOR<Prisma.LicenseUpdateWithoutCalendarEventsInput, Prisma.LicenseUncheckedUpdateWithoutCalendarEventsInput>
+  create: Prisma.XOR<Prisma.LicenseCreateWithoutCalendarEventsInput, Prisma.LicenseUncheckedCreateWithoutCalendarEventsInput>
+  where?: Prisma.LicenseWhereInput
+}
+
+export type LicenseUpdateToOneWithWhereWithoutCalendarEventsInput = {
+  where?: Prisma.LicenseWhereInput
+  data: Prisma.XOR<Prisma.LicenseUpdateWithoutCalendarEventsInput, Prisma.LicenseUncheckedUpdateWithoutCalendarEventsInput>
+}
+
+export type LicenseUpdateWithoutCalendarEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  licenseType?: Prisma.EnumLicenseTypeFieldUpdateOperationsInput | $Enums.LicenseType
+  licenseNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  state?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issueDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type LicenseUncheckedUpdateWithoutCalendarEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  licenseType?: Prisma.EnumLicenseTypeFieldUpdateOperationsInput | $Enums.LicenseType
+  licenseNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  state?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issueDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+
+/**
+ * Count Type LicenseCountOutputType
+ */
+
+export type LicenseCountOutputType = {
+  calendarEvents: number
+}
+
+export type LicenseCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  calendarEvents?: boolean | LicenseCountOutputTypeCountCalendarEventsArgs
+}
+
+/**
+ * LicenseCountOutputType without action
+ */
+export type LicenseCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the LicenseCountOutputType
+   */
+  select?: Prisma.LicenseCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * LicenseCountOutputType without action
+ */
+export type LicenseCountOutputTypeCountCalendarEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CalendarEventWhereInput
+}
 
 
 export type LicenseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -432,6 +557,8 @@ export type LicenseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   notes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  calendarEvents?: boolean | Prisma.License$calendarEventsArgs<ExtArgs>
+  _count?: boolean | Prisma.LicenseCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["license"]>
 
 export type LicenseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -474,10 +601,18 @@ export type LicenseSelectScalar = {
 }
 
 export type LicenseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "licenseType" | "licenseNumber" | "state" | "issueDate" | "expirationDate" | "status" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["license"]>
+export type LicenseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  calendarEvents?: boolean | Prisma.License$calendarEventsArgs<ExtArgs>
+  _count?: boolean | Prisma.LicenseCountOutputTypeDefaultArgs<ExtArgs>
+}
+export type LicenseIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type LicenseIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
 
 export type $LicensePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "License"
-  objects: {}
+  objects: {
+    calendarEvents: Prisma.$CalendarEventPayload<ExtArgs>[]
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     licenseType: $Enums.LicenseType
@@ -883,6 +1018,7 @@ readonly fields: LicenseFieldRefs;
  */
 export interface Prisma__LicenseClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  calendarEvents<T extends Prisma.License$calendarEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.License$calendarEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CalendarEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -939,6 +1075,10 @@ export type LicenseFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.Inter
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
+  /**
    * Filter, which License to fetch.
    */
   where: Prisma.LicenseWhereUniqueInput
@@ -957,6 +1097,10 @@ export type LicenseFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extension
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
+  /**
    * Filter, which License to fetch.
    */
   where: Prisma.LicenseWhereUniqueInput
@@ -974,6 +1118,10 @@ export type LicenseFindFirstArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Omit specific fields from the License
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
   /**
    * Filter, which License to fetch.
    */
@@ -1023,6 +1171,10 @@ export type LicenseFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensions
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
+  /**
    * Filter, which License to fetch.
    */
   where?: Prisma.LicenseWhereInput
@@ -1070,6 +1222,10 @@ export type LicenseFindManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Omit specific fields from the License
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
   /**
    * Filter, which Licenses to fetch.
    */
@@ -1119,6 +1275,10 @@ export type LicenseCreateArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
+  /**
    * The data needed to create a License.
    */
   data: Prisma.XOR<Prisma.LicenseCreateInput, Prisma.LicenseUncheckedCreateInput>
@@ -1166,6 +1326,10 @@ export type LicenseUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * Omit specific fields from the License
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
   /**
    * The data needed to update a License.
    */
@@ -1233,6 +1397,10 @@ export type LicenseUpsertArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
+  /**
    * The filter to search for the License to update in case it exists.
    */
   where: Prisma.LicenseWhereUniqueInput
@@ -1259,6 +1427,10 @@ export type LicenseDeleteArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
+  /**
    * Filter which License to delete.
    */
   where: Prisma.LicenseWhereUniqueInput
@@ -1279,6 +1451,30 @@ export type LicenseDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 /**
+ * License.calendarEvents
+ */
+export type License$calendarEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CalendarEvent
+   */
+  select?: Prisma.CalendarEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CalendarEvent
+   */
+  omit?: Prisma.CalendarEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CalendarEventInclude<ExtArgs> | null
+  where?: Prisma.CalendarEventWhereInput
+  orderBy?: Prisma.CalendarEventOrderByWithRelationInput | Prisma.CalendarEventOrderByWithRelationInput[]
+  cursor?: Prisma.CalendarEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CalendarEventScalarFieldEnum | Prisma.CalendarEventScalarFieldEnum[]
+}
+
+/**
  * License without action
  */
 export type LicenseDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1290,4 +1486,8 @@ export type LicenseDefaultArgs<ExtArgs extends runtime.Types.Extensions.Internal
    * Omit specific fields from the License
    */
   omit?: Prisma.LicenseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LicenseInclude<ExtArgs> | null
 }

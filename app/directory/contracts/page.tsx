@@ -489,6 +489,12 @@ export default function ContractsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractIdFromQuery]);
 
+  useEffect(() => {
+    if (!contractIdFromQuery || loading) return;
+    const el = document.getElementById(`contract-row-${contractIdFromQuery}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [contractIdFromQuery, contracts, loading]);
+
   const refetchCustomers = useCallback(() => {
     fetch("/api/customers").then((r) => r.json()).then((d) => setCustomers(Array.isArray(d) ? d : []));
   }, []);
@@ -1629,6 +1635,7 @@ function ContractsTable({
 
                   return (
                     <TableRow
+                      id={`contract-row-${c.id}`}
                       key={c.id}
                       className={`${expired ? "bg-slate-200 dark:bg-slate-700 text-muted-foreground" : ""} ${showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : ""}`}
                     >

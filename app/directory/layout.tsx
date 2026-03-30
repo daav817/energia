@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Building2, LayoutDashboard, FileText } from "lucide-react";
+import { Users, Building2, LayoutDashboard, FileText, CalendarDays } from "lucide-react";
 
 export default function DirectoryLayout({
   children,
@@ -35,6 +35,13 @@ export default function DirectoryLayout({
             >
               <FileText className="h-4 w-4" />
               Contracts
+            </Link>
+            <Link
+              href="/schedule"
+              className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <CalendarDays className="h-4 w-4" />
+              Schedule
             </Link>
           </nav>
         </div>
