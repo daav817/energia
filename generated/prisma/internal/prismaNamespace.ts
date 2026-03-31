@@ -2282,6 +2282,7 @@ export const RfpQuoteScalarFieldEnum = {
   termMonths: 'termMonths',
   brokerMargin: 'brokerMargin',
   totalMargin: 'totalMargin',
+  estimatedContractValue: 'estimatedContractValue',
   isBestOffer: 'isBestOffer',
   sourceEmailId: 'sourceEmailId',
   receivedAt: 'receivedAt',

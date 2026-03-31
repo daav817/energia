@@ -31,6 +31,7 @@ export type RfpQuoteAvgAggregateOutputType = {
   termMonths: number | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
+  estimatedContractValue: runtime.Decimal | null
 }
 
 export type RfpQuoteSumAggregateOutputType = {
@@ -38,6 +39,7 @@ export type RfpQuoteSumAggregateOutputType = {
   termMonths: number | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
+  estimatedContractValue: runtime.Decimal | null
 }
 
 export type RfpQuoteMinAggregateOutputType = {
@@ -50,6 +52,7 @@ export type RfpQuoteMinAggregateOutputType = {
   termMonths: number | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
+  estimatedContractValue: runtime.Decimal | null
   isBestOffer: boolean | null
   sourceEmailId: string | null
   receivedAt: Date | null
@@ -68,6 +71,7 @@ export type RfpQuoteMaxAggregateOutputType = {
   termMonths: number | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
+  estimatedContractValue: runtime.Decimal | null
   isBestOffer: boolean | null
   sourceEmailId: string | null
   receivedAt: Date | null
@@ -86,6 +90,7 @@ export type RfpQuoteCountAggregateOutputType = {
   termMonths: number
   brokerMargin: number
   totalMargin: number
+  estimatedContractValue: number
   isBestOffer: number
   sourceEmailId: number
   receivedAt: number
@@ -101,6 +106,7 @@ export type RfpQuoteAvgAggregateInputType = {
   termMonths?: true
   brokerMargin?: true
   totalMargin?: true
+  estimatedContractValue?: true
 }
 
 export type RfpQuoteSumAggregateInputType = {
@@ -108,6 +114,7 @@ export type RfpQuoteSumAggregateInputType = {
   termMonths?: true
   brokerMargin?: true
   totalMargin?: true
+  estimatedContractValue?: true
 }
 
 export type RfpQuoteMinAggregateInputType = {
@@ -120,6 +127,7 @@ export type RfpQuoteMinAggregateInputType = {
   termMonths?: true
   brokerMargin?: true
   totalMargin?: true
+  estimatedContractValue?: true
   isBestOffer?: true
   sourceEmailId?: true
   receivedAt?: true
@@ -138,6 +146,7 @@ export type RfpQuoteMaxAggregateInputType = {
   termMonths?: true
   brokerMargin?: true
   totalMargin?: true
+  estimatedContractValue?: true
   isBestOffer?: true
   sourceEmailId?: true
   receivedAt?: true
@@ -156,6 +165,7 @@ export type RfpQuoteCountAggregateInputType = {
   termMonths?: true
   brokerMargin?: true
   totalMargin?: true
+  estimatedContractValue?: true
   isBestOffer?: true
   sourceEmailId?: true
   receivedAt?: true
@@ -261,6 +271,7 @@ export type RfpQuoteGroupByOutputType = {
   termMonths: number
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
+  estimatedContractValue: runtime.Decimal | null
   isBestOffer: boolean
   sourceEmailId: string | null
   receivedAt: Date
@@ -302,6 +313,7 @@ export type RfpQuoteWhereInput = {
   termMonths?: Prisma.IntFilter<"RfpQuote"> | number
   brokerMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFilter<"RfpQuote"> | boolean
   sourceEmailId?: Prisma.StringNullableFilter<"RfpQuote"> | string | null
   receivedAt?: Prisma.DateTimeFilter<"RfpQuote"> | Date | string
@@ -323,6 +335,7 @@ export type RfpQuoteOrderByWithRelationInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrderInput | Prisma.SortOrder
   totalMargin?: Prisma.SortOrderInput | Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrderInput | Prisma.SortOrder
   isBestOffer?: Prisma.SortOrder
   sourceEmailId?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
@@ -347,6 +360,7 @@ export type RfpQuoteWhereUniqueInput = Prisma.AtLeast<{
   termMonths?: Prisma.IntFilter<"RfpQuote"> | number
   brokerMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFilter<"RfpQuote"> | boolean
   sourceEmailId?: Prisma.StringNullableFilter<"RfpQuote"> | string | null
   receivedAt?: Prisma.DateTimeFilter<"RfpQuote"> | Date | string
@@ -368,6 +382,7 @@ export type RfpQuoteOrderByWithAggregationInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrderInput | Prisma.SortOrder
   totalMargin?: Prisma.SortOrderInput | Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrderInput | Prisma.SortOrder
   isBestOffer?: Prisma.SortOrder
   sourceEmailId?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
@@ -394,6 +409,7 @@ export type RfpQuoteScalarWhereWithAggregatesInput = {
   termMonths?: Prisma.IntWithAggregatesFilter<"RfpQuote"> | number
   brokerMargin?: Prisma.DecimalNullableWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.DecimalNullableWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolWithAggregatesFilter<"RfpQuote"> | boolean
   sourceEmailId?: Prisma.StringNullableWithAggregatesFilter<"RfpQuote"> | string | null
   receivedAt?: Prisma.DateTimeWithAggregatesFilter<"RfpQuote"> | Date | string
@@ -409,6 +425,7 @@ export type RfpQuoteCreateInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -430,6 +447,7 @@ export type RfpQuoteUncheckedCreateInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -445,6 +463,7 @@ export type RfpQuoteUpdateInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -466,6 +485,7 @@ export type RfpQuoteUncheckedUpdateInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -484,6 +504,7 @@ export type RfpQuoteCreateManyInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -499,6 +520,7 @@ export type RfpQuoteUpdateManyMutationInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -517,6 +539,7 @@ export type RfpQuoteUncheckedUpdateManyInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -545,6 +568,7 @@ export type RfpQuoteCountOrderByAggregateInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrder
   isBestOffer?: Prisma.SortOrder
   sourceEmailId?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
@@ -558,6 +582,7 @@ export type RfpQuoteAvgOrderByAggregateInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrder
 }
 
 export type RfpQuoteMaxOrderByAggregateInput = {
@@ -570,6 +595,7 @@ export type RfpQuoteMaxOrderByAggregateInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrder
   isBestOffer?: Prisma.SortOrder
   sourceEmailId?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
@@ -588,6 +614,7 @@ export type RfpQuoteMinOrderByAggregateInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrder
   isBestOffer?: Prisma.SortOrder
   sourceEmailId?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
@@ -601,6 +628,7 @@ export type RfpQuoteSumOrderByAggregateInput = {
   termMonths?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
+  estimatedContractValue?: Prisma.SortOrder
 }
 
 export type RfpQuoteCreateNestedManyWithoutSupplierInput = {
@@ -736,6 +764,7 @@ export type RfpQuoteCreateWithoutSupplierInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -755,6 +784,7 @@ export type RfpQuoteUncheckedCreateWithoutSupplierInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -802,6 +832,7 @@ export type RfpQuoteScalarWhereInput = {
   termMonths?: Prisma.IntFilter<"RfpQuote"> | number
   brokerMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFilter<"RfpQuote"> | boolean
   sourceEmailId?: Prisma.StringNullableFilter<"RfpQuote"> | string | null
   receivedAt?: Prisma.DateTimeFilter<"RfpQuote"> | Date | string
@@ -817,6 +848,7 @@ export type RfpQuoteCreateWithoutContractInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -836,6 +868,7 @@ export type RfpQuoteUncheckedCreateWithoutContractInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -877,6 +910,7 @@ export type RfpQuoteCreateWithoutRfpRequestInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -896,6 +930,7 @@ export type RfpQuoteUncheckedCreateWithoutRfpRequestInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -939,6 +974,7 @@ export type RfpQuoteCreateManySupplierInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -954,6 +990,7 @@ export type RfpQuoteUpdateWithoutSupplierInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -973,6 +1010,7 @@ export type RfpQuoteUncheckedUpdateWithoutSupplierInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -990,6 +1028,7 @@ export type RfpQuoteUncheckedUpdateManyWithoutSupplierInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1007,6 +1046,7 @@ export type RfpQuoteCreateManyContractInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -1022,6 +1062,7 @@ export type RfpQuoteUpdateWithoutContractInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1041,6 +1082,7 @@ export type RfpQuoteUncheckedUpdateWithoutContractInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1058,6 +1100,7 @@ export type RfpQuoteUncheckedUpdateManyWithoutContractInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1075,6 +1118,7 @@ export type RfpQuoteCreateManyRfpRequestInput = {
   termMonths: number
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: boolean
   sourceEmailId?: string | null
   receivedAt?: Date | string
@@ -1090,6 +1134,7 @@ export type RfpQuoteUpdateWithoutRfpRequestInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1109,6 +1154,7 @@ export type RfpQuoteUncheckedUpdateWithoutRfpRequestInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1126,6 +1172,7 @@ export type RfpQuoteUncheckedUpdateManyWithoutRfpRequestInput = {
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   isBestOffer?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceEmailId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1146,6 +1193,7 @@ export type RfpQuoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   termMonths?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
+  estimatedContractValue?: boolean
   isBestOffer?: boolean
   sourceEmailId?: boolean
   receivedAt?: boolean
@@ -1167,6 +1215,7 @@ export type RfpQuoteSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   termMonths?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
+  estimatedContractValue?: boolean
   isBestOffer?: boolean
   sourceEmailId?: boolean
   receivedAt?: boolean
@@ -1188,6 +1237,7 @@ export type RfpQuoteSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   termMonths?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
+  estimatedContractValue?: boolean
   isBestOffer?: boolean
   sourceEmailId?: boolean
   receivedAt?: boolean
@@ -1209,6 +1259,7 @@ export type RfpQuoteSelectScalar = {
   termMonths?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
+  estimatedContractValue?: boolean
   isBestOffer?: boolean
   sourceEmailId?: boolean
   receivedAt?: boolean
@@ -1217,7 +1268,7 @@ export type RfpQuoteSelectScalar = {
   updatedAt?: boolean
 }
 
-export type RfpQuoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "rfpRequestId" | "supplierId" | "contractId" | "rate" | "priceUnit" | "termMonths" | "brokerMargin" | "totalMargin" | "isBestOffer" | "sourceEmailId" | "receivedAt" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpQuote"]>
+export type RfpQuoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "rfpRequestId" | "supplierId" | "contractId" | "rate" | "priceUnit" | "termMonths" | "brokerMargin" | "totalMargin" | "estimatedContractValue" | "isBestOffer" | "sourceEmailId" | "receivedAt" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpQuote"]>
 export type RfpQuoteInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   rfpRequest?: boolean | Prisma.RfpQuote$rfpRequestArgs<ExtArgs>
   supplier?: boolean | Prisma.SupplierDefaultArgs<ExtArgs>
@@ -1251,6 +1302,7 @@ export type $RfpQuotePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     termMonths: number
     brokerMargin: runtime.Decimal | null
     totalMargin: runtime.Decimal | null
+    estimatedContractValue: runtime.Decimal | null
     isBestOffer: boolean
     sourceEmailId: string | null
     receivedAt: Date
@@ -1692,6 +1744,7 @@ export interface RfpQuoteFieldRefs {
   readonly termMonths: Prisma.FieldRef<"RfpQuote", 'Int'>
   readonly brokerMargin: Prisma.FieldRef<"RfpQuote", 'Decimal'>
   readonly totalMargin: Prisma.FieldRef<"RfpQuote", 'Decimal'>
+  readonly estimatedContractValue: Prisma.FieldRef<"RfpQuote", 'Decimal'>
   readonly isBestOffer: Prisma.FieldRef<"RfpQuote", 'Boolean'>
   readonly sourceEmailId: Prisma.FieldRef<"RfpQuote", 'String'>
   readonly receivedAt: Prisma.FieldRef<"RfpQuote", 'DateTime'>
