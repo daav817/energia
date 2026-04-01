@@ -136,7 +136,22 @@ type SyncPreview = {
     name: string;
     localChanges: string;
     googleChanges: string;
+    diffFields: Array<{
+      key: string;
+      label: string;
+      localValue: string;
+      googleValue: string;
+    }>;
   }>;
+};
+
+type SupplierLabelGap = {
+  id: string;
+  name: string;
+  company: string | null;
+  label: string | null;
+  email: string | null;
+  phone: string | null;
 };
 
 const emptyForm = {
@@ -179,7 +194,7 @@ export default function ContactsPage() {
   const [syncChoices, setSyncChoices] = useState<{
     incoming: string[];
     outgoing: string[];
-    conflicts: Record<string, "local" | "google" | "skip">;
+    conflicts: Record<string, Record<string, "local" | "google" | "skip">>;
   }>({ incoming: [], outgoing: [], conflicts: {} });
   const [recentEmails, setRecentEmails] = useState<Record<string, Array<{ id: string; subject: string; sentAt: string }>>>({});
   const recentEmailsFetchedRef = useRef<Set<string>>(new Set());
@@ -198,6 +213,7 @@ export default function ContactsPage() {
   const [notesQuickText, setNotesQuickText] = useState("");
   const [notesQuickSaving, setNotesQuickSaving] = useState(false);
   const [composeTo, setComposeTo] = useState<{ email: string; name?: string } | null>(null);
+  const [supplierLabelGaps, setSupplierLabelGaps] = useState<SupplierLabelGap[]>([]);
 
   const googleContactsBusy = importing || syncPreviewLoading || syncing;
 
@@ -218,6 +234,16 @@ export default function ContactsPage() {
     }
   }, []);
 
+  const refreshSupplierLabelGaps = useCallback(async () => {
+    try {
+      const res = await fetch("/api/contacts/supplier-label-gaps");
+      const data = await res.json();
+      setSupplierLabelGaps(Array.isArray(data?.contacts) ? data.contacts : []);
+    } catch {
+      setSupplierLabelGaps([]);
+    }
+  }, []);
+
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     try {
@@ -232,12 +258,13 @@ export default function ContactsPage() {
       setContacts(data.contacts ?? data);
       setTotalCount(data.total ?? (data.contacts ?? data).length);
       void refreshLabelOptions();
+      void refreshSupplierLabelGaps();
     } catch (err) {
       setContacts([]);
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, labelFilter, sortCol, sortOrder, refreshLabelOptions]);
+  }, [debouncedSearch, labelFilter, sortCol, sortOrder, refreshLabelOptions, refreshSupplierLabelGaps]);
 
   const refreshFavorites = useCallback(async () => {
     try {
@@ -487,7 +514,10 @@ export default function ContactsPage() {
         incoming: data.incomingFromGoogle?.map((x: { resourceName: string }) => x.resourceName) || [],
         outgoing: data.outgoingToGoogle?.map((x: { id: string }) => x.id) || [],
         conflicts: Object.fromEntries(
-          (data.conflicts || []).map((c: { localId: string }) => [c.localId, "skip" as const])
+          (data.conflicts || []).map((c: { localId: string; diffFields?: Array<{ key: string }> }) => [
+            c.localId,
+            Object.fromEntries((c.diffFields || []).map((field) => [field.key, "skip" as const])),
+          ])
         ),
       });
       setSyncPreviewOpen(true);
@@ -512,12 +542,36 @@ export default function ContactsPage() {
       fetchContacts();
       refreshFavorites();
       setNeedsGoogleSync(false);
-      alert(`Sync complete. Imported: ${data.imported}, Pushed: ${data.pushed}`);
+      const failureCount = Array.isArray(data.failures) ? data.failures.length : 0;
+      if (failureCount > 0) {
+        const preview = data.failures
+          .slice(0, 5)
+          .map((item: { name?: string; stage: string; message: string }) => `${item.name || "Contact"} (${item.stage}): ${item.message}`)
+          .join("\n");
+        alert(
+          `Sync partially completed. Imported: ${data.imported}, Pushed: ${data.pushed}, Failed: ${failureCount}` +
+            (preview ? `\n\n${preview}` : "")
+        );
+      } else {
+        alert(`Sync complete. Imported: ${data.imported}, Pushed: ${data.pushed}`);
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setSyncing(false);
     }
+  };
+
+  const setAllConflictChoices = (choice: "local" | "google" | "skip") => {
+    setSyncChoices((current) => ({
+      ...current,
+      conflicts: Object.fromEntries(
+        (syncPreview?.conflicts || []).map((conflict) => [
+          conflict.localId,
+          Object.fromEntries((conflict.diffFields || []).map((field) => [field.key, choice])),
+        ])
+      ),
+    }));
   };
 
   const openEdit = (c: Contact) => {
@@ -839,6 +893,26 @@ export default function ContactsPage() {
           <p className="text-muted-foreground mt-1">
             Manage contacts from your database and import from Google Contacts.
           </p>
+          {supplierLabelGaps.length > 0 && (
+            <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-medium">
+                    {supplierLabelGaps.length} supplier contact(s) are still missing a `gas` or `electric` label.
+                  </p>
+                  <p className="mt-1">
+                    Review these before building RFPs:{" "}
+                    {supplierLabelGaps
+                      .slice(0, 8)
+                      .map((contact) => contact.company || contact.name)
+                      .join(", ")}
+                    {supplierLabelGaps.length > 8 ? ", ..." : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="px-2 pb-3 pt-2">
@@ -1185,54 +1259,112 @@ export default function ContactsPage() {
                 {syncPreview.conflicts?.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-2 text-amber-600">Conflicts — choose which version to keep</h4>
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setAllConflictChoices("local")}>
+                        Select all local
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setAllConflictChoices("google")}>
+                        Select all Google
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setAllConflictChoices("skip")}>
+                        Deselect all
+                      </Button>
+                    </div>
                     <div className="border border-amber-200 rounded p-2 space-y-3 text-sm">
                       {syncPreview.conflicts.map((c) => (
                         <div key={c.localId} className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded">
                           <div className="font-medium">{c.name}</div>
-                          <div className="flex gap-4 mt-2">
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name={`conflict-${c.localId}`}
-                                checked={syncChoices.conflicts[c.localId] === "local"}
-                                onChange={() =>
-                                  setSyncChoices((s) => ({
-                                    ...s,
-                                    conflicts: { ...s.conflicts, [c.localId]: "local" },
-                                  }))
-                                }
-                              />
-                              Use Energia: {c.localChanges}
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name={`conflict-${c.localId}`}
-                                checked={syncChoices.conflicts[c.localId] === "google"}
-                                onChange={() =>
-                                  setSyncChoices((s) => ({
-                                    ...s,
-                                    conflicts: { ...s.conflicts, [c.localId]: "google" },
-                                  }))
-                                }
-                              />
-                              Use Google: {c.googleChanges}
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name={`conflict-${c.localId}`}
-                                checked={syncChoices.conflicts[c.localId] === "skip"}
-                                onChange={() =>
-                                  setSyncChoices((s) => ({
-                                    ...s,
-                                    conflicts: { ...s.conflicts, [c.localId]: "skip" },
-                                  }))
-                                }
-                              />
-                              Skip (keep both)
-                            </label>
-                          </div>
+                          {c.diffFields?.length > 0 && (
+                            <div className="mt-2 overflow-x-auto rounded border bg-background">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b bg-muted/50">
+                                    <th className="px-3 py-2 text-left font-medium">Field</th>
+                                    <th className="px-3 py-2 text-left font-medium">Local Energia</th>
+                                    <th className="px-3 py-2 text-left font-medium">Google Contacts</th>
+                                    <th className="px-3 py-2 text-left font-medium">Choice</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {c.diffFields.map((field) => (
+                                    <tr key={field.key} className="border-b last:border-b-0 align-top">
+                                      <td className="px-3 py-2 font-medium text-foreground">{field.label}</td>
+                                      <td className="px-3 py-2 text-muted-foreground whitespace-pre-wrap break-words">
+                                        {field.localValue}
+                                      </td>
+                                      <td className="px-3 py-2 text-muted-foreground whitespace-pre-wrap break-words">
+                                        {field.googleValue}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                          <label className="flex items-center gap-2">
+                                            <input
+                                              type="radio"
+                                              name={`conflict-${c.localId}-${field.key}`}
+                                              checked={syncChoices.conflicts[c.localId]?.[field.key] === "local"}
+                                              onChange={() =>
+                                                setSyncChoices((s) => ({
+                                                  ...s,
+                                                  conflicts: {
+                                                    ...s.conflicts,
+                                                    [c.localId]: {
+                                                      ...(s.conflicts[c.localId] || {}),
+                                                      [field.key]: "local",
+                                                    },
+                                                  },
+                                                }))
+                                              }
+                                            />
+                                            <span>Keep Local Version</span>
+                                          </label>
+                                          <label className="flex items-center gap-2">
+                                            <input
+                                              type="radio"
+                                              name={`conflict-${c.localId}-${field.key}`}
+                                              checked={syncChoices.conflicts[c.localId]?.[field.key] === "google"}
+                                              onChange={() =>
+                                                setSyncChoices((s) => ({
+                                                  ...s,
+                                                  conflicts: {
+                                                    ...s.conflicts,
+                                                    [c.localId]: {
+                                                      ...(s.conflicts[c.localId] || {}),
+                                                      [field.key]: "google",
+                                                    },
+                                                  },
+                                                }))
+                                              }
+                                            />
+                                            <span>Keep Google Contacts Version</span>
+                                          </label>
+                                          <label className="flex items-center gap-2">
+                                            <input
+                                              type="radio"
+                                              name={`conflict-${c.localId}-${field.key}`}
+                                              checked={syncChoices.conflicts[c.localId]?.[field.key] === "skip"}
+                                              onChange={() =>
+                                                setSyncChoices((s) => ({
+                                                  ...s,
+                                                  conflicts: {
+                                                    ...s.conflicts,
+                                                    [c.localId]: {
+                                                      ...(s.conflicts[c.localId] || {}),
+                                                      [field.key]: "skip",
+                                                    },
+                                                  },
+                                                }))
+                                              }
+                                            />
+                                            <span>Skip</span>
+                                          </label>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

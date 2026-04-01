@@ -37,6 +37,7 @@ Use this section as the live execution plan. Update checkboxes and notes at the 
 
 ### Progress Notes
 - Keep short dated entries here, newest first.
+- 2026-03-31: Began `feature/rfp-mvp` implementation of the expanded RFP workflow (customer-contact enforcement, supplier selection, multi-account bill summary, pricing terms, broker margin preview). This work adds Prisma schema + migration changes and should be reviewed against `feature/scheduler-mvp` before merge because that branch is expected to land first.
 - 2026-03-27: Documented parallel feature branches (RFP + scheduler), merge order, and cross-session PR review in **Parallel feature development** below.
 - YYYY-MM-DD: Added initial Current Sprint section for ongoing planning and tracking.
 

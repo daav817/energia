@@ -412,6 +412,7 @@ model RfpQuote {
   termMonths     Int        @map("term_months")
   brokerMargin   Decimal?   @map("broker_margin") @db.Decimal(10, 6)
   totalMargin    Decimal?   @map("total_margin") @db.Decimal(12, 2)
+  estimatedContractValue Decimal? @map("estimated_contract_value") @db.Decimal(14, 2)
   isBestOffer    Boolean    @default(false) @map("is_best_offer")
   sourceEmailId  String?    @map("source_email_id")
   receivedAt     DateTime   @default(now()) @map("received_at")

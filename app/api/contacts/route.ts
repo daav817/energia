@@ -116,6 +116,14 @@ function buildContactData(body: Record<string, unknown>) {
     label,
     website,
     notes,
+    customerId:
+      body.customerId === null || body.customerId === undefined || body.customerId === ""
+        ? null
+        : String(body.customerId),
+    supplierId:
+      body.supplierId === null || body.supplierId === undefined || body.supplierId === ""
+        ? null
+        : String(body.supplierId),
     emails,
     phones,
     addresses,
@@ -145,6 +153,8 @@ export async function POST(request: NextRequest) {
         label: data.label,
         website: data.website,
         notes: data.notes,
+        customerId: data.customerId,
+        supplierId: data.supplierId,
         source: "local",
         addedToContactsAt: new Date(),
         emails: {

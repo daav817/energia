@@ -31,7 +31,9 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
       include: withContacts
         ? {
-            contactLinks: { select: { id: true, name: true, email: true, phone: true, isPriority: true } },
+            contactLinks: {
+              select: { id: true, name: true, email: true, phone: true, isPriority: true, label: true },
+            },
           }
         : undefined,
     });

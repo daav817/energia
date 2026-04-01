@@ -12,8 +12,91 @@ type SyncPreview = {
     name: string;
     localChanges: string;
     googleChanges: string;
+    diffFields: Array<{
+      key: string;
+      label: string;
+      localValue: string;
+      googleValue: string;
+    }>;
   }>;
 };
+
+function normalizeText(raw: unknown): string | null {
+  const s = String(raw ?? "").trim();
+  return s || null;
+}
+
+function normalizeAddress(parts: {
+  street?: unknown;
+  city?: unknown;
+  state?: unknown;
+  zip?: unknown;
+}) {
+  return [
+    normalizeText(parts.street),
+    normalizeText(parts.city),
+    normalizeText(parts.state),
+    normalizeText(parts.zip),
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function displayValue(raw: unknown): string {
+  const normalized = normalizeText(raw);
+  return normalized ?? "(empty)";
+}
+
+function normalizeNameValue(raw: unknown): string {
+  return String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function buildFullName(firstName: unknown, lastName: unknown): string | null {
+  const combined = [normalizeText(firstName), normalizeText(lastName)].filter(Boolean).join(" ");
+  return combined || null;
+}
+
+function namesMatch(values: Array<unknown>): boolean {
+  const normalized = Array.from(
+    new Set(
+      values
+        .map((value) => normalizeNameValue(value))
+        .filter(Boolean)
+    )
+  );
+  return normalized.length <= 1;
+}
+
+function collectGroupResourceNames(personData: any): string[] {
+  const groupResourceNames: string[] = [];
+  const memberships = personData?.memberships;
+
+  if (Array.isArray(memberships)) {
+    for (const m of memberships) {
+      const rn =
+        m?.contactGroupMembership?.contactGroupResourceName ||
+        m?.contactGroupMembership?.contactGroup?.resourceName;
+      if (rn) groupResourceNames.push(String(rn));
+    }
+  } else if (memberships && typeof memberships === "object") {
+    const maybeArray = (memberships as any).contactGroupMemberships;
+    if (Array.isArray(maybeArray)) {
+      for (const m of maybeArray) {
+        const rn = m?.contactGroupResourceName || m?.contactGroup?.resourceName;
+        if (rn) groupResourceNames.push(String(rn));
+      }
+    }
+
+    const maybeSingle = (memberships as any).contactGroupMembership;
+    const rn =
+      maybeSingle?.contactGroupResourceName || maybeSingle?.contactGroup?.resourceName;
+    if (rn) groupResourceNames.push(String(rn));
+  }
+  return groupResourceNames;
+}
 
 /**
  * GET /api/contacts/sync-preview
@@ -69,9 +152,6 @@ export async function GET() {
       return filtered.join(", ");
     };
 
-    const normalizeName = (raw: unknown) => String(raw ?? "")
-      .trim()
-      .toLowerCase();
     const normalizeEmail = (raw: unknown) => {
       const s = String(raw ?? "").trim().toLowerCase();
       return s || null;
@@ -84,31 +164,9 @@ export async function GET() {
       return cleaned || null;
     };
     const extractLabelStringFromPerson = (personData: any) => {
-      const memberships = personData?.memberships;
-      const groupResourceNames: string[] = [];
+      const groupResourceNames = collectGroupResourceNames(personData);
       let isStarred = false;
-
-      if (Array.isArray(memberships)) {
-        for (const m of memberships) {
-          const rn =
-            m?.contactGroupMembership?.contactGroupResourceName ||
-            m?.contactGroupMembership?.contactGroup?.resourceName;
-          if (rn) groupResourceNames.push(String(rn));
-        }
-      } else if (memberships && typeof memberships === "object") {
-        const maybeArray = (memberships as any).contactGroupMemberships;
-        if (Array.isArray(maybeArray)) {
-          for (const m of maybeArray) {
-            const rn = m?.contactGroupResourceName || m?.contactGroup?.resourceName;
-            if (rn) groupResourceNames.push(String(rn));
-          }
-        }
-
-        const maybeSingle = (memberships as any).contactGroupMembership;
-        const rn =
-          maybeSingle?.contactGroupResourceName || maybeSingle?.contactGroup?.resourceName;
-        if (rn) groupResourceNames.push(String(rn));
-      }
+      let skipNonBusiness = false;
 
       const labels = groupResourceNames.map(
         (rn) => {
@@ -118,12 +176,17 @@ export async function GET() {
             return "";
           }
           if (token === "mycontacts") return "";
-          return contactGroupDisplayNameByResourceName.get(rn) || (rn.split("/").pop() || rn);
+          const display = contactGroupDisplayNameByResourceName.get(rn) || (rn.split("/").pop() || rn);
+          if (String(display).trim().toLowerCase() === "non-business") {
+            skipNonBusiness = true;
+            return "";
+          }
+          return display;
         }
       );
 
       const cleaned = Array.from(new Set(labels.map((l) => String(l).trim()).filter(Boolean)));
-      return { label: cleaned.join(", "), isStarred };
+      return { label: cleaned.join(", "), isStarred, skipNonBusiness };
     };
 
     const googleConnections: any[] = [];
@@ -133,7 +196,7 @@ export async function GET() {
         resourceName: "people/me",
         pageSize: 500,
         pageToken,
-        personFields: "names,emailAddresses,phoneNumbers,organizations,memberships",
+        personFields: "names,emailAddresses,phoneNumbers,organizations,memberships,addresses,biographies",
       });
 
       googleConnections.push(...(res.data.connections || []));
@@ -143,6 +206,7 @@ export async function GET() {
       include: {
         emails: true,
         phones: true,
+        addresses: true,
       },
     });
 
@@ -163,19 +227,42 @@ export async function GET() {
           .filter(Boolean);
         const email = emailList[0];
         const phone = phoneList[0];
+        const firstName = normalizeText(p.names?.[0]?.givenName);
+        const lastName = normalizeText(p.names?.[0]?.familyName);
         const company = p.organizations?.[0]?.name;
-        const { label, isStarred } = extractLabelStringFromPerson(p);
+        const jobTitle = p.organizations?.[0]?.title;
+        const notes = Array.isArray(p.biographies)
+          ? p.biographies
+              .map((b: any) => normalizeText(b?.value || b?.content))
+              .filter(Boolean)
+              .join("\n\n")
+          : null;
+        const address = Array.isArray(p.addresses)
+          ? normalizeAddress({
+              street: p.addresses[0]?.streetAddress,
+              city: p.addresses[0]?.city,
+              state: p.addresses[0]?.region || p.addresses[0]?.administrativeArea,
+              zip: p.addresses[0]?.postalCode,
+            })
+          : "";
+        const { label, isStarred, skipNonBusiness } = extractLabelStringFromPerson(p);
         return [
           p.resourceName!,
           {
             name,
+            firstName,
+            lastName,
             email,
             phone,
             emailList,
             phoneList,
             company,
+            jobTitle,
+            notes,
+            address,
             label,
             isStarred,
+            skipNonBusiness,
             resourceName: p.resourceName,
           },
         ];
@@ -191,6 +278,7 @@ export async function GET() {
     // Incoming: in Google, not in local (or not linked)
     for (const [, g] of googleByResource) {
       if (!g.resourceName) continue;
+      if (g.skipNonBusiness) continue;
       const local = localByGoogle.get(g.resourceName);
       if (!local) {
         preview.incomingFromGoogle.push({
@@ -205,28 +293,111 @@ export async function GET() {
     for (const local of localContacts) {
       const primaryEmail = local.emails[0]?.email ?? local.email;
       const primaryPhone = local.phones[0]?.phone ?? local.phone;
+      const primaryAddress = local.addresses[0];
+      const localAddress = normalizeAddress({
+        street: primaryAddress?.street,
+        city: primaryAddress?.city,
+        state: primaryAddress?.state,
+        zip: primaryAddress?.zip,
+      });
 
       if (local.googleResourceName) {
         const g = googleByResource.get(local.googleResourceName);
         if (g) {
+          if (g.skipNonBusiness) continue;
           const localEmailNorm = normalizeEmail(primaryEmail);
           const googleEmailNorm = normalizeEmail(g.email);
           const localPhoneNorm = normalizePhone(primaryPhone);
           const googlePhoneNorm = normalizePhone(g.phone);
 
           const localChanged =
-            normalizeName(local.name) !== normalizeName(g.name) ||
+            !namesMatch([
+              local.name,
+              buildFullName(local.firstName, local.lastName),
+              g.name,
+              buildFullName(g.firstName, g.lastName),
+            ]) ||
             localEmailNorm !== googleEmailNorm ||
             localPhoneNorm !== googlePhoneNorm ||
+            normalizeText(local.company) !== normalizeText(g.company) ||
+            normalizeText(local.jobTitle) !== normalizeText(g.jobTitle) ||
+            normalizeText(local.notes) !== normalizeText(g.notes) ||
+            localAddress !== g.address ||
             normalizeLabelString(local.label) !== normalizeLabelString(g.label) ||
             (local.isPriority ?? false) !== (g.isStarred ?? false);
           if (localChanged) {
+            const diffFields = [
+              {
+                key: "name",
+                label: "Name",
+                localValue: displayValue(buildFullName(local.firstName, local.lastName) || local.name),
+                googleValue: displayValue(buildFullName(g.firstName, g.lastName) || g.name),
+              },
+              {
+                key: "email",
+                label: "Email",
+                localValue: displayValue(primaryEmail),
+                googleValue: displayValue(g.email),
+              },
+              {
+                key: "phone",
+                label: "Phone",
+                localValue: displayValue(primaryPhone),
+                googleValue: displayValue(g.phone),
+              },
+              {
+                key: "company",
+                label: "Company",
+                localValue: displayValue(local.company),
+                googleValue: displayValue(g.company),
+              },
+              {
+                key: "jobTitle",
+                label: "Job Title",
+                localValue: displayValue(local.jobTitle),
+                googleValue: displayValue(g.jobTitle),
+              },
+              {
+                key: "address",
+                label: "Address",
+                localValue: displayValue(localAddress),
+                googleValue: displayValue(g.address),
+              },
+              {
+                key: "labels",
+                label: "Labels",
+                localValue: displayValue(local.label),
+                googleValue: displayValue(g.label),
+              },
+              {
+                key: "notes",
+                label: "Notes",
+                localValue: displayValue(local.notes),
+                googleValue: displayValue(g.notes),
+              },
+              {
+                key: "starred",
+                label: "Starred",
+                localValue: (local.isPriority ?? false) ? "Yes" : "No",
+                googleValue: g.isStarred ? "Yes" : "No",
+              },
+            ].filter((field) => field.localValue !== field.googleValue);
+
             preview.conflicts.push({
               localId: local.id,
               googleResourceName: local.googleResourceName,
               name: local.name,
-              localChanges: `${local.name} | ${primaryEmail || ""} | ${primaryPhone || ""} | ${local.label || ""} | star=${local.isPriority ? "yes" : "no"}`,
-              googleChanges: `${g.name} | ${g.email || ""} | ${g.phone || ""} | ${g.label || ""} | star=${g.isStarred ? "yes" : "no"}`,
+              localChanges:
+                `${local.name} | email=${primaryEmail || ""} | phone=${primaryPhone || ""} | ` +
+                `company=${local.company || ""} | title=${local.jobTitle || ""} | ` +
+                `address=${localAddress || ""} | labels=${local.label || ""} | ` +
+                `notes=${local.notes || ""} | star=${local.isPriority ? "yes" : "no"}`,
+              googleChanges:
+                `${g.name} | email=${g.email || ""} | phone=${g.phone || ""} | ` +
+                `company=${g.company || ""} | title=${g.jobTitle || ""} | ` +
+                `address=${g.address || ""} | labels=${g.label || ""} | ` +
+                `notes=${g.notes || ""} | star=${g.isStarred ? "yes" : "no"}`,
+              diffFields,
             });
           }
         } else {
