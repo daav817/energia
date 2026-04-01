@@ -141,6 +141,7 @@ export default function RfpGeneratorPage() {
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [customerDraft, setCustomerDraft] = useState(emptyCustomerDraft);
   const [focusRfpId, setFocusRfpId] = useState("");
+  const [attachContactCustomerId, setAttachContactCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadPageData();
@@ -171,9 +172,24 @@ export default function RfpGeneratorPage() {
     () => eligibleSuppliersForEnergy(suppliers, energyType),
     [suppliers, energyType]
   );
+  const suppliersMissingEnergyLabels = useMemo(
+    () =>
+      suppliers.filter((supplier) => {
+        const supplierTagged = supplier.contactLinks?.some((contact) =>
+          parseLabelTokens(contact.label).includes("supplier")
+        );
+        const hasEnergyLabel = supplier.contactLinks?.some((contact) => {
+          const labels = parseLabelTokens(contact.label);
+          return labels.includes("gas") || labels.includes("electric");
+        });
+        return Boolean(supplierTagged && !hasEnergyLabel);
+      }),
+    [suppliers]
+  );
 
   const selectedCustomer = customers.find((customer) => customer.id === customerId) ?? null;
   const customerContacts = selectedCustomer?.contacts ?? [];
+  const selectedCustomerHasContacts = customerContacts.length > 0;
 
   const totals = useMemo(() => {
     return accountLines.reduce(
@@ -219,11 +235,7 @@ export default function RfpGeneratorPage() {
         rfpRes.json(),
       ]);
 
-      const validCustomers = Array.isArray(customersData)
-        ? customersData.filter((customer) => Array.isArray(customer.contacts) && customer.contacts.length > 0)
-        : [];
-
-      setCustomers(validCustomers);
+      setCustomers(Array.isArray(customersData) ? customersData : []);
       setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
       setRecentRfqs(Array.isArray(rfpData) ? rfpData.slice(0, 6) : []);
     } finally {
@@ -263,32 +275,57 @@ export default function RfpGeneratorPage() {
     setCreatingCustomer(true);
     setResult(null);
     try {
-      const customerRes = await fetch("/api/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: customerDraft.customerName,
-          company: customerDraft.company || undefined,
-          email: customerDraft.email || undefined,
-          phone: customerDraft.phone || undefined,
-          address: customerDraft.address || undefined,
-          city: customerDraft.city || undefined,
-          state: customerDraft.state || undefined,
-          zip: customerDraft.zip || undefined,
-          notes: customerDraft.notes || undefined,
-        }),
-      });
-      const customerData = await customerRes.json();
-      if (!customerRes.ok) throw new Error(customerData.error || "Failed to create customer");
+      const targetCustomer =
+        attachContactCustomerId != null
+          ? customers.find((customer) => customer.id === attachContactCustomerId) ?? null
+          : null;
+
+      let customerData:
+        | {
+            id: string;
+            name: string;
+            company: string | null;
+          }
+        | null = targetCustomer
+        ? { id: targetCustomer.id, name: targetCustomer.name, company: targetCustomer.company }
+        : null;
+
+      if (!customerData) {
+        const customerRes = await fetch("/api/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: customerDraft.customerName,
+            company: customerDraft.company || undefined,
+            email: customerDraft.email || undefined,
+            phone: customerDraft.phone || undefined,
+            address: customerDraft.address || undefined,
+            city: customerDraft.city || undefined,
+            state: customerDraft.state || undefined,
+            zip: customerDraft.zip || undefined,
+            notes: customerDraft.notes || undefined,
+          }),
+        });
+        const createdCustomer = await customerRes.json();
+        if (!customerRes.ok) throw new Error(createdCustomer.error || "Failed to create customer");
+        customerData = createdCustomer;
+      }
+      if (!customerData) {
+        throw new Error("Customer record unavailable for contact creation");
+      }
 
       const contactRes = await fetch("/api/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: customerDraft.contactName || customerDraft.customerName,
+          name:
+            customerDraft.contactName ||
+            customerDraft.customerName ||
+            targetCustomer?.name ||
+            "Customer Contact",
           email: customerDraft.contactEmail || customerDraft.email || undefined,
           phone: customerDraft.contactPhone || customerDraft.phone || undefined,
-          company: customerDraft.company || undefined,
+          company: customerDraft.company || targetCustomer?.company || undefined,
           label: "customer",
           customerId: customerData.id,
           emails: customerDraft.contactEmail || customerDraft.email
@@ -316,6 +353,7 @@ export default function RfpGeneratorPage() {
       setCustomerContactId(contactData.id);
       setCustomerDialogOpen(false);
       setCustomerDraft(emptyCustomerDraft);
+      setAttachContactCustomerId(null);
     } catch (error) {
       setResult({ error: error instanceof Error ? error.message : "Failed to create customer" });
     } finally {
@@ -377,7 +415,14 @@ export default function RfpGeneratorPage() {
             broker economics before the email goes out.
           </p>
         </div>
-        <Button variant="outline" onClick={() => setCustomerDialogOpen(true)}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setAttachContactCustomerId(null);
+            setCustomerDraft(emptyCustomerDraft);
+            setCustomerDialogOpen(true);
+          }}
+        >
           <UserPlus className="mr-2 h-4 w-4" />
           Add customer + contact
         </Button>
@@ -408,12 +453,15 @@ export default function RfpGeneratorPage() {
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.name}
                           {customer.company ? ` (${customer.company})` : ""}
+                          {Array.isArray(customer.contacts) && customer.contacts.length === 0
+                            ? " - no contact on file"
+                            : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Only customers with linked contact info appear here. Add one if the customer is missing.
+                    Customers without contacts can still be selected, but a customer contact must be added before sending the RFP.
                   </p>
                 </div>
 
@@ -438,6 +486,28 @@ export default function RfpGeneratorPage() {
                   </Select>
                 </div>
               </div>
+
+              {selectedCustomer && !selectedCustomerHasContacts && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p>{selectedCustomer.name} does not have a linked customer contact yet.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => {
+                      setAttachContactCustomerId(selectedCustomer.id);
+                      setCustomerDraft((current) => ({
+                        ...current,
+                        customerName: selectedCustomer.name,
+                        company: selectedCustomer.company || "",
+                      }));
+                      setCustomerDialogOpen(true);
+                    }}
+                  >
+                    Add contact for this customer
+                  </Button>
+                </div>
+              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
@@ -565,6 +635,18 @@ export default function RfpGeneratorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {suppliersMissingEnergyLabels.length > 0 && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-medium">Supplier label follow-up needed</p>
+                  <p className="mt-1">
+                    These suppliers have contacts labeled as supplier but are still missing a `gas`
+                    or `electric` label, so RFP targeting may be incomplete:
+                  </p>
+                  <p className="mt-2">
+                    {suppliersMissingEnergyLabels.map((supplier) => supplier.name).join(", ")}
+                  </p>
+                </div>
+              )}
               {eligibleSuppliers.length === 0 && (
                 <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                   No suppliers are currently tagged for {energyType === "ELECTRIC" ? "electric" : "natural gas"}.
@@ -835,10 +917,21 @@ export default function RfpGeneratorPage() {
         </div>
       </div>
 
-      <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+      <Dialog
+        open={customerDialogOpen}
+        onOpenChange={(open) => {
+          setCustomerDialogOpen(open);
+          if (!open) {
+            setAttachContactCustomerId(null);
+            setCustomerDraft(emptyCustomerDraft);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add customer and contact</DialogTitle>
+            <DialogTitle>
+              {attachContactCustomerId ? "Add contact for existing customer" : "Add customer and contact"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="grid gap-2">
@@ -846,6 +939,7 @@ export default function RfpGeneratorPage() {
               <Input
                 value={customerDraft.customerName}
                 onChange={(e) => setCustomerDraft((current) => ({ ...current, customerName: e.target.value }))}
+                disabled={attachContactCustomerId != null}
               />
             </div>
             <div className="grid gap-2">
@@ -853,6 +947,7 @@ export default function RfpGeneratorPage() {
               <Input
                 value={customerDraft.company}
                 onChange={(e) => setCustomerDraft((current) => ({ ...current, company: e.target.value }))}
+                disabled={attachContactCustomerId != null}
               />
             </div>
             <div className="grid gap-2">
@@ -932,7 +1027,13 @@ export default function RfpGeneratorPage() {
               Cancel
             </Button>
             <Button type="button" onClick={handleCreateCustomer} disabled={creatingCustomer}>
-              {creatingCustomer ? "Creating..." : "Create customer"}
+                {creatingCustomer
+                  ? attachContactCustomerId
+                    ? "Creating contact..."
+                    : "Creating..."
+                  : attachContactCustomerId
+                    ? "Create contact"
+                    : "Create customer"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -996,9 +1097,17 @@ function eligibleSuppliersForEnergy(suppliers: SupplierOption[], energyType: Ene
   return suppliers.filter((supplier) => {
     const energyFlag = energyType === "ELECTRIC" ? supplier.isElectric : supplier.isNaturalGas;
     const labelMatch = supplier.contactLinks?.some((contact) => {
-      const label = contact.label?.toLowerCase() || "";
-      return energyType === "ELECTRIC" ? label.includes("electric") : label.includes("gas");
+      const labels = parseLabelTokens(contact.label);
+      return energyType === "ELECTRIC" ? labels.includes("electric") : labels.includes("gas");
     });
     return Boolean(energyFlag || labelMatch);
   });
+}
+
+function parseLabelTokens(raw: string | null | undefined) {
+  if (!raw) return [];
+  return raw
+    .split(/[,;]+/g)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
 }
