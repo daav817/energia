@@ -561,16 +561,16 @@ export default function InboxPage() {
   };
 
   const openInNewWindow = (msg: { id: string }) => {
-    const url = `/communications/inbox/email/${msg.id}`;
+    const url = `/inbox/email/${msg.id}`;
     window.open(url, "_blank", "width=800,height=600");
   };
 
   const handleReply = (msg: { id: string }) => {
-    window.location.href = `/communications/compose?reply=${msg.id}`;
+    window.location.href = `/compose?reply=${msg.id}`;
   };
 
   const handleForward = (msg: { id: string }) => {
-    window.location.href = `/communications/compose?forward=${msg.id}`;
+    window.location.href = `/compose?forward=${msg.id}`;
   };
 
   const labelMap = new Map(labels.map((l) => [l.id, l.name]));

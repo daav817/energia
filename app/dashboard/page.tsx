@@ -231,7 +231,7 @@ export default function DashboardPage() {
                 <CardDescription className="text-[11px]">Latest from Inbox</CardDescription>
               </div>
               <Button variant="ghost" size="sm" className="h-8 text-xs" asChild>
-                <Link href="/communications/inbox">
+                <Link href="/inbox">
                   Inbox <ExternalLink className="ml-1 h-3 w-3" />
                 </Link>
               </Button>
@@ -244,7 +244,7 @@ export default function DashboardPage() {
                   {emails.map((m) => (
                     <li key={m.id}>
                       <Link
-                        href={`/communications/inbox/email/${encodeURIComponent(m.id)}`}
+                        href={`/inbox/email/${encodeURIComponent(m.id)}`}
                         className="block px-2 py-1.5 rounded-md hover:bg-muted/80 text-left"
                         title={m.subject}
                       >

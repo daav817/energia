@@ -839,7 +839,7 @@ export default function ContactsPage() {
                 (recentEmails[c.id] || []).map((e) => (
                   <a
                     key={e.id}
-                    href={"/communications/inbox/email/" + e.id}
+                    href={"/inbox/email/" + e.id}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block truncate hover:underline"

@@ -386,7 +386,7 @@ export function ScheduleContractModal(props: {
             </Button>
             {contactId && (
               <Button type="button" variant="secondary" asChild>
-                <Link href="/communications/contacts">Open Contact Management</Link>
+                <Link href="/contacts">Open Contact Management</Link>
               </Button>
             )}
           </DialogFooter>

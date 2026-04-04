@@ -14,13 +14,13 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      `${baseUrl}/communications?error=${encodeURIComponent(error)}`
+      `${baseUrl}/mail?error=${encodeURIComponent(error)}`
     );
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${baseUrl}/communications?error=no_code`
+      `${baseUrl}/mail?error=no_code`
     );
   }
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokens.refresh_token) {
       return NextResponse.redirect(
-        `${baseUrl}/communications?error=no_refresh_token`
+        `${baseUrl}/mail?error=no_refresh_token`
       );
     }
 
@@ -40,11 +40,11 @@ export async function GET(request: NextRequest) {
       expiry_date: tokens.expiry_date ?? undefined,
     });
 
-    return NextResponse.redirect(`${baseUrl}/communications?connected=1`);
+    return NextResponse.redirect(`${baseUrl}/mail?connected=1`);
   } catch (err) {
     console.error("Google OAuth callback error:", err);
     return NextResponse.redirect(
-      `${baseUrl}/communications?error=callback_failed`
+      `${baseUrl}/mail?error=callback_failed`
     );
   }
 }

@@ -1529,7 +1529,7 @@ export default function RfpGeneratorPage() {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link
-                      href={`/communications/quotes?rfpRequestId=${rfp.id}`}
+                      href={`/quotes?rfpRequestId=${rfp.id}`}
                       className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium"
                     >
                       Review quotes

@@ -6,14 +6,15 @@ import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/communications/inbox", label: "Inbox" },
-  { href: "/communications/compose", label: "Compose" },
-  { href: "/communications/contacts", label: "Contacts" },
+  { href: "/mail", label: "Mail" },
+  { href: "/inbox", label: "Inbox" },
+  { href: "/compose", label: "Compose" },
+  { href: "/contacts", label: "Contacts" },
   { href: "/schedule", label: "Calendar" },
   { href: "/tasks", label: "Tasks" },
   { href: "/directory/contracts", label: "Contracts" },
-  { href: "/communications/rfp", label: "RFP Generator" },
-  { href: "/communications/quotes", label: "Quotes" },
+  { href: "/rfp", label: "RFP Generator" },
+  { href: "/quotes", label: "Quotes" },
 ] as const;
 
 export function AppMainNav() {

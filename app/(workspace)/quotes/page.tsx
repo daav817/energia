@@ -463,7 +463,7 @@ export default function RfpQuotesPage() {
                   Mark Completed
                 </Button>
                 <Link
-                  href={`/communications/rfp?rfpRequestId=${selectedRequest.id}`}
+                  href={`/rfp?rfpRequestId=${selectedRequest.id}`}
                   className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium"
                 >
                   Back to RFP

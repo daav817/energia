@@ -964,7 +964,7 @@ export default function CustomersPage() {
                   ) : null}
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/communications/contacts">
+                  <Link href="/contacts">
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Open Contacts page
                   </Link>

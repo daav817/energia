@@ -36,7 +36,7 @@ export function TodayEmailNavLink() {
 
   return (
     <Link
-      href="/communications"
+      href="/mail"
       prefetch={true}
       className="flex gap-2 items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       title={tooltipDate}

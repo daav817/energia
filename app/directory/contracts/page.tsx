@@ -2022,7 +2022,7 @@ function SupplierInfoModal({
           <DialogTitle>{supplier.name}</DialogTitle>
           <p className="text-sm font-normal text-muted-foreground pt-1">
             Supplier directory record. Contacts below come from{" "}
-            <a href="/communications/contacts" className="text-primary underline inline-flex items-center gap-1">
+            <a href="/contacts" className="text-primary underline inline-flex items-center gap-1">
               Contacts
               <ExternalLink className="h-3 w-3" />
             </a>{" "}

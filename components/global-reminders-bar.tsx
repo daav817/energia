@@ -171,7 +171,7 @@ export function GlobalRemindersBar() {
   return (
     <>
       <div
-        className="sticky top-0 z-50 border-b border-amber-200/80 bg-amber-50/95 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/85 dark:text-amber-50"
+        className="sticky top-0 z-50 shrink-0 border-b border-amber-200/80 bg-amber-50/95 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/85 dark:text-amber-50"
         role="region"
         aria-label="Upcoming reminders"
       >

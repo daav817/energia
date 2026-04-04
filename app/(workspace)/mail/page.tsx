@@ -90,7 +90,7 @@ export default function CommunicationsPage() {
       error: params.get("error") || "",
     });
     if (params.get("connected")) {
-      window.history.replaceState({}, "", "/communications");
+      window.history.replaceState({}, "", "/mail");
     }
   }, []);
 
@@ -257,7 +257,7 @@ export default function CommunicationsPage() {
   };
 
   const openInNewWindow = (msg: { id: string }) => {
-    window.open(`/communications/inbox/email/${msg.id}`, "_blank", "width=800,height=600");
+    window.open(`/inbox/email/${msg.id}`, "_blank", "width=800,height=600");
   };
 
   const startResizeListDetail = (startX: number) => {
@@ -281,11 +281,11 @@ export default function CommunicationsPage() {
   };
 
   const handleReply = (msg: { id: string }) => {
-    window.location.href = `/communications/compose?reply=${msg.id}`;
+    window.location.href = `/compose?reply=${msg.id}`;
   };
 
   const handleForward = (msg: { id: string }) => {
-    window.location.href = `/communications/compose?forward=${msg.id}`;
+    window.location.href = `/compose?forward=${msg.id}`;
   };
 
   return (
@@ -426,8 +426,8 @@ export default function CommunicationsPage() {
                 }
                 return (
                 <div className="divide-y">
-                  <a href="/communications/inbox" className="block border-b px-4 py-3 text-center text-sm text-muted-foreground hover:bg-muted/50">
-                    Open full Inbox with folders, search, and email controls →
+                  <a href="/inbox" className="block border-b px-4 py-3 text-center text-sm text-muted-foreground hover:bg-muted/50">
+                    Open full Inbox with folders, search, and email controls ΓåÆ
                   </a>
                   {(() => {
                     const labelMap = new Map(labels.map((l) => [l.id, l.name]));

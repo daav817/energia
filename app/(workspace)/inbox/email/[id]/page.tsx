@@ -99,15 +99,15 @@ export default function EmailWindowPage() {
   };
 
   const openInNewWindow = (msg: EmailMessage) => {
-    window.open(`/communications/inbox/email/${msg.id}`, "_blank", "width=800,height=600");
+    window.open(`/inbox/email/${msg.id}`, "_blank", "width=800,height=600");
   };
 
   const handleReply = (msg: EmailMessage) => {
-    window.location.href = `/communications/compose?reply=${msg.id}`;
+    window.location.href = `/compose?reply=${msg.id}`;
   };
 
   const handleForward = (msg: EmailMessage) => {
-    window.location.href = `/communications/compose?forward=${msg.id}`;
+    window.location.href = `/compose?forward=${msg.id}`;
   };
 
   if (loading) return <div className="p-8 text-center comms-inbox">Loading...</div>;
