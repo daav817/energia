@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -39,30 +40,45 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const status = typeof body.status === "string" ? body.status.trim() : "";
+    const statusRaw = typeof body.status === "string" ? body.status.trim() : "";
     const notes = typeof body.notes === "string" ? body.notes.trim() : undefined;
 
-    if (!status) {
-      return NextResponse.json({ error: "status is required" }, { status: 400 });
+    const data: Prisma.RfpRequestUpdateInput = {};
+
+    if (statusRaw) {
+      const allowedStatuses = new Set(["draft", "sent", "quotes_received", "completed", "cancelled"]);
+      if (!allowedStatuses.has(statusRaw)) {
+        return NextResponse.json({ error: "Invalid RFP status" }, { status: 400 });
+      }
+      data.status = statusRaw;
     }
 
-    const allowedStatuses = new Set(["draft", "sent", "quotes_received", "completed", "cancelled"]);
-    if (!allowedStatuses.has(status)) {
-      return NextResponse.json({ error: "Invalid RFP status" }, { status: 400 });
+    if (notes !== undefined) {
+      data.notes = notes || null;
+    }
+
+    if (body.customerContactId !== undefined) {
+      const cid =
+        body.customerContactId === null || body.customerContactId === ""
+          ? ""
+          : String(body.customerContactId).trim();
+      data.customerContact = cid ? { connect: { id: cid } } : { disconnect: true };
+    }
+
+    if (Array.isArray(body.quoteSummaryContactIds)) {
+      data.quoteSummaryContactIds = body.quoteSummaryContactIds.map(String).filter(Boolean);
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
     const updated = await prisma.rfpRequest.update({
       where: { id },
-      data: {
-        status,
-        ...(notes !== undefined
-          ? {
-              notes: notes || null,
-            }
-          : {}),
-      },
+      data,
       include: {
         customer: { select: { id: true, name: true, company: true } },
+        customerContact: { select: { id: true, name: true, email: true, phone: true } },
         suppliers: { select: { id: true, name: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {

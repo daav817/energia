@@ -111,6 +111,7 @@ export type RfpRequestCountAggregateOutputType = {
   requestedTerms: number
   customerContactId: number
   quoteSummaryCcContactIds: number
+  quoteSummaryContactIds: number
   sentAt: number
   status: number
   notes: number
@@ -205,6 +206,7 @@ export type RfpRequestCountAggregateInputType = {
   requestedTerms?: true
   customerContactId?: true
   quoteSummaryCcContactIds?: true
+  quoteSummaryContactIds?: true
   sentAt?: true
   status?: true
   notes?: true
@@ -318,6 +320,7 @@ export type RfpRequestGroupByOutputType = {
   requestedTerms: runtime.JsonValue | null
   customerContactId: string | null
   quoteSummaryCcContactIds: runtime.JsonValue | null
+  quoteSummaryContactIds: string[]
   sentAt: Date | null
   status: string
   notes: string | null
@@ -367,6 +370,7 @@ export type RfpRequestWhereInput = {
   requestedTerms?: Prisma.JsonNullableFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableFilter<"RfpRequest">
+  quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
   sentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
@@ -399,6 +403,7 @@ export type RfpRequestOrderByWithRelationInput = {
   requestedTerms?: Prisma.SortOrderInput | Prisma.SortOrder
   customerContactId?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryCcContactIds?: Prisma.SortOrderInput | Prisma.SortOrder
+  quoteSummaryContactIds?: Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -434,6 +439,7 @@ export type RfpRequestWhereUniqueInput = Prisma.AtLeast<{
   requestedTerms?: Prisma.JsonNullableFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableFilter<"RfpRequest">
+  quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
   sentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
@@ -466,6 +472,7 @@ export type RfpRequestOrderByWithAggregationInput = {
   requestedTerms?: Prisma.SortOrderInput | Prisma.SortOrder
   customerContactId?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryCcContactIds?: Prisma.SortOrderInput | Prisma.SortOrder
+  quoteSummaryContactIds?: Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -500,6 +507,7 @@ export type RfpRequestScalarWhereWithAggregatesInput = {
   requestedTerms?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
+  quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
   sentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringWithAggregatesFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
@@ -524,6 +532,7 @@ export type RfpRequestCreateInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -556,6 +565,7 @@ export type RfpRequestUncheckedCreateInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -584,6 +594,7 @@ export type RfpRequestUpdateInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -616,6 +627,7 @@ export type RfpRequestUncheckedUpdateInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -646,6 +658,7 @@ export type RfpRequestCreateManyInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -670,6 +683,7 @@ export type RfpRequestUpdateManyMutationInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -696,6 +710,7 @@ export type RfpRequestUncheckedUpdateManyInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -718,6 +733,14 @@ export type RfpRequestNullableScalarRelationFilter = {
   isNot?: Prisma.RfpRequestWhereInput | null
 }
 
+export type StringNullableListFilter<$PrismaModel = never> = {
+  equals?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  has?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  isEmpty?: boolean
+}
+
 export type RfpRequestCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
@@ -737,6 +760,7 @@ export type RfpRequestCountOrderByAggregateInput = {
   requestedTerms?: Prisma.SortOrder
   customerContactId?: Prisma.SortOrder
   quoteSummaryCcContactIds?: Prisma.SortOrder
+  quoteSummaryContactIds?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
@@ -911,8 +935,17 @@ export type RfpRequestUpdateOneWithoutCalendarEventsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.RfpRequestUpdateToOneWithWhereWithoutCalendarEventsInput, Prisma.RfpRequestUpdateWithoutCalendarEventsInput>, Prisma.RfpRequestUncheckedUpdateWithoutCalendarEventsInput>
 }
 
+export type RfpRequestCreatequoteSummaryContactIdsInput = {
+  set: string[]
+}
+
 export type NullableEnumPriceUnitFieldUpdateOperationsInput = {
   set?: $Enums.PriceUnit | null
+}
+
+export type RfpRequestUpdatequoteSummaryContactIdsInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 export type RfpRequestCreateNestedOneWithoutAccountLinesInput = {
@@ -1004,6 +1037,7 @@ export type RfpRequestCreateWithoutCustomerInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1034,6 +1068,7 @@ export type RfpRequestUncheckedCreateWithoutCustomerInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1093,6 +1128,7 @@ export type RfpRequestScalarWhereInput = {
   requestedTerms?: Prisma.JsonNullableFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableFilter<"RfpRequest">
+  quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
   sentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
@@ -1117,6 +1153,7 @@ export type RfpRequestCreateWithoutSuppliersInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1148,6 +1185,7 @@ export type RfpRequestUncheckedCreateWithoutSuppliersInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1196,6 +1234,7 @@ export type RfpRequestCreateWithoutCalendarEventsInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1227,6 +1266,7 @@ export type RfpRequestUncheckedCreateWithoutCalendarEventsInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1270,6 +1310,7 @@ export type RfpRequestUpdateWithoutCalendarEventsInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1301,6 +1342,7 @@ export type RfpRequestUncheckedUpdateWithoutCalendarEventsInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1328,6 +1370,7 @@ export type RfpRequestCreateWithoutAccountLinesInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1359,6 +1402,7 @@ export type RfpRequestUncheckedCreateWithoutAccountLinesInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1402,6 +1446,7 @@ export type RfpRequestUpdateWithoutAccountLinesInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1433,6 +1478,7 @@ export type RfpRequestUncheckedUpdateWithoutAccountLinesInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1460,6 +1506,7 @@ export type RfpRequestCreateWithoutQuotesInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1491,6 +1538,7 @@ export type RfpRequestUncheckedCreateWithoutQuotesInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1534,6 +1582,7 @@ export type RfpRequestUpdateWithoutQuotesInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1565,6 +1614,7 @@ export type RfpRequestUncheckedUpdateWithoutQuotesInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1592,6 +1642,7 @@ export type RfpRequestCreateWithoutCustomerContactInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1622,6 +1673,7 @@ export type RfpRequestUncheckedCreateWithoutCustomerContactInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1677,6 +1729,7 @@ export type RfpRequestCreateManyCustomerInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1701,6 +1754,7 @@ export type RfpRequestUpdateWithoutCustomerInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1731,6 +1785,7 @@ export type RfpRequestUncheckedUpdateWithoutCustomerInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1760,6 +1815,7 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1784,6 +1840,7 @@ export type RfpRequestUpdateWithoutSuppliersInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1815,6 +1872,7 @@ export type RfpRequestUncheckedUpdateWithoutSuppliersInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1844,6 +1902,7 @@ export type RfpRequestUncheckedUpdateManyWithoutSuppliersInput = {
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1869,6 +1928,7 @@ export type RfpRequestCreateManyCustomerContactInput = {
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
@@ -1893,6 +1953,7 @@ export type RfpRequestUpdateWithoutCustomerContactInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1923,6 +1984,7 @@ export type RfpRequestUncheckedUpdateWithoutCustomerContactInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1952,6 +2014,7 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerContactInput = {
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2036,6 +2099,7 @@ export type RfpRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   requestedTerms?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
+  quoteSummaryContactIds?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
@@ -2069,6 +2133,7 @@ export type RfpRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   requestedTerms?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
+  quoteSummaryContactIds?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
@@ -2097,6 +2162,7 @@ export type RfpRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   requestedTerms?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
+  quoteSummaryContactIds?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
@@ -2125,6 +2191,7 @@ export type RfpRequestSelectScalar = {
   requestedTerms?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
+  quoteSummaryContactIds?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
@@ -2132,7 +2199,7 @@ export type RfpRequestSelectScalar = {
   updatedAt?: boolean
 }
 
-export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "customerContactId" | "quoteSummaryCcContactIds" | "sentAt" | "status" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
+export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "sentAt" | "status" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
 export type RfpRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
@@ -2180,9 +2247,13 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
     requestedTerms: runtime.JsonValue | null
     customerContactId: string | null
     /**
-     * Additional customer-side contacts to include when sending quote summaries (JSON string array of contact ids).
+     * Additional customer-side contacts to include when sending quote summaries (JSON array of contact ids).
      */
     quoteSummaryCcContactIds: runtime.JsonValue | null
+    /**
+     * Customer contact ids selected for quote summary distribution (native PG array).
+     */
+    quoteSummaryContactIds: string[]
     sentAt: Date | null
     status: string
     notes: string | null
@@ -2635,6 +2706,7 @@ export interface RfpRequestFieldRefs {
   readonly requestedTerms: Prisma.FieldRef<"RfpRequest", 'Json'>
   readonly customerContactId: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly quoteSummaryCcContactIds: Prisma.FieldRef<"RfpRequest", 'Json'>
+  readonly quoteSummaryContactIds: Prisma.FieldRef<"RfpRequest", 'String[]'>
   readonly sentAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
   readonly status: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly notes: Prisma.FieldRef<"RfpRequest", 'String'>
