@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   RefreshCw,
   Star,
@@ -13,6 +14,7 @@ import {
   FolderPlus,
   Paperclip,
   Plus,
+  PenLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -613,7 +615,17 @@ export default function InboxPage() {
   const [unreadFolderOpen, setUnreadFolderOpen] = useState<Record<string, boolean>>({});
 
   return (
-    <div className="flex flex-1 min-h-0 gap-0 w-full comms-inbox">
+    <div className="flex flex-1 min-h-0 flex-col gap-3 w-full comms-inbox min-w-0">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Emails</h1>
+        <Button type="button" className="shrink-0" asChild>
+          <Link href="/compose">
+            <PenLine className="mr-2 h-4 w-4" />
+            Compose Email
+          </Link>
+        </Button>
+      </div>
+      <div className="flex flex-1 min-h-0 gap-0 w-full min-w-0">
       <MoveToFolderDialog
         open={!!assignFolderEmailId || !!bulkMoveIds?.length}
         onOpenChange={(open) => {
@@ -1241,6 +1253,7 @@ export default function InboxPage() {
           />
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -52,6 +52,22 @@ export async function POST(request: NextRequest) {
     const primaryTermMonths =
       payload.termValues.find((value) => value.kind === "months")?.months ?? null;
 
+    const reissueParentId = nonEmptyString(body.reissueParentRfpId);
+    let parentRfpId: string | null = null;
+    let refreshSequence = 0;
+    if (reissueParentId) {
+      const parentRow = await prisma.rfpRequest.findUnique({
+        where: { id: reissueParentId },
+        select: { id: true, refreshSequence: true },
+      });
+      if (parentRow) {
+        parentRfpId = parentRow.id;
+        refreshSequence = parentRow.refreshSequence + 1;
+      }
+    }
+
+    const supplierContactSelections = supplierSelectionsFromBody(body);
+
     const rfpRequest = await prisma.rfpRequest.create({
       data: {
         customerId: payload.customer.id,
@@ -70,9 +86,12 @@ export async function POST(request: NextRequest) {
         brokerMarginUnit: payload.brokerMarginUnit,
         ldcUtility: payload.ldcUtility,
         requestedTerms: payload.termValues,
+        ...(supplierContactSelections ? { supplierContactSelections } : {}),
         notes: payload.notes,
         status: "sent",
         sentAt: new Date(),
+        ...(parentRfpId ? { parentRfpId } : {}),
+        refreshSequence,
         suppliers: {
           connect: payload.suppliers.map((supplier) => ({ id: supplier.id })),
         },
@@ -174,6 +193,22 @@ async function parseRequestPayload(request: NextRequest): Promise<{
   return { body, attachments };
 }
 
+function supplierSelectionsFromBody(
+  body: Record<string, unknown>
+): Record<string, string> | null {
+  const supplierIds = Array.isArray(body.supplierIds) ? body.supplierIds.map(String) : [];
+  const supplierContactIds = Array.isArray(body.supplierContactIds)
+    ? body.supplierContactIds.map(String)
+    : [];
+  if (supplierIds.length === 0) return null;
+  const map: Record<string, string> = {};
+  for (let i = 0; i < supplierIds.length; i++) {
+    const c = supplierContactIds[i];
+    if (c) map[supplierIds[i]] = c;
+  }
+  return Object.keys(map).length > 0 ? map : null;
+}
+
 function buildRfpEmailBody(opts: {
   customer: { name: string; company: string | null };
   customerContact: { name: string; email: string | null; phone: string | null };
@@ -249,6 +284,35 @@ function buildRfpEmailBody(opts: {
     ["Usage Summary", usageReference],
   ];
 
+  const utilityAccountsTableHtml =
+    opts.accountLines.length > 0
+      ? `
+      <p style="margin: 20px 0 8px;"><strong>Utility accounts &amp; usage</strong></p>
+      <table style="border-collapse: collapse; width: 100%; max-width: 760px;">
+        <thead>
+          <tr>
+            <th style="border: 1px solid #111; padding: 8px; text-align: left;">Account #</th>
+            <th style="border: 1px solid #111; padding: 8px; text-align: left;">Service address</th>
+            <th style="border: 1px solid #111; padding: 8px; text-align: right;">Annual usage</th>
+            <th style="border: 1px solid #111; padding: 8px; text-align: right;">Avg monthly</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${opts.accountLines
+            .map(
+              (line) => `
+            <tr>
+              <td style="border: 1px solid #111; padding: 8px; vertical-align: top;">${escapeHtml(line.accountNumber)}</td>
+              <td style="border: 1px solid #111; padding: 8px; vertical-align: top;">${escapeHtml(line.serviceAddress || "—")}</td>
+              <td style="border: 1px solid #111; padding: 8px; vertical-align: top; text-align: right;">${escapeHtml(formatUsage(line.annualUsage))}</td>
+              <td style="border: 1px solid #111; padding: 8px; vertical-align: top; text-align: right;">${escapeHtml(formatUsage(line.avgMonthlyUsage))}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`.trim()
+      : "";
+
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #111; line-height: 1.4;">
       <p style="font-size: 28px; margin: 0 0 8px;"><strong>${escapeHtml(opts.customer.name)}</strong> | <strong>${escapeHtml(formatEnergyType(opts.energyType))}</strong> Quote</p>
@@ -270,6 +334,7 @@ function buildRfpEmailBody(opts: {
             .join("")}
         </tbody>
       </table>
+      ${utilityAccountsTableHtml}
       ${opts.notes ? `<p style="margin-top: 18px;">${escapeHtml(opts.notes)}</p>` : ""}
       <p style="margin-top: 18px;">If you have any questions about this request, please contact me.</p>
       <p>Thank you!</p>
@@ -301,6 +366,11 @@ function buildRfpEmailBody(opts: {
     `Customer Bills: ${opts.billDocumentUrl || (opts.billAttachmentName ? `Attached file: ${opts.billAttachmentName}` : "—")}`,
     `Usage Summary Link: ${opts.usageSummaryUrl || (opts.usageSummaryAttachmentName ? `Attached file: ${opts.usageSummaryAttachmentName}` : "—")}`,
     usageSummaryText,
+    "",
+    "Utility accounts & usage (table):",
+    ...opts.accountLines.map((line) =>
+      `  ${line.accountNumber} | ${line.serviceAddress || "—"} | annual ${formatUsage(line.annualUsage)} | avg mo ${formatUsage(line.avgMonthlyUsage)}`
+    ),
     "",
     opts.notes || "",
     "If you have any questions about this request, please contact me.",

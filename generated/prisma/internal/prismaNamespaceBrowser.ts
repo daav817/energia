@@ -320,12 +320,16 @@ export const RfpRequestScalarFieldEnum = {
   brokerMarginUnit: 'brokerMarginUnit',
   ldcUtility: 'ldcUtility',
   requestedTerms: 'requestedTerms',
+  supplierContactSelections: 'supplierContactSelections',
   customerContactId: 'customerContactId',
   quoteSummaryCcContactIds: 'quoteSummaryCcContactIds',
   quoteSummaryContactIds: 'quoteSummaryContactIds',
+  quoteSummarySentAt: 'quoteSummarySentAt',
   sentAt: 'sentAt',
   status: 'status',
   notes: 'notes',
+  parentRfpId: 'parentRfpId',
+  refreshSequence: 'refreshSequence',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { GlobalRemindersBar } from "@/components/global-reminders-bar";
-import { AppMainNav } from "@/components/app-main-nav";
+import { AppShell } from "@/components/app-shell";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,9 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} flex flex-col h-dvh overflow-hidden`}>
-        <GlobalRemindersBar />
-        <AppMainNav />
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

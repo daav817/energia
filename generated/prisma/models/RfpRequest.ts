@@ -33,6 +33,7 @@ export type RfpRequestAvgAggregateOutputType = {
   contractStartMonth: number | null
   contractStartYear: number | null
   brokerMargin: runtime.Decimal | null
+  refreshSequence: number | null
 }
 
 export type RfpRequestSumAggregateOutputType = {
@@ -42,6 +43,7 @@ export type RfpRequestSumAggregateOutputType = {
   contractStartMonth: number | null
   contractStartYear: number | null
   brokerMargin: runtime.Decimal | null
+  refreshSequence: number | null
 }
 
 export type RfpRequestMinAggregateOutputType = {
@@ -61,9 +63,12 @@ export type RfpRequestMinAggregateOutputType = {
   brokerMarginUnit: $Enums.PriceUnit | null
   ldcUtility: string | null
   customerContactId: string | null
+  quoteSummarySentAt: Date | null
   sentAt: Date | null
   status: string | null
   notes: string | null
+  parentRfpId: string | null
+  refreshSequence: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -85,9 +90,12 @@ export type RfpRequestMaxAggregateOutputType = {
   brokerMarginUnit: $Enums.PriceUnit | null
   ldcUtility: string | null
   customerContactId: string | null
+  quoteSummarySentAt: Date | null
   sentAt: Date | null
   status: string | null
   notes: string | null
+  parentRfpId: string | null
+  refreshSequence: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -109,12 +117,16 @@ export type RfpRequestCountAggregateOutputType = {
   brokerMarginUnit: number
   ldcUtility: number
   requestedTerms: number
+  supplierContactSelections: number
   customerContactId: number
   quoteSummaryCcContactIds: number
   quoteSummaryContactIds: number
+  quoteSummarySentAt: number
   sentAt: number
   status: number
   notes: number
+  parentRfpId: number
+  refreshSequence: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -128,6 +140,7 @@ export type RfpRequestAvgAggregateInputType = {
   contractStartMonth?: true
   contractStartYear?: true
   brokerMargin?: true
+  refreshSequence?: true
 }
 
 export type RfpRequestSumAggregateInputType = {
@@ -137,6 +150,7 @@ export type RfpRequestSumAggregateInputType = {
   contractStartMonth?: true
   contractStartYear?: true
   brokerMargin?: true
+  refreshSequence?: true
 }
 
 export type RfpRequestMinAggregateInputType = {
@@ -156,9 +170,12 @@ export type RfpRequestMinAggregateInputType = {
   brokerMarginUnit?: true
   ldcUtility?: true
   customerContactId?: true
+  quoteSummarySentAt?: true
   sentAt?: true
   status?: true
   notes?: true
+  parentRfpId?: true
+  refreshSequence?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -180,9 +197,12 @@ export type RfpRequestMaxAggregateInputType = {
   brokerMarginUnit?: true
   ldcUtility?: true
   customerContactId?: true
+  quoteSummarySentAt?: true
   sentAt?: true
   status?: true
   notes?: true
+  parentRfpId?: true
+  refreshSequence?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -204,12 +224,16 @@ export type RfpRequestCountAggregateInputType = {
   brokerMarginUnit?: true
   ldcUtility?: true
   requestedTerms?: true
+  supplierContactSelections?: true
   customerContactId?: true
   quoteSummaryCcContactIds?: true
   quoteSummaryContactIds?: true
+  quoteSummarySentAt?: true
   sentAt?: true
   status?: true
   notes?: true
+  parentRfpId?: true
+  refreshSequence?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -318,12 +342,16 @@ export type RfpRequestGroupByOutputType = {
   brokerMarginUnit: $Enums.PriceUnit | null
   ldcUtility: string | null
   requestedTerms: runtime.JsonValue | null
+  supplierContactSelections: runtime.JsonValue | null
   customerContactId: string | null
   quoteSummaryCcContactIds: runtime.JsonValue | null
   quoteSummaryContactIds: string[]
+  quoteSummarySentAt: Date | null
   sentAt: Date | null
   status: string
   notes: string | null
+  parentRfpId: string | null
+  refreshSequence: number
   createdAt: Date
   updatedAt: Date
   _count: RfpRequestCountAggregateOutputType | null
@@ -368,16 +396,22 @@ export type RfpRequestWhereInput = {
   brokerMarginUnit?: Prisma.EnumPriceUnitNullableFilter<"RfpRequest"> | $Enums.PriceUnit | null
   ldcUtility?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   requestedTerms?: Prisma.JsonNullableFilter<"RfpRequest">
+  supplierContactSelections?: Prisma.JsonNullableFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableFilter<"RfpRequest">
   quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
+  quoteSummarySentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  parentRfpId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  refreshSequence?: Prisma.IntFilter<"RfpRequest"> | number
   createdAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerScalarRelationFilter, Prisma.CustomerWhereInput>
   customerContact?: Prisma.XOR<Prisma.ContactNullableScalarRelationFilter, Prisma.ContactWhereInput> | null
+  parentRfp?: Prisma.XOR<Prisma.RfpRequestNullableScalarRelationFilter, Prisma.RfpRequestWhereInput> | null
+  childReissues?: Prisma.RfpRequestListRelationFilter
   suppliers?: Prisma.SupplierListRelationFilter
   quotes?: Prisma.RfpQuoteListRelationFilter
   accountLines?: Prisma.RfpAccountLineListRelationFilter
@@ -401,16 +435,22 @@ export type RfpRequestOrderByWithRelationInput = {
   brokerMarginUnit?: Prisma.SortOrderInput | Prisma.SortOrder
   ldcUtility?: Prisma.SortOrderInput | Prisma.SortOrder
   requestedTerms?: Prisma.SortOrderInput | Prisma.SortOrder
+  supplierContactSelections?: Prisma.SortOrderInput | Prisma.SortOrder
   customerContactId?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryCcContactIds?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryContactIds?: Prisma.SortOrder
+  quoteSummarySentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  parentRfpId?: Prisma.SortOrderInput | Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   customer?: Prisma.CustomerOrderByWithRelationInput
   customerContact?: Prisma.ContactOrderByWithRelationInput
+  parentRfp?: Prisma.RfpRequestOrderByWithRelationInput
+  childReissues?: Prisma.RfpRequestOrderByRelationAggregateInput
   suppliers?: Prisma.SupplierOrderByRelationAggregateInput
   quotes?: Prisma.RfpQuoteOrderByRelationAggregateInput
   accountLines?: Prisma.RfpAccountLineOrderByRelationAggregateInput
@@ -437,16 +477,22 @@ export type RfpRequestWhereUniqueInput = Prisma.AtLeast<{
   brokerMarginUnit?: Prisma.EnumPriceUnitNullableFilter<"RfpRequest"> | $Enums.PriceUnit | null
   ldcUtility?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   requestedTerms?: Prisma.JsonNullableFilter<"RfpRequest">
+  supplierContactSelections?: Prisma.JsonNullableFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableFilter<"RfpRequest">
   quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
+  quoteSummarySentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  parentRfpId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  refreshSequence?: Prisma.IntFilter<"RfpRequest"> | number
   createdAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerScalarRelationFilter, Prisma.CustomerWhereInput>
   customerContact?: Prisma.XOR<Prisma.ContactNullableScalarRelationFilter, Prisma.ContactWhereInput> | null
+  parentRfp?: Prisma.XOR<Prisma.RfpRequestNullableScalarRelationFilter, Prisma.RfpRequestWhereInput> | null
+  childReissues?: Prisma.RfpRequestListRelationFilter
   suppliers?: Prisma.SupplierListRelationFilter
   quotes?: Prisma.RfpQuoteListRelationFilter
   accountLines?: Prisma.RfpAccountLineListRelationFilter
@@ -470,12 +516,16 @@ export type RfpRequestOrderByWithAggregationInput = {
   brokerMarginUnit?: Prisma.SortOrderInput | Prisma.SortOrder
   ldcUtility?: Prisma.SortOrderInput | Prisma.SortOrder
   requestedTerms?: Prisma.SortOrderInput | Prisma.SortOrder
+  supplierContactSelections?: Prisma.SortOrderInput | Prisma.SortOrder
   customerContactId?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryCcContactIds?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryContactIds?: Prisma.SortOrder
+  quoteSummarySentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  parentRfpId?: Prisma.SortOrderInput | Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.RfpRequestCountOrderByAggregateInput
@@ -505,12 +555,16 @@ export type RfpRequestScalarWhereWithAggregatesInput = {
   brokerMarginUnit?: Prisma.EnumPriceUnitNullableWithAggregatesFilter<"RfpRequest"> | $Enums.PriceUnit | null
   ldcUtility?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
   requestedTerms?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
+  supplierContactSelections?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
   quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
+  quoteSummarySentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RfpRequest"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringWithAggregatesFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
+  parentRfpId?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
+  refreshSequence?: Prisma.IntWithAggregatesFilter<"RfpRequest"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"RfpRequest"> | Date | string
 }
@@ -531,15 +585,20 @@ export type RfpRequestCreateInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
@@ -563,14 +622,19 @@ export type RfpRequestUncheckedCreateInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -593,15 +657,20 @@ export type RfpRequestUpdateInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
@@ -625,14 +694,19 @@ export type RfpRequestUncheckedUpdateInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
@@ -656,12 +730,16 @@ export type RfpRequestCreateManyInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -682,11 +760,14 @@ export type RfpRequestUpdateManyMutationInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -708,12 +789,16 @@ export type RfpRequestUncheckedUpdateManyInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -758,12 +843,16 @@ export type RfpRequestCountOrderByAggregateInput = {
   brokerMarginUnit?: Prisma.SortOrder
   ldcUtility?: Prisma.SortOrder
   requestedTerms?: Prisma.SortOrder
+  supplierContactSelections?: Prisma.SortOrder
   customerContactId?: Prisma.SortOrder
   quoteSummaryCcContactIds?: Prisma.SortOrder
   quoteSummaryContactIds?: Prisma.SortOrder
+  quoteSummarySentAt?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  parentRfpId?: Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -775,6 +864,7 @@ export type RfpRequestAvgOrderByAggregateInput = {
   contractStartMonth?: Prisma.SortOrder
   contractStartYear?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
 }
 
 export type RfpRequestMaxOrderByAggregateInput = {
@@ -794,9 +884,12 @@ export type RfpRequestMaxOrderByAggregateInput = {
   brokerMarginUnit?: Prisma.SortOrder
   ldcUtility?: Prisma.SortOrder
   customerContactId?: Prisma.SortOrder
+  quoteSummarySentAt?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  parentRfpId?: Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -818,9 +911,12 @@ export type RfpRequestMinOrderByAggregateInput = {
   brokerMarginUnit?: Prisma.SortOrder
   ldcUtility?: Prisma.SortOrder
   customerContactId?: Prisma.SortOrder
+  quoteSummarySentAt?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  parentRfpId?: Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -832,6 +928,7 @@ export type RfpRequestSumOrderByAggregateInput = {
   contractStartMonth?: Prisma.SortOrder
   contractStartYear?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
+  refreshSequence?: Prisma.SortOrder
 }
 
 export type RfpRequestScalarRelationFilter = {
@@ -939,6 +1036,26 @@ export type RfpRequestCreatequoteSummaryContactIdsInput = {
   set: string[]
 }
 
+export type RfpRequestCreateNestedOneWithoutChildReissuesInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutChildReissuesInput, Prisma.RfpRequestUncheckedCreateWithoutChildReissuesInput>
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutChildReissuesInput
+  connect?: Prisma.RfpRequestWhereUniqueInput
+}
+
+export type RfpRequestCreateNestedManyWithoutParentRfpInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutParentRfpInput, Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput> | Prisma.RfpRequestCreateWithoutParentRfpInput[] | Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput[]
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput | Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput[]
+  createMany?: Prisma.RfpRequestCreateManyParentRfpInputEnvelope
+  connect?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+}
+
+export type RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutParentRfpInput, Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput> | Prisma.RfpRequestCreateWithoutParentRfpInput[] | Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput[]
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput | Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput[]
+  createMany?: Prisma.RfpRequestCreateManyParentRfpInputEnvelope
+  connect?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+}
+
 export type NullableEnumPriceUnitFieldUpdateOperationsInput = {
   set?: $Enums.PriceUnit | null
 }
@@ -946,6 +1063,44 @@ export type NullableEnumPriceUnitFieldUpdateOperationsInput = {
 export type RfpRequestUpdatequoteSummaryContactIdsInput = {
   set?: string[]
   push?: string | string[]
+}
+
+export type RfpRequestUpdateOneWithoutChildReissuesNestedInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutChildReissuesInput, Prisma.RfpRequestUncheckedCreateWithoutChildReissuesInput>
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutChildReissuesInput
+  upsert?: Prisma.RfpRequestUpsertWithoutChildReissuesInput
+  disconnect?: Prisma.RfpRequestWhereInput | boolean
+  delete?: Prisma.RfpRequestWhereInput | boolean
+  connect?: Prisma.RfpRequestWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RfpRequestUpdateToOneWithWhereWithoutChildReissuesInput, Prisma.RfpRequestUpdateWithoutChildReissuesInput>, Prisma.RfpRequestUncheckedUpdateWithoutChildReissuesInput>
+}
+
+export type RfpRequestUpdateManyWithoutParentRfpNestedInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutParentRfpInput, Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput> | Prisma.RfpRequestCreateWithoutParentRfpInput[] | Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput[]
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput | Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput[]
+  upsert?: Prisma.RfpRequestUpsertWithWhereUniqueWithoutParentRfpInput | Prisma.RfpRequestUpsertWithWhereUniqueWithoutParentRfpInput[]
+  createMany?: Prisma.RfpRequestCreateManyParentRfpInputEnvelope
+  set?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  disconnect?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  delete?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  connect?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  update?: Prisma.RfpRequestUpdateWithWhereUniqueWithoutParentRfpInput | Prisma.RfpRequestUpdateWithWhereUniqueWithoutParentRfpInput[]
+  updateMany?: Prisma.RfpRequestUpdateManyWithWhereWithoutParentRfpInput | Prisma.RfpRequestUpdateManyWithWhereWithoutParentRfpInput[]
+  deleteMany?: Prisma.RfpRequestScalarWhereInput | Prisma.RfpRequestScalarWhereInput[]
+}
+
+export type RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutParentRfpInput, Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput> | Prisma.RfpRequestCreateWithoutParentRfpInput[] | Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput[]
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput | Prisma.RfpRequestCreateOrConnectWithoutParentRfpInput[]
+  upsert?: Prisma.RfpRequestUpsertWithWhereUniqueWithoutParentRfpInput | Prisma.RfpRequestUpsertWithWhereUniqueWithoutParentRfpInput[]
+  createMany?: Prisma.RfpRequestCreateManyParentRfpInputEnvelope
+  set?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  disconnect?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  delete?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  connect?: Prisma.RfpRequestWhereUniqueInput | Prisma.RfpRequestWhereUniqueInput[]
+  update?: Prisma.RfpRequestUpdateWithWhereUniqueWithoutParentRfpInput | Prisma.RfpRequestUpdateWithWhereUniqueWithoutParentRfpInput[]
+  updateMany?: Prisma.RfpRequestUpdateManyWithWhereWithoutParentRfpInput | Prisma.RfpRequestUpdateManyWithWhereWithoutParentRfpInput[]
+  deleteMany?: Prisma.RfpRequestScalarWhereInput | Prisma.RfpRequestScalarWhereInput[]
 }
 
 export type RfpRequestCreateNestedOneWithoutAccountLinesInput = {
@@ -1036,14 +1191,19 @@ export type RfpRequestCreateWithoutCustomerInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
@@ -1066,14 +1226,19 @@ export type RfpRequestUncheckedCreateWithoutCustomerInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -1126,12 +1291,16 @@ export type RfpRequestScalarWhereInput = {
   brokerMarginUnit?: Prisma.EnumPriceUnitNullableFilter<"RfpRequest"> | $Enums.PriceUnit | null
   ldcUtility?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   requestedTerms?: Prisma.JsonNullableFilter<"RfpRequest">
+  supplierContactSelections?: Prisma.JsonNullableFilter<"RfpRequest">
   customerContactId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteSummaryCcContactIds?: Prisma.JsonNullableFilter<"RfpRequest">
   quoteSummaryContactIds?: Prisma.StringNullableListFilter<"RfpRequest">
+  quoteSummarySentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   status?: Prisma.StringFilter<"RfpRequest"> | string
   notes?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  parentRfpId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  refreshSequence?: Prisma.IntFilter<"RfpRequest"> | number
   createdAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
 }
@@ -1152,15 +1321,20 @@ export type RfpRequestCreateWithoutSuppliersInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
@@ -1183,14 +1357,19 @@ export type RfpRequestUncheckedCreateWithoutSuppliersInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -1233,15 +1412,20 @@ export type RfpRequestCreateWithoutCalendarEventsInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
@@ -1264,14 +1448,19 @@ export type RfpRequestUncheckedCreateWithoutCalendarEventsInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -1309,15 +1498,20 @@ export type RfpRequestUpdateWithoutCalendarEventsInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
@@ -1340,17 +1534,274 @@ export type RfpRequestUncheckedUpdateWithoutCalendarEventsInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
+  suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
+  quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
+  accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
+}
+
+export type RfpRequestCreateWithoutChildReissuesInput = {
+  id?: string
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  refreshSequence?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
+  customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
+  quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
+  accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+}
+
+export type RfpRequestUncheckedCreateWithoutChildReissuesInput = {
+  id?: string
+  customerId: string
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
+  quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
+  accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+}
+
+export type RfpRequestCreateOrConnectWithoutChildReissuesInput = {
+  where: Prisma.RfpRequestWhereUniqueInput
+  create: Prisma.XOR<Prisma.RfpRequestCreateWithoutChildReissuesInput, Prisma.RfpRequestUncheckedCreateWithoutChildReissuesInput>
+}
+
+export type RfpRequestCreateWithoutParentRfpInput = {
+  id?: string
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  refreshSequence?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
+  customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
+  suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
+  quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
+  accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+}
+
+export type RfpRequestUncheckedCreateWithoutParentRfpInput = {
+  id?: string
+  customerId: string
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  refreshSequence?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
+  suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
+  quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
+  accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+}
+
+export type RfpRequestCreateOrConnectWithoutParentRfpInput = {
+  where: Prisma.RfpRequestWhereUniqueInput
+  create: Prisma.XOR<Prisma.RfpRequestCreateWithoutParentRfpInput, Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput>
+}
+
+export type RfpRequestCreateManyParentRfpInputEnvelope = {
+  data: Prisma.RfpRequestCreateManyParentRfpInput | Prisma.RfpRequestCreateManyParentRfpInput[]
+  skipDuplicates?: boolean
+}
+
+export type RfpRequestUpsertWithoutChildReissuesInput = {
+  update: Prisma.XOR<Prisma.RfpRequestUpdateWithoutChildReissuesInput, Prisma.RfpRequestUncheckedUpdateWithoutChildReissuesInput>
+  create: Prisma.XOR<Prisma.RfpRequestCreateWithoutChildReissuesInput, Prisma.RfpRequestUncheckedCreateWithoutChildReissuesInput>
+  where?: Prisma.RfpRequestWhereInput
+}
+
+export type RfpRequestUpdateToOneWithWhereWithoutChildReissuesInput = {
+  where?: Prisma.RfpRequestWhereInput
+  data: Prisma.XOR<Prisma.RfpRequestUpdateWithoutChildReissuesInput, Prisma.RfpRequestUncheckedUpdateWithoutChildReissuesInput>
+}
+
+export type RfpRequestUpdateWithoutChildReissuesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
+  customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
+  quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
+  accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+}
+
+export type RfpRequestUncheckedUpdateWithoutChildReissuesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+}
+
+export type RfpRequestUpsertWithWhereUniqueWithoutParentRfpInput = {
+  where: Prisma.RfpRequestWhereUniqueInput
+  update: Prisma.XOR<Prisma.RfpRequestUpdateWithoutParentRfpInput, Prisma.RfpRequestUncheckedUpdateWithoutParentRfpInput>
+  create: Prisma.XOR<Prisma.RfpRequestCreateWithoutParentRfpInput, Prisma.RfpRequestUncheckedCreateWithoutParentRfpInput>
+}
+
+export type RfpRequestUpdateWithWhereUniqueWithoutParentRfpInput = {
+  where: Prisma.RfpRequestWhereUniqueInput
+  data: Prisma.XOR<Prisma.RfpRequestUpdateWithoutParentRfpInput, Prisma.RfpRequestUncheckedUpdateWithoutParentRfpInput>
+}
+
+export type RfpRequestUpdateManyWithWhereWithoutParentRfpInput = {
+  where: Prisma.RfpRequestScalarWhereInput
+  data: Prisma.XOR<Prisma.RfpRequestUpdateManyMutationInput, Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpInput>
 }
 
 export type RfpRequestCreateWithoutAccountLinesInput = {
@@ -1369,15 +1820,20 @@ export type RfpRequestCreateWithoutAccountLinesInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
@@ -1400,14 +1856,19 @@ export type RfpRequestUncheckedCreateWithoutAccountLinesInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -1445,15 +1906,20 @@ export type RfpRequestUpdateWithoutAccountLinesInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
@@ -1476,14 +1942,19 @@ export type RfpRequestUncheckedUpdateWithoutAccountLinesInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
@@ -1505,15 +1976,20 @@ export type RfpRequestCreateWithoutQuotesInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
@@ -1536,14 +2012,19 @@ export type RfpRequestUncheckedCreateWithoutQuotesInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -1581,15 +2062,20 @@ export type RfpRequestUpdateWithoutQuotesInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
@@ -1612,14 +2098,19 @@ export type RfpRequestUncheckedUpdateWithoutQuotesInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
@@ -1641,14 +2132,19 @@ export type RfpRequestCreateWithoutCustomerContactInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
@@ -1672,13 +2168,18 @@ export type RfpRequestUncheckedCreateWithoutCustomerContactInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
@@ -1727,12 +2228,16 @@ export type RfpRequestCreateManyCustomerInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1753,14 +2258,19 @@ export type RfpRequestUpdateWithoutCustomerInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
@@ -1783,14 +2293,19 @@ export type RfpRequestUncheckedUpdateWithoutCustomerInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
@@ -1813,12 +2328,16 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1839,15 +2358,20 @@ export type RfpRequestUpdateWithoutSuppliersInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
@@ -1870,14 +2394,19 @@ export type RfpRequestUncheckedUpdateWithoutSuppliersInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
@@ -1900,12 +2429,146 @@ export type RfpRequestUncheckedUpdateManyWithoutSuppliersInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type RfpRequestCreateManyParentRfpInput = {
+  id?: string
+  customerId: string
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  refreshSequence?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type RfpRequestUpdateWithoutParentRfpInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
+  customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
+  suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
+  quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
+  accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+}
+
+export type RfpRequestUncheckedUpdateWithoutParentRfpInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
+  suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
+  quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
+  accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+}
+
+export type RfpRequestUncheckedUpdateManyWithoutParentRfpInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1927,11 +2590,15 @@ export type RfpRequestCreateManyCustomerContactInput = {
   brokerMarginUnit?: $Enums.PriceUnit | null
   ldcUtility?: string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
   sentAt?: Date | string | null
   status?: string
   notes?: string | null
+  parentRfpId?: string | null
+  refreshSequence?: number
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1952,14 +2619,19 @@ export type RfpRequestUpdateWithoutCustomerContactInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
@@ -1983,13 +2655,18 @@ export type RfpRequestUncheckedUpdateWithoutCustomerContactInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
@@ -2013,11 +2690,15 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerContactInput = {
   brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
   ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2028,6 +2709,7 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerContactInput = {
  */
 
 export type RfpRequestCountOutputType = {
+  childReissues: number
   suppliers: number
   quotes: number
   accountLines: number
@@ -2035,6 +2717,7 @@ export type RfpRequestCountOutputType = {
 }
 
 export type RfpRequestCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  childReissues?: boolean | RfpRequestCountOutputTypeCountChildReissuesArgs
   suppliers?: boolean | RfpRequestCountOutputTypeCountSuppliersArgs
   quotes?: boolean | RfpRequestCountOutputTypeCountQuotesArgs
   accountLines?: boolean | RfpRequestCountOutputTypeCountAccountLinesArgs
@@ -2049,6 +2732,13 @@ export type RfpRequestCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.E
    * Select specific fields to fetch from the RfpRequestCountOutputType
    */
   select?: Prisma.RfpRequestCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * RfpRequestCountOutputType without action
+ */
+export type RfpRequestCountOutputTypeCountChildReissuesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RfpRequestWhereInput
 }
 
 /**
@@ -2097,16 +2787,22 @@ export type RfpRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   brokerMarginUnit?: boolean
   ldcUtility?: boolean
   requestedTerms?: boolean
+  supplierContactSelections?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
   quoteSummaryContactIds?: boolean
+  quoteSummarySentAt?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
+  parentRfpId?: boolean
+  refreshSequence?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
+  parentRfp?: boolean | Prisma.RfpRequest$parentRfpArgs<ExtArgs>
+  childReissues?: boolean | Prisma.RfpRequest$childReissuesArgs<ExtArgs>
   suppliers?: boolean | Prisma.RfpRequest$suppliersArgs<ExtArgs>
   quotes?: boolean | Prisma.RfpRequest$quotesArgs<ExtArgs>
   accountLines?: boolean | Prisma.RfpRequest$accountLinesArgs<ExtArgs>
@@ -2131,16 +2827,21 @@ export type RfpRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   brokerMarginUnit?: boolean
   ldcUtility?: boolean
   requestedTerms?: boolean
+  supplierContactSelections?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
   quoteSummaryContactIds?: boolean
+  quoteSummarySentAt?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
+  parentRfpId?: boolean
+  refreshSequence?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
+  parentRfp?: boolean | Prisma.RfpRequest$parentRfpArgs<ExtArgs>
 }, ExtArgs["result"]["rfpRequest"]>
 
 export type RfpRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -2160,16 +2861,21 @@ export type RfpRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   brokerMarginUnit?: boolean
   ldcUtility?: boolean
   requestedTerms?: boolean
+  supplierContactSelections?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
   quoteSummaryContactIds?: boolean
+  quoteSummarySentAt?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
+  parentRfpId?: boolean
+  refreshSequence?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
+  parentRfp?: boolean | Prisma.RfpRequest$parentRfpArgs<ExtArgs>
 }, ExtArgs["result"]["rfpRequest"]>
 
 export type RfpRequestSelectScalar = {
@@ -2189,20 +2895,26 @@ export type RfpRequestSelectScalar = {
   brokerMarginUnit?: boolean
   ldcUtility?: boolean
   requestedTerms?: boolean
+  supplierContactSelections?: boolean
   customerContactId?: boolean
   quoteSummaryCcContactIds?: boolean
   quoteSummaryContactIds?: boolean
+  quoteSummarySentAt?: boolean
   sentAt?: boolean
   status?: boolean
   notes?: boolean
+  parentRfpId?: boolean
+  refreshSequence?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "sentAt" | "status" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
+export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "supplierContactSelections" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "quoteSummarySentAt" | "sentAt" | "status" | "notes" | "parentRfpId" | "refreshSequence" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
 export type RfpRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
+  parentRfp?: boolean | Prisma.RfpRequest$parentRfpArgs<ExtArgs>
+  childReissues?: boolean | Prisma.RfpRequest$childReissuesArgs<ExtArgs>
   suppliers?: boolean | Prisma.RfpRequest$suppliersArgs<ExtArgs>
   quotes?: boolean | Prisma.RfpRequest$quotesArgs<ExtArgs>
   accountLines?: boolean | Prisma.RfpRequest$accountLinesArgs<ExtArgs>
@@ -2212,10 +2924,12 @@ export type RfpRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalA
 export type RfpRequestIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
+  parentRfp?: boolean | Prisma.RfpRequest$parentRfpArgs<ExtArgs>
 }
 export type RfpRequestIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
+  parentRfp?: boolean | Prisma.RfpRequest$parentRfpArgs<ExtArgs>
 }
 
 export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2223,6 +2937,8 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     customer: Prisma.$CustomerPayload<ExtArgs>
     customerContact: Prisma.$ContactPayload<ExtArgs> | null
+    parentRfp: Prisma.$RfpRequestPayload<ExtArgs> | null
+    childReissues: Prisma.$RfpRequestPayload<ExtArgs>[]
     suppliers: Prisma.$SupplierPayload<ExtArgs>[]
     quotes: Prisma.$RfpQuotePayload<ExtArgs>[]
     accountLines: Prisma.$RfpAccountLinePayload<ExtArgs>[]
@@ -2245,6 +2961,10 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
     brokerMarginUnit: $Enums.PriceUnit | null
     ldcUtility: string | null
     requestedTerms: runtime.JsonValue | null
+    /**
+     * Map of supplierId -> contact id chosen for RFP send (draft/resume).
+     */
+    supplierContactSelections: runtime.JsonValue | null
     customerContactId: string | null
     /**
      * Additional customer-side contacts to include when sending quote summaries (JSON array of contact ids).
@@ -2254,9 +2974,18 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
      * Customer contact ids selected for quote summary distribution (native PG array).
      */
     quoteSummaryContactIds: string[]
+    quoteSummarySentAt: Date | null
     sentAt: Date | null
     status: string
     notes: string | null
+    /**
+     * When this row was created by re-issuing supplier emails for an earlier request, links to that parent.
+     */
+    parentRfpId: string | null
+    /**
+     * 0 = original supplier send, 1 = first refresh/re-issue, etc.
+     */
+    refreshSequence: number
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["rfpRequest"]>
@@ -2655,6 +3384,8 @@ export interface Prisma__RfpRequestClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   customer<T extends Prisma.CustomerDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CustomerDefaultArgs<ExtArgs>>): Prisma.Prisma__CustomerClient<runtime.Types.Result.GetResult<Prisma.$CustomerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   customerContact<T extends Prisma.RfpRequest$customerContactArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$customerContactArgs<ExtArgs>>): Prisma.Prisma__ContactClient<runtime.Types.Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  parentRfp<T extends Prisma.RfpRequest$parentRfpArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$parentRfpArgs<ExtArgs>>): Prisma.Prisma__RfpRequestClient<runtime.Types.Result.GetResult<Prisma.$RfpRequestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  childReissues<T extends Prisma.RfpRequest$childReissuesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$childReissuesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   suppliers<T extends Prisma.RfpRequest$suppliersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$suppliersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SupplierPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   quotes<T extends Prisma.RfpRequest$quotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$quotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpQuotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   accountLines<T extends Prisma.RfpRequest$accountLinesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$accountLinesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpAccountLinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2704,12 +3435,16 @@ export interface RfpRequestFieldRefs {
   readonly brokerMarginUnit: Prisma.FieldRef<"RfpRequest", 'PriceUnit'>
   readonly ldcUtility: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly requestedTerms: Prisma.FieldRef<"RfpRequest", 'Json'>
+  readonly supplierContactSelections: Prisma.FieldRef<"RfpRequest", 'Json'>
   readonly customerContactId: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly quoteSummaryCcContactIds: Prisma.FieldRef<"RfpRequest", 'Json'>
   readonly quoteSummaryContactIds: Prisma.FieldRef<"RfpRequest", 'String[]'>
+  readonly quoteSummarySentAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
   readonly sentAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
   readonly status: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly notes: Prisma.FieldRef<"RfpRequest", 'String'>
+  readonly parentRfpId: Prisma.FieldRef<"RfpRequest", 'String'>
+  readonly refreshSequence: Prisma.FieldRef<"RfpRequest", 'Int'>
   readonly createdAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
 }
@@ -3129,6 +3864,49 @@ export type RfpRequest$customerContactArgs<ExtArgs extends runtime.Types.Extensi
    */
   include?: Prisma.ContactInclude<ExtArgs> | null
   where?: Prisma.ContactWhereInput
+}
+
+/**
+ * RfpRequest.parentRfp
+ */
+export type RfpRequest$parentRfpArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RfpRequest
+   */
+  select?: Prisma.RfpRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RfpRequest
+   */
+  omit?: Prisma.RfpRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RfpRequestInclude<ExtArgs> | null
+  where?: Prisma.RfpRequestWhereInput
+}
+
+/**
+ * RfpRequest.childReissues
+ */
+export type RfpRequest$childReissuesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RfpRequest
+   */
+  select?: Prisma.RfpRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RfpRequest
+   */
+  omit?: Prisma.RfpRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RfpRequestInclude<ExtArgs> | null
+  where?: Prisma.RfpRequestWhereInput
+  orderBy?: Prisma.RfpRequestOrderByWithRelationInput | Prisma.RfpRequestOrderByWithRelationInput[]
+  cursor?: Prisma.RfpRequestWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RfpRequestScalarFieldEnum | Prisma.RfpRequestScalarFieldEnum[]
 }
 
 /**

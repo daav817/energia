@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { EmailDetailPanel } from "@/components/communications/EmailDetailPanel";
 
 type EmailMessage = {
@@ -32,9 +32,12 @@ type EmailDetail = {
   inlineImages?: Record<string, { attachmentId: string; mimeType: string }>;
 };
 
-export default function EmailWindowPage() {
+function EmailWindowPageInner() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const embed =
+    searchParams.get("embed") === "1" || searchParams.get("embed") === "true";
   const [email, setEmail] = useState<EmailMessage | null>(null);
   const [detail, setDetail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,8 +113,39 @@ export default function EmailWindowPage() {
     window.location.href = `/compose?forward=${msg.id}`;
   };
 
-  if (loading) return <div className="p-8 text-center comms-inbox">Loading...</div>;
-  if (!email) return <div className="p-8 text-center comms-inbox">Email not found.</div>;
+  if (loading) {
+    return (
+      <div className={embed ? "p-4 text-sm comms-inbox" : "p-8 text-center comms-inbox"}>
+        Loading...
+      </div>
+    );
+  }
+  if (!email) {
+    return (
+      <div className={embed ? "p-4 text-sm comms-inbox" : "p-8 text-center comms-inbox"}>
+        Email not found.
+      </div>
+    );
+  }
+
+  if (embed) {
+    return (
+      <div className="h-full min-h-[200px] bg-background comms-inbox">
+        <EmailDetailPanel
+          email={email}
+          detail={detail}
+          detailLoading={detailLoading}
+          selectedLabel={email.labelIds?.includes("TRASH") ? "TRASH" : "INBOX"}
+          onModify={modifyEmail}
+          onClose={() => {}}
+          onOpenInNewWindow={openInNewWindow}
+          onReply={handleReply}
+          onForward={handleForward}
+          embed
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 comms-inbox">
@@ -130,5 +164,13 @@ export default function EmailWindowPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function EmailWindowPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm">Loading...</div>}>
+      <EmailWindowPageInner />
+    </Suspense>
   );
 }

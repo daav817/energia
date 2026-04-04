@@ -69,6 +69,18 @@ export async function PATCH(
       data.quoteSummaryContactIds = body.quoteSummaryContactIds.map(String).filter(Boolean);
     }
 
+    if (body.quoteSummarySentAt !== undefined) {
+      if (body.quoteSummarySentAt === null || body.quoteSummarySentAt === "") {
+        data.quoteSummarySentAt = null;
+      } else {
+        const d = new Date(String(body.quoteSummarySentAt));
+        if (Number.isNaN(d.getTime())) {
+          return NextResponse.json({ error: "Invalid quoteSummarySentAt" }, { status: 400 });
+        }
+        data.quoteSummarySentAt = d;
+      }
+    }
+
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }

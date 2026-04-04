@@ -130,6 +130,8 @@ type Props = {
   onForward: (email: EmailMessage) => void;
   onMoveToFolder?: () => void;
   isPopout?: boolean;
+  /** Inline iframe / modal: message body only, no action toolbars. */
+  embed?: boolean;
 };
 
 export function EmailDetailPanel({
@@ -144,6 +146,7 @@ export function EmailDetailPanel({
   onForward,
   onMoveToFolder,
   isPopout = false,
+  embed = false,
 }: Props) {
   const isStarred = email.labelIds?.includes("STARRED");
   const isInTrash = email.labelIds?.includes("TRASH");
@@ -510,6 +513,243 @@ export function EmailDetailPanel({
     }
   };
 
+  const detailBody = (
+    <>
+      {onMoveToFolder && !embed && (
+        <div className="mb-3 flex justify-end">
+          <Tooltip content="Move to folder">
+            <Button variant="ghost" size="sm" onClick={onMoveToFolder}>
+              <FolderPlus className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+        </div>
+      )}
+      {detail?.attachments && detail.attachments.length > 0 && (
+        <div className="border rounded-md bg-muted/40 px-3 py-2">
+          <div className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Paperclip className="h-3 w-3" />
+            <span>Attachments ({detail.attachments.length})</span>
+          </div>
+          <ul className="space-y-1 text-sm">
+            {detail.attachments.map((att) => {
+              const href = `/api/emails/${email.id}/attachments/${att.attachmentId}?filename=${encodeURIComponent(
+                att.filename
+              )}&mimeType=${encodeURIComponent(att.mimeType)}`;
+              const sizeKb =
+                att.size && att.size > 0 ? `${Math.round(att.size / 1024)} KB` : undefined;
+              return (
+                <li key={att.attachmentId}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-muted transition-colors"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    <span className="truncate max-w-xs" title={att.filename}>
+                      {att.filename || "attachment"}
+                    </span>
+                    {sizeKb && <span className="text-xs text-muted-foreground">({sizeKb})</span>}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {detailLoading ? (
+        <p className="text-muted-foreground">Loading...</p>
+      ) : editingDraft && isDraft ? (
+        <div className="space-y-4">
+          {draftError && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {draftError}
+            </div>
+          )}
+          {draftAutoSaveStatus && (
+            <div className="text-xs text-muted-foreground">{draftAutoSaveStatus}</div>
+          )}
+          <div className="grid gap-2">
+            <Label htmlFor="draft-to">To</Label>
+            <div className="relative">
+              <Input
+                ref={toInputRef}
+                id="draft-to"
+                value={draftTo}
+                onChange={(e) => setDraftTo(e.target.value)}
+                placeholder="Recipients (comma-separated)"
+                onBlur={() => setTimeout(() => setToSuggestOpen(false), 150)}
+                onFocus={() => toSuggestions.length > 0 && setToSuggestOpen(true)}
+              />
+              {toSuggestOpen && toSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
+                  {toSuggestions.map((s) => (
+                    <button
+                      key={`${s.email}-${s.name}-to`}
+                      type="button"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                      onClick={() => {
+                        const parts = draftTo.split(",").slice(0, -1);
+                        const add = parts.length ? `, ${s.email}` : s.email;
+                        setDraftTo((parts.join(", ") || "") + add);
+                        setToSuggestOpen(false);
+                      }}
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground text-xs">{s.email}</span>
+                      {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="draft-cc">Cc</Label>
+            <div className="relative">
+              <Input
+                ref={ccInputRef}
+                id="draft-cc"
+                value={draftCc}
+                onChange={(e) => setDraftCc(e.target.value)}
+                placeholder="Cc (optional)"
+                onBlur={() => setTimeout(() => setCcSuggestOpen(false), 150)}
+                onFocus={() => ccSuggestions.length > 0 && setCcSuggestOpen(true)}
+              />
+              {ccSuggestOpen && ccSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
+                  {ccSuggestions.map((s) => (
+                    <button
+                      key={`${s.email}-${s.name}-cc`}
+                      type="button"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                      onClick={() => {
+                        const parts = draftCc.split(",").slice(0, -1);
+                        const add = parts.length ? `, ${s.email}` : s.email;
+                        setDraftCc((parts.join(", ") || "") + add);
+                        setCcSuggestOpen(false);
+                      }}
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground text-xs">{s.email}</span>
+                      {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="draft-bcc">Bcc</Label>
+            <div className="relative">
+              <Input
+                ref={bccInputRef}
+                id="draft-bcc"
+                value={draftBcc}
+                onChange={(e) => setDraftBcc(e.target.value)}
+                placeholder="Bcc (optional)"
+                onBlur={() => setTimeout(() => setBccSuggestOpen(false), 150)}
+                onFocus={() => bccSuggestions.length > 0 && setBccSuggestOpen(true)}
+              />
+              {bccSuggestOpen && bccSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
+                  {bccSuggestions.map((s) => (
+                    <button
+                      key={`${s.email}-${s.name}-bcc`}
+                      type="button"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                      onClick={() => {
+                        const parts = draftBcc.split(",").slice(0, -1);
+                        const add = parts.length ? `, ${s.email}` : s.email;
+                        setDraftBcc((parts.join(", ") || "") + add);
+                        setBccSuggestOpen(false);
+                      }}
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground text-xs">{s.email}</span>
+                      {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="draft-subject">Subject</Label>
+            <Input
+              id="draft-subject"
+              value={draftSubject}
+              onChange={(e) => setDraftSubject(e.target.value)}
+              placeholder="Subject"
+              onBlur={() => {
+                if (!draftAutoSaving) void saveDraftAuto("blur");
+              }}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="draft-body">Body</Label>
+            <div
+              onBlur={() => {
+                if (!draftAutoSaving) void saveDraftAuto("blur");
+              }}
+            >
+              <RichTextEditor
+                initialHtml={draftHtml}
+                resetKey={`draft-${email.id}`}
+                onChangeHtml={(html) => setDraftHtml(html)}
+                disabled={draftSaving}
+                onAttachFiles={handleAttachFiles}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Draft autosave will update the Gmail draft as you edit (formatting preserved).
+          </p>
+        </div>
+      ) : detail?.bodyHtml ? (
+        <div
+          className="prose prose-sm max-w-none dark:prose-invert"
+          dangerouslySetInnerHTML={{
+            __html: replaceCidWithAttachmentUrls(
+              detail.bodyHtml,
+              email.id,
+              detail.inlineImages ?? {}
+            ),
+          }}
+        />
+      ) : (
+        <pre className="whitespace-pre-wrap text-sm">{detail?.body || "No content"}</pre>
+      )}
+    </>
+  );
+
+  if (embed) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+        <header className="shrink-0 space-y-1 border-b border-border/50 px-4 py-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <h2 className="text-base font-semibold leading-snug truncate min-w-0">
+              {detail?.subject || email.subject}
+            </h2>
+            {hasAttachments && (
+              <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                <Paperclip className="h-3 w-3 mr-0.5" />
+                {detail?.attachments?.length ?? 0}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">From: {detail?.from || email.from}</p>
+          <p className="text-xs text-muted-foreground">To: {detail?.to || email.to}</p>
+          <p className="text-xs text-muted-foreground">{detail?.date || email.date}</p>
+        </header>
+        <div className="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-4">{detailBody}</div>
+      </div>
+    );
+  }
+
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="flex flex-row items-start justify-between py-4">
@@ -659,218 +899,7 @@ export function EmailDetailPanel({
           </Tooltip>
         )}
       </div>
-      <CardContent className="flex-1 overflow-auto border-t pt-4 space-y-4">
-        {onMoveToFolder && (
-          <div className="mb-3 flex justify-end">
-            <Tooltip content="Move to folder">
-              <Button variant="ghost" size="sm" onClick={onMoveToFolder}>
-                <FolderPlus className="h-4 w-4" />
-              </Button>
-            </Tooltip>
-          </div>
-        )}
-        {detail?.attachments && detail.attachments.length > 0 && (
-          <div className="border rounded-md bg-muted/40 px-3 py-2">
-            <div className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Paperclip className="h-3 w-3" />
-              <span>Attachments ({detail.attachments.length})</span>
-            </div>
-            <ul className="space-y-1 text-sm">
-              {detail.attachments.map((att) => {
-                const href = `/api/emails/${email.id}/attachments/${att.attachmentId}?filename=${encodeURIComponent(
-                  att.filename
-                )}&mimeType=${encodeURIComponent(att.mimeType)}`;
-                const sizeKb =
-                  att.size && att.size > 0 ? `${Math.round(att.size / 1024)} KB` : undefined;
-                return (
-                  <li key={att.attachmentId}>
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-muted transition-colors"
-                    >
-                      <Paperclip className="h-4 w-4" />
-                      <span className="truncate max-w-xs" title={att.filename}>
-                        {att.filename || "attachment"}
-                      </span>
-                      {sizeKb && (
-                        <span className="text-xs text-muted-foreground">({sizeKb})</span>
-                      )}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-        {detailLoading ? (
-          <p className="text-muted-foreground">Loading...</p>
-        ) : editingDraft && isDraft ? (
-          <div className="space-y-4">
-            {draftError && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                {draftError}
-              </div>
-            )}
-            {draftAutoSaveStatus && (
-              <div className="text-xs text-muted-foreground">{draftAutoSaveStatus}</div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="draft-to">To</Label>
-              <div className="relative">
-                <Input
-                  ref={toInputRef}
-                  id="draft-to"
-                  value={draftTo}
-                  onChange={(e) => setDraftTo(e.target.value)}
-                  placeholder="Recipients (comma-separated)"
-                  onBlur={() => setTimeout(() => setToSuggestOpen(false), 150)}
-                  onFocus={() => toSuggestions.length > 0 && setToSuggestOpen(true)}
-                />
-                {toSuggestOpen && toSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
-                    {toSuggestions.map((s) => (
-                      <button
-                        key={`${s.email}-${s.name}-to`}
-                        type="button"
-                        className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          const parts = draftTo.split(",").slice(0, -1);
-                          const add = parts.length ? `, ${s.email}` : s.email;
-                          setDraftTo((parts.join(", ") || "") + add);
-                          setToSuggestOpen(false);
-                        }}
-                      >
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-muted-foreground text-xs">{s.email}</span>
-                        {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="draft-cc">Cc</Label>
-              <div className="relative">
-                <Input
-                  ref={ccInputRef}
-                  id="draft-cc"
-                  value={draftCc}
-                  onChange={(e) => setDraftCc(e.target.value)}
-                  placeholder="Cc (optional)"
-                  onBlur={() => setTimeout(() => setCcSuggestOpen(false), 150)}
-                  onFocus={() => ccSuggestions.length > 0 && setCcSuggestOpen(true)}
-                />
-                {ccSuggestOpen && ccSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
-                    {ccSuggestions.map((s) => (
-                      <button
-                        key={`${s.email}-${s.name}-cc`}
-                        type="button"
-                        className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          const parts = draftCc.split(",").slice(0, -1);
-                          const add = parts.length ? `, ${s.email}` : s.email;
-                          setDraftCc((parts.join(", ") || "") + add);
-                          setCcSuggestOpen(false);
-                        }}
-                      >
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-muted-foreground text-xs">{s.email}</span>
-                        {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="draft-bcc">Bcc</Label>
-              <div className="relative">
-                <Input
-                  ref={bccInputRef}
-                  id="draft-bcc"
-                  value={draftBcc}
-                  onChange={(e) => setDraftBcc(e.target.value)}
-                  placeholder="Bcc (optional)"
-                  onBlur={() => setTimeout(() => setBccSuggestOpen(false), 150)}
-                  onFocus={() => bccSuggestions.length > 0 && setBccSuggestOpen(true)}
-                />
-                {bccSuggestOpen && bccSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
-                    {bccSuggestions.map((s) => (
-                      <button
-                        key={`${s.email}-${s.name}-bcc`}
-                        type="button"
-                        className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          const parts = draftBcc.split(",").slice(0, -1);
-                          const add = parts.length ? `, ${s.email}` : s.email;
-                          setDraftBcc((parts.join(", ") || "") + add);
-                          setBccSuggestOpen(false);
-                        }}
-                      >
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-muted-foreground text-xs">{s.email}</span>
-                        {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="draft-subject">Subject</Label>
-              <Input
-                id="draft-subject"
-                value={draftSubject}
-                onChange={(e) => setDraftSubject(e.target.value)}
-                placeholder="Subject"
-                onBlur={() => {
-                  if (!draftAutoSaving) void saveDraftAuto("blur");
-                }}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="draft-body">Body</Label>
-              <div
-                onBlur={() => {
-                  if (!draftAutoSaving) void saveDraftAuto("blur");
-                }}
-              >
-                <RichTextEditor
-                  initialHtml={draftHtml}
-                  resetKey={`draft-${email.id}`}
-                  onChangeHtml={(html) => setDraftHtml(html)}
-                  disabled={draftSaving}
-                  onAttachFiles={handleAttachFiles}
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Draft autosave will update the Gmail draft as you edit (formatting preserved).
-            </p>
-          </div>
-        ) : detail?.bodyHtml ? (
-          <div
-            className="prose prose-sm max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{
-              __html: replaceCidWithAttachmentUrls(
-                detail.bodyHtml,
-                email.id,
-                detail.inlineImages ?? {}
-              ),
-            }}
-          />
-        ) : (
-          <pre className="whitespace-pre-wrap text-sm">{detail?.body || "No content"}</pre>
-        )}
-      </CardContent>
+      <CardContent className="flex-1 overflow-auto border-t pt-4 space-y-4">{detailBody}</CardContent>
     </Card>
   );
 }

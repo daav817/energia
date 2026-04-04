@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       customerContactId,
       energyType,
       supplierIds,
+      supplierContactSelections,
       requestedTerms,
       customTermMonths,
       quoteDueDate,
@@ -66,10 +67,18 @@ export async function POST(request: NextRequest) {
         ? supplierIds.map((id: string) => String(id))
         : [];
 
+    const contactSelectionsRaw =
+      supplierContactSelections &&
+      typeof supplierContactSelections === "object" &&
+      !Array.isArray(supplierContactSelections)
+        ? supplierContactSelections
+        : null;
+
     const baseData = {
       customerId: String(customerId),
       customerContactId: customerContactId ? String(customerContactId) : null,
       energyType: energyType as EnergyType,
+      supplierContactSelections: (contactSelectionsRaw ?? {}) as Prisma.InputJsonValue,
       annualUsage:
         normalizedAccountLines.length > 0
           ? new Prisma.Decimal(totals.annualUsage)

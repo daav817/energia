@@ -59,6 +59,7 @@ type RfpRequestSummary = {
   customer: { id: string; name: string; company: string | null };
   customerContact?: { id: string; name: string; email: string | null; phone: string | null } | null;
   quoteSummaryContactIds?: string[];
+  quoteSummarySentAt?: string | null;
   suppliers: Array<{ id: string; name: string }>;
   accountLines: Array<{ id: string; accountNumber: string; annualUsage: number; avgMonthlyUsage: number }>;
 };
@@ -90,6 +91,7 @@ export default function RfpQuotesPage() {
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [recipientsSaving, setRecipientsSaving] = useState(false);
+  const [quoteSummarySentRecording, setQuoteSummarySentRecording] = useState(false);
   const [customerContacts, setCustomerContacts] = useState<CustomerContactRow[]>([]);
   const [primaryContactId, setPrimaryContactId] = useState("");
   const [extraRecipientIds, setExtraRecipientIds] = useState<string[]>([]);
@@ -302,6 +304,21 @@ export default function RfpQuotesPage() {
     }
   };
 
+  const handleRecordQuoteSummaryEmailSent = async () => {
+    if (!selectedRequest) return;
+    setQuoteSummarySentRecording(true);
+    try {
+      const res = await fetch(`/api/rfp/${selectedRequest.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteSummarySentAt: new Date().toISOString() }),
+      });
+      if (res.ok) await loadRfpRequests();
+    } finally {
+      setQuoteSummarySentRecording(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -439,6 +456,32 @@ export default function RfpQuotesPage() {
                     >
                       {recipientsSaving ? "Saving..." : "Save recipients"}
                     </Button>
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border/60">
+                      <p className="text-xs text-muted-foreground">
+                        After you email the quote summary to the customer from your mail client, record it here so the
+                        dashboard can show pending follow-up.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={quoteSummarySentRecording}
+                          onClick={() => void handleRecordQuoteSummaryEmailSent()}
+                        >
+                          {quoteSummarySentRecording ? "Recording..." : "Record quote summary email sent"}
+                        </Button>
+                        {selectedRequest.quoteSummarySentAt ? (
+                          <span className="text-xs text-muted-foreground">
+                            Logged{" "}
+                            {new Date(selectedRequest.quoteSummarySentAt).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

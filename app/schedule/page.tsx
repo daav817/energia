@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Calendar,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  LayoutGrid,
   Plus,
   Check,
   Trash2,
@@ -223,6 +221,22 @@ function yearRangeISO(year: number): { from: string; to: string } {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+function startOfWeekSunday(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - x.getDay());
+  return x;
+}
+
+function weekRangeISO(weekStart: Date): { from: string; to: string } {
+  const from = new Date(weekStart);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(weekStart);
+  to.setDate(to.getDate() + 6);
+  to.setHours(23, 59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
 const SCHEDULE_VIEW_KEY = "energia-schedule-calendar-view";
 
 function toDatetimeLocalValue(d: Date): string {
@@ -286,7 +300,8 @@ export default function SchedulePage() {
   const [agendaOpen, setAgendaOpen] = useState(false);
   const [agendaDate, setAgendaDate] = useState<Date | null>(null);
 
-  const [calendarView, setCalendarView] = useState<"month" | "year">("month");
+  const [calendarView, setCalendarView] = useState<"week" | "month" | "year">("month");
+  const [weekViewStart, setWeekViewStart] = useState(() => startOfWeekSunday(new Date()));
   const [pulseHighlightKeys, setPulseHighlightKeys] = useState(() => new Set<string>());
   const pulseTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const pulseAnchorRef = useRef<{ y: number; mo: number } | null>(null);
@@ -305,7 +320,7 @@ export default function SchedulePage() {
   useEffect(() => {
     try {
       const v = localStorage.getItem(SCHEDULE_VIEW_KEY);
-      if (v === "year" || v === "month") setCalendarView(v);
+      if (v === "year" || v === "month" || v === "week") setCalendarView(v);
     } catch {
       /* ignore */
     }
@@ -325,7 +340,7 @@ export default function SchedulePage() {
   }, []);
 
   useEffect(() => {
-    if (calendarView === "month") {
+    if (calendarView === "month" || calendarView === "week") {
       if (yearHighlightTimerRef.current) {
         clearTimeout(yearHighlightTimerRef.current);
         yearHighlightTimerRef.current = null;
@@ -353,7 +368,10 @@ export default function SchedulePage() {
     return () => el.removeEventListener("wheel", onWheel);
   }, [calendarView, loading]);
 
-  const persistCalendarView = (v: "month" | "year") => {
+  const persistCalendarView = (v: "week" | "month" | "year") => {
+    if (v === "week") {
+      setWeekViewStart(startOfWeekSunday(new Date(viewYear, viewMonth, 1)));
+    }
     setCalendarView(v);
     try {
       localStorage.setItem(SCHEDULE_VIEW_KEY, v);
@@ -416,10 +434,15 @@ export default function SchedulePage() {
       const y = parts[0];
       const mo = parts[1];
       if (!y || !mo) return;
-      persistCalendarView("month");
-      applyDayPulse(dateKey, y, mo);
+      if (calendarView === "week") {
+        const d = new Date(dateKey + "T12:00:00");
+        setWeekViewStart(startOfWeekSunday(d));
+      } else {
+        persistCalendarView("month");
+        applyDayPulse(dateKey, y, mo);
+      }
     },
-    [applyDayPulse]
+    [applyDayPulse, calendarView]
   );
 
   const goToScheduleDate = useCallback(
@@ -463,6 +486,9 @@ export default function SchedulePage() {
         });
       } else {
         clearYearMonthHighlight();
+        if (calendarView === "week") {
+          setWeekViewStart(startOfWeekSunday(test));
+        }
         applyDayPulse(dateKey, y, mo);
       }
     },
@@ -480,7 +506,9 @@ export default function SchedulePage() {
     const { from, to } =
       calendarView === "year"
         ? yearRangeISO(viewYear)
-        : visibleGridRangeISO(viewYear, viewMonth);
+        : calendarView === "week"
+          ? weekRangeISO(weekViewStart)
+          : visibleGridRangeISO(viewYear, viewMonth);
     setLoading(true);
     try {
       const [ovRes, cRes, lRes, coRes, tlRes] = await Promise.all([
@@ -505,7 +533,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false);
     }
-  }, [viewYear, viewMonth, calendarView]);
+  }, [viewYear, viewMonth, calendarView, weekViewStart]);
 
   useEffect(() => {
     refresh();
@@ -690,6 +718,22 @@ export default function SchedulePage() {
     [viewYear, viewMonth]
   );
 
+  const weekCells = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekViewStart);
+        d.setDate(weekViewStart.getDate() + i);
+        return d;
+      }),
+    [weekViewStart]
+  );
+
+  const weekViewEnd = useMemo(() => {
+    const e = new Date(weekViewStart);
+    e.setDate(e.getDate() + 6);
+    return e;
+  }, [weekViewStart]);
+
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString("en-US", {
     month: "long",
     year: "numeric",
@@ -807,6 +851,13 @@ export default function SchedulePage() {
     const { y, m } = addMonths(viewYear, viewMonth, delta);
     setViewYear(y);
     setViewMonth(m);
+  };
+
+  const goWeek = (delta: number) => {
+    clearYearMonthHighlight();
+    const n = new Date(weekViewStart);
+    n.setDate(n.getDate() + delta * 7);
+    setWeekViewStart(startOfWeekSunday(n));
   };
 
   const goYear = (delta: number) => {
@@ -1024,6 +1075,17 @@ export default function SchedulePage() {
                 >
                   <ChevronsLeft className="h-4 w-4" />
                 </Button>
+                {calendarView === "week" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => goWeek(-1)}
+                    aria-label="Previous week"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                )}
                 {calendarView === "month" && (
                   <Button
                     variant="ghost"
@@ -1036,8 +1098,30 @@ export default function SchedulePage() {
                   </Button>
                 )}
                 <h2 className="min-w-[9rem] text-center text-xl font-bold tracking-tight tabular-nums sm:min-w-[12rem] sm:text-2xl md:text-3xl">
-                  {calendarView === "year" ? String(viewYear) : monthLabel}
+                  {calendarView === "year"
+                    ? String(viewYear)
+                    : calendarView === "week"
+                      ? `${weekViewStart.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })} – ${weekViewEnd.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}`
+                      : monthLabel}
                 </h2>
+                {calendarView === "week" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => goWeek(1)}
+                    aria-label="Next week"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
                 {calendarView === "month" && (
                   <Button
                     variant="ghost"
@@ -1060,27 +1144,20 @@ export default function SchedulePage() {
                 </Button>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full"
-                  aria-label={
-                    calendarView === "month"
-                      ? "Switch to yearly calendar view"
-                      : "Switch to monthly calendar view"
-                  }
-                  title={calendarView === "month" ? "Yearly view" : "Monthly view"}
-                  onClick={() =>
-                    persistCalendarView(calendarView === "month" ? "year" : "month")
-                  }
-                >
-                  {calendarView === "month" ? (
-                    <LayoutGrid className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Calendar className="h-4 w-4" aria-hidden />
-                  )}
-                </Button>
+                <div className="flex rounded-full border border-border/60 bg-background/60 p-0.5 gap-0.5">
+                  {(["week", "month", "year"] as const).map((v) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      variant={calendarView === v ? "default" : "ghost"}
+                      size="sm"
+                      className="rounded-full h-8 px-3 text-xs capitalize"
+                      onClick={() => persistCalendarView(v)}
+                    >
+                      {v}
+                    </Button>
+                  ))}
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="icon" className="rounded-full" aria-label="Calendar sync settings">
@@ -1161,19 +1238,20 @@ export default function SchedulePage() {
                   : "Highlights that day for 5 seconds."}
               </span>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 pt-2 border-t border-border/30">
-              <Label htmlFor="schedule-search" className="text-xs text-muted-foreground shrink-0">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-start sm:gap-3 pt-2 border-t border-border/30">
+              <Label htmlFor="schedule-search" className="text-xs text-muted-foreground shrink-0 pt-2">
                 Search calendar
               </Label>
-              <div className="flex flex-1 flex-col gap-2 min-w-0">
+              <div className="relative flex flex-1 flex-col gap-0 min-w-0 max-w-xl">
                 <div className="flex gap-2 items-center flex-wrap">
                   <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <Input
                     id="schedule-search"
                     placeholder="Type at least 2 characters (titles, customers, licenses…)"
-                    className="h-9 max-w-md"
+                    className="h-9 w-full max-w-md pr-8"
                     value={scheduleSearch}
                     onChange={(e) => setScheduleSearch(e.target.value)}
+                    autoComplete="off"
                   />
                   {scheduleSearch.trim().length > 0 && (
                     <Button type="button" variant="ghost" size="sm" onClick={() => setScheduleSearch("")}>
@@ -1181,13 +1259,16 @@ export default function SchedulePage() {
                     </Button>
                   )}
                 </div>
-                {calendarSearchHits.length > 0 && (
-                  <ul className="text-xs space-y-1 max-h-28 overflow-y-auto rounded-md border border-border/50 bg-muted/30 px-2 py-1.5">
+                {scheduleSearch.trim().length >= 2 && calendarSearchHits.length > 0 && (
+                  <ul
+                    className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover px-0 py-1 text-xs shadow-md"
+                    role="listbox"
+                  >
                     {calendarSearchHits.map(({ dateKey, snippets }) => (
                       <li key={dateKey}>
                         <button
                           type="button"
-                          className="text-left w-full hover:bg-muted/80 rounded px-1 py-0.5"
+                          className="text-left w-full hover:bg-muted/80 rounded-sm px-3 py-2 border-b border-border/40 last:border-b-0"
                           onClick={() => flashDayOnCalendar(dateKey)}
                         >
                           <span className="font-medium tabular-nums">{dateKey}</span>
@@ -1198,7 +1279,7 @@ export default function SchedulePage() {
                   </ul>
                 )}
                 {scheduleSearch.trim().length >= 2 && calendarSearchHits.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground">No matching dates in this loaded range.</p>
+                  <p className="text-[11px] text-muted-foreground pt-1">No matching dates in this loaded range.</p>
                 )}
               </div>
             </div>
@@ -1296,8 +1377,8 @@ export default function SchedulePage() {
                 </div>
                 <div className="relative">
                   <div className="relative z-[2] grid grid-cols-7 gap-2">
-                    {cells.map((d, i) => {
-                      const inMonth = d.getMonth() === viewMonth;
+                    {(calendarView === "week" ? weekCells : cells).map((d, i) => {
+                      const inMonth = calendarView === "week" || d.getMonth() === viewMonth;
                       const key = localDateKey(d);
                       const dayEvents = eventsByDay.get(key) ?? [];
                       const dayTasks = tasksByDay.get(key) ?? [];
@@ -1358,7 +1439,7 @@ export default function SchedulePage() {
                                 "text-zinc-800 dark:text-zinc-200"
                               )}
                             >
-                              {d.toLocaleString("en-US", { month: "short", year: "numeric" })}
+                              {d.toLocaleString("en-US", { month: "long" })}
                             </div>
                           )}
                           <div

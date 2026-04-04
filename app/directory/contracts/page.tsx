@@ -2508,6 +2508,26 @@ function AddContractDialog({
   const [addContactInitialName, setAddContactInitialName] = useState("");
   const [addSupplierInitialName, setAddSupplierInitialName] = useState("");
   const [utilityOpen, setUtilityOpen] = useState(false);
+  const [signedPreviewFile, setSignedPreviewFile] = useState<File | null>(null);
+  const [signedPreviewUrl, setSignedPreviewUrl] = useState("");
+  const [signedObjectUrl, setSignedObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!signedPreviewFile) {
+      setSignedObjectUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(signedPreviewFile);
+    setSignedObjectUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [signedPreviewFile]);
+
+  useEffect(() => {
+    if (!open) {
+      setSignedPreviewFile(null);
+      setSignedPreviewUrl("");
+    }
+  }, [open]);
 
   useEffect(() => {
     const fromMerged = companiesMerged.find((x) => x.customerId === form.customerId);
@@ -2763,11 +2783,12 @@ function AddContractDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+      <DialogContent className="max-w-[min(96vw,72rem)] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4 py-4">
+        <div className="grid lg:grid-cols-[1fr_minmax(280px,400px)] gap-4 lg:gap-6 items-start">
+          <form onSubmit={onSubmit} className="space-y-4 py-2 min-w-0">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2 relative">
               <Label>Company *</Label>
@@ -3182,6 +3203,59 @@ function AddContractDialog({
             <Button type="submit">{title === "Edit Contract" ? "Save" : "Add Contract"}</Button>
           </DialogFooter>
         </form>
+
+        <aside className="space-y-3 border-t lg:border-t-0 lg:border-l border-border/60 pt-4 lg:pt-0 lg:pl-4">
+          <div>
+            <Label>Signed contract preview</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              PDF or PNG from disk, or a document / Drive URL. For on-screen review only unless you attach via contract
+              documents elsewhere.
+            </p>
+          </div>
+          <Input
+            type="file"
+            accept=".pdf,image/png,image/jpeg,application/pdf"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              setSignedPreviewFile(f);
+              if (f) setSignedPreviewUrl("");
+            }}
+          />
+          <Input
+            placeholder="https://… document link"
+            value={signedPreviewUrl}
+            onChange={(e) => {
+              setSignedPreviewUrl(e.target.value);
+              if (e.target.value.trim()) setSignedPreviewFile(null);
+            }}
+          />
+          {(() => {
+            const url = (signedObjectUrl || signedPreviewUrl.trim()) as string;
+            if (!url) return null;
+            const nameOrUrl = (signedPreviewFile?.name || signedPreviewUrl || url).toLowerCase();
+            const isPdf =
+              nameOrUrl.endsWith(".pdf") ||
+              (signedPreviewFile?.type || "").includes("pdf") ||
+              url.toLowerCase().includes(".pdf");
+            if (isPdf) {
+              return (
+                <iframe
+                  title="Contract PDF preview"
+                  className="w-full h-[min(52vh,520px)] rounded-md border bg-muted/20"
+                  src={url}
+                />
+              );
+            }
+            return (
+              <img
+                src={url}
+                alt="Contract preview"
+                className="w-full max-h-[min(52vh,520px)] object-contain rounded-md border bg-muted/20"
+              />
+            );
+          })()}
+        </aside>
+        </div>
 
         {/* Add Customer overlay */}
         {addCustomerOpen && (

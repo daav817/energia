@@ -370,24 +370,34 @@ model RfpRequest {
   brokerMarginUnit      PriceUnit? @map("broker_margin_unit")
   ldcUtility            String?   @map("ldc_utility")
   requestedTerms        Json?     @map("requested_terms")
+  /// Map of supplierId -> contact id chosen for RFP send (draft/resume).
+  supplierContactSelections Json? @map("supplier_contact_selections")
   customerContactId     String?   @map("customer_contact_id")
   /// Additional customer-side contacts to include when sending quote summaries (JSON array of contact ids).
   quoteSummaryCcContactIds Json?  @map("quote_summary_cc_contact_ids")
   /// Customer contact ids selected for quote summary distribution (native PG array).
   quoteSummaryContactIds String[] @default([]) @map("quote_summary_contact_ids")
+  quoteSummarySentAt DateTime?  @map("quote_summary_sent_at")
   sentAt           DateTime?  @map("sent_at")
   status           String     @default("draft") // draft, sent, quotes_received
   notes            String?    @db.Text
+  /// When this row was created by re-issuing supplier emails for an earlier request, links to that parent.
+  parentRfpId      String?    @map("parent_rfp_id")
+  /// 0 = original supplier send, 1 = first refresh/re-issue, etc.
+  refreshSequence  Int        @default(0) @map("refresh_sequence")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
   customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
   customerContact  Contact?         @relation("RfpCustomerContact", fields: [customerContactId], references: [id], onDelete: SetNull)
+  parentRfp        RfpRequest?      @relation("RfpReissueChain", fields: [parentRfpId], references: [id], onDelete: SetNull)
+  childReissues    RfpRequest[]     @relation("RfpReissueChain")
   suppliers        Supplier[]       @relation("RfpSuppliers")
   quotes           RfpQuote[]       @relation("RfpQuoteToRequest")
   accountLines     RfpAccountLine[]
   calendarEvents   CalendarEvent[]
 
+  @@index([parentRfpId])
   @@map("rfp_requests")
 }
 
