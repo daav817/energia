@@ -283,6 +283,8 @@ enum CalendarEventType {
   CONTRACT_RENEWAL
   LICENSE_EXPIRY
   RFP_DEADLINE
+  /// Shown when an RFP is sent — supplier quote due (distinct calendar styling).
+  SUPPLIER_QUOTE_DUE_RFP
   FOLLOW_UP
   MEETING
   TASK
@@ -369,6 +371,8 @@ model RfpRequest {
   ldcUtility            String?   @map("ldc_utility")
   requestedTerms        Json?     @map("requested_terms")
   customerContactId     String?   @map("customer_contact_id")
+  /// Additional customer-side contacts to include when sending quote summaries (JSON string array of contact ids).
+  quoteSummaryCcContactIds Json?  @map("quote_summary_cc_contact_ids")
   sentAt           DateTime?  @map("sent_at")
   status           String     @default("draft") // draft, sent, quotes_received
   notes            String?    @db.Text

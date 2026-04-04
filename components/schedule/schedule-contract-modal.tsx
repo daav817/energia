@@ -21,6 +21,8 @@ type ContractPayload = {
   signedDate?: string | null;
   pricePerUnit?: unknown;
   priceUnit?: string;
+  brokerMargin?: unknown;
+  brokerMarginUnit?: string | null;
   customer?: { name: string };
   supplier?: { name: string };
   mainContact?: { id: string; name: string } | null;
@@ -224,6 +226,16 @@ export function ScheduleContractModal(props: {
                   <br />
                   <span className="font-medium">
                     {String(data.pricePerUnit)} {data.priceUnit ?? ""}
+                  </span>
+                </p>
+              )}
+              {data.brokerMargin != null && String(data.brokerMargin) !== "" && (
+                <p>
+                  <span className="text-muted-foreground">Broker margin</span>
+                  <br />
+                  <span className="font-medium">
+                    {String(data.brokerMargin)}{" "}
+                    {(data.brokerMarginUnit ?? data.priceUnit ?? "").replaceAll("_", " ")}
                   </span>
                 </p>
               )}

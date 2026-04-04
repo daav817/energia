@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   RefreshCw,
   Star,
@@ -127,6 +127,8 @@ export default function InboxPage() {
   const [unreadResults, setUnreadResults] = useState<EmailMessage[] | null>(null);
   const [lastSearchQuery, setLastSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"inbox" | "search" | "unread">("inbox");
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
   const [searching, setSearching] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const [filterStarred, setFilterStarred] = useState(false);
@@ -356,7 +358,11 @@ export default function InboxPage() {
     return parts.join(" ");
   }, [filterDate, filterStarred]);
 
-  const fetchEmails = async (labelId: string, token?: string) => {
+  const fetchEmails = async (
+    labelId: string,
+    token?: string,
+    opts?: { keepSelection?: boolean }
+  ) => {
     setLoading(true);
     setError(null);
     try {
@@ -370,10 +376,18 @@ export default function InboxPage() {
       const res = await fetch(`/api/emails?${params}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setEmails(data.messages || []);
+      const msgs = data.messages || [];
+      setEmails(msgs);
       setNextPageToken(data.nextPageToken || null);
-      setSelectedEmail(null);
-      setSelectedIds(new Set());
+      if (!opts?.keepSelection) {
+        setSelectedEmail(null);
+        setSelectedIds(new Set());
+      } else {
+        setSelectedEmail((prev) => {
+          if (!prev) return null;
+          return msgs.find((m: EmailMessage) => m.id === prev.id) ?? null;
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load emails");
       setEmails([]);
@@ -424,8 +438,10 @@ export default function InboxPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setUnreadResults(data.messages || []);
-      setSelectedEmail(null);
-      setSelectedIds(new Set());
+      if (activeTabRef.current === "unread") {
+        setSelectedEmail(null);
+        setSelectedIds(new Set());
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load unread emails");
       setUnreadResults([]);
@@ -524,7 +540,7 @@ export default function InboxPage() {
             setSearchResults((prev) =>
               prev ? prev.map((e) => (e.id === id ? { ...e, labelIds: data.labelIds || e.labelIds } : e)) : null
             );
-          else fetchEmails(selectedLabel);
+          else fetchEmails(selectedLabel, undefined, { keepSelection: true });
         }
       }
       // Refresh label/unread counts & unread tab when UNREAD status changes.
@@ -597,7 +613,7 @@ export default function InboxPage() {
   const [unreadFolderOpen, setUnreadFolderOpen] = useState<Record<string, boolean>>({});
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-0 w-full comms-inbox">
+    <div className="flex flex-1 min-h-0 gap-0 w-full comms-inbox">
       <MoveToFolderDialog
         open={!!assignFolderEmailId || !!bulkMoveIds?.length}
         onOpenChange={(open) => {
@@ -886,7 +902,7 @@ export default function InboxPage() {
                         size="sm"
                         onClick={async () => {
                           await fetch("/api/emails/poll?sync=1");
-                          fetchEmails(selectedLabel);
+                          fetchEmails(selectedLabel, undefined, { keepSelection: true });
                           fetchUnread();
                         }}
                         disabled={loading}
@@ -953,13 +969,25 @@ export default function InboxPage() {
             )}
           </div>
           {activeTab === "inbox" && (
-            <div className="flex flex-wrap gap-2">
-              <Input
-                type="date"
-                className="w-40"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-              />
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex flex-col gap-1 max-w-xs">
+                <label htmlFor="inbox-filter-date" className="text-xs text-muted-foreground">
+                  Received on or after
+                </label>
+                <Input
+                  id="inbox-filter-date"
+                  type="date"
+                  className="w-40"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  title="Adds a Gmail search filter: messages received on or after this calendar date (server time zone)."
+                />
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Narrows the folder list using Gmail&apos;s{" "}
+                  <code className="rounded bg-muted px-1">after:YYYY/MM/DD</code> operator—only messages on
+                  or after the date you pick are returned.
+                </p>
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -1117,27 +1145,65 @@ export default function InboxPage() {
           ) : sortedEmails.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">No emails in this folder.</p>
           ) : (
-            <div className="divide-y">
-              {sortedEmails.map((msg) => (
-                <EmailRow
-                  key={msg.id}
-                  msg={msg}
-                  selectedEmail={selectedEmail}
-                  pinnedIds={pinnedIds}
-                  selectedIds={selectedIds}
-                  onSelect={handleSelectEmail}
-                  onToggleSelect={toggleSelect}
-                  onModify={modifyEmailWithConfirm}
-                  onTogglePin={togglePin}
-                  onAssignFolderOpen={setAssignFolderEmailId}
-                  isDraftFolder={selectedLabel === "DRAFT"}
-                />
-              ))}
+            <div>
+              {pinned.length > 0 && (
+                <div className="mx-3 mt-3 mb-2 rounded-xl border-2 border-amber-400/90 bg-amber-50/80 shadow-sm dark:border-amber-600 dark:bg-amber-950/40 ring-1 ring-amber-200/50 dark:ring-amber-900/40">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-300/60 dark:border-amber-800/60">
+                    <Pin className="h-3.5 w-3.5 text-amber-800 dark:text-amber-200 shrink-0" />
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-amber-950 dark:text-amber-100">
+                        Pinned emails
+                      </p>
+                      <p className="text-[10px] text-amber-900/80 dark:text-amber-200/90">
+                        Stays at the top of this folder until you unpin.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-amber-200/70 dark:divide-amber-800/50 rounded-b-xl overflow-hidden">
+                    {pinned.map((msg) => (
+                      <EmailRow
+                        key={msg.id}
+                        msg={msg}
+                        selectedEmail={selectedEmail}
+                        pinnedIds={pinnedIds}
+                        selectedIds={selectedIds}
+                        onSelect={handleSelectEmail}
+                        onToggleSelect={toggleSelect}
+                        onModify={modifyEmailWithConfirm}
+                        onTogglePin={togglePin}
+                        onAssignFolderOpen={setAssignFolderEmailId}
+                        isDraftFolder={selectedLabel === "DRAFT"}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="divide-y">
+                {unpinned.map((msg) => (
+                  <EmailRow
+                    key={msg.id}
+                    msg={msg}
+                    selectedEmail={selectedEmail}
+                    pinnedIds={pinnedIds}
+                    selectedIds={selectedIds}
+                    onSelect={handleSelectEmail}
+                    onToggleSelect={toggleSelect}
+                    onModify={modifyEmailWithConfirm}
+                    onTogglePin={togglePin}
+                    onAssignFolderOpen={setAssignFolderEmailId}
+                    isDraftFolder={selectedLabel === "DRAFT"}
+                  />
+                ))}
+              </div>
             </div>
           )}
           {nextPageToken && activeTab === "inbox" && (
             <div className="p-4">
-              <Button variant="outline" size="sm" onClick={() => fetchEmails(selectedLabel, nextPageToken)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchEmails(selectedLabel, nextPageToken, { keepSelection: true })}
+              >
                 Load more
               </Button>
             </div>

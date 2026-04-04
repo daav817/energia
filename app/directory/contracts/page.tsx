@@ -377,6 +377,8 @@ export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [contractIdFromQuery, setContractIdFromQuery] = useState<string | null>(null);
+  const [rfpRequestIdFromQuery, setRfpRequestIdFromQuery] = useState<string | null>(null);
+  const rfpCloseoutPrefillDoneRef = useRef(false);
   const [tab, setTab] = useState<"active" | "ended">("active");
   const [energyFilter, setEnergyFilter] = useState<"all" | "electric" | "gas">("all");
   const [sortCol, setSortCol] = useState("expirationDate");
@@ -454,9 +456,78 @@ export default function ContractsPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const id = new URLSearchParams(window.location.search).get("contractId");
-    setContractIdFromQuery(id);
+    const sp = new URLSearchParams(window.location.search);
+    setContractIdFromQuery(sp.get("contractId"));
+    setRfpRequestIdFromQuery(sp.get("rfpRequestId"));
   }, []);
+
+  // From RFP workspace: pre-fill Add Contract from a submitted RFP (closeout).
+  useEffect(() => {
+    const rfpId = rfpRequestIdFromQuery;
+    if (!rfpId || contractIdFromQuery || rfpCloseoutPrefillDoneRef.current || editContract) return;
+
+    rfpCloseoutPrefillDoneRef.current = true;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/rfp/${encodeURIComponent(rfpId)}`);
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to load RFP");
+
+        if (data.status === "draft") return;
+
+        const lines = Array.isArray(data.accountLines) ? data.accountLines : [];
+        let annualTotal = 0;
+        let avgMonthlyTotal = 0;
+        for (const L of lines) {
+          annualTotal += Number((L as { annualUsage?: unknown }).annualUsage) || 0;
+          avgMonthlyTotal += Number((L as { avgMonthlyUsage?: unknown }).avgMonthlyUsage) || 0;
+        }
+
+        const energyRaw = data.energyType;
+        const energyType =
+          energyRaw === "ELECTRIC" || energyRaw === "NATURAL_GAS" ? energyRaw : "NATURAL_GAS";
+
+        const marginUnitRaw = data.brokerMarginUnit;
+        const priceUnit =
+          marginUnitRaw === "KWH" ||
+          marginUnitRaw === "MCF" ||
+          marginUnitRaw === "CCF" ||
+          marginUnitRaw === "DTH"
+            ? marginUnitRaw
+            : energyType === "ELECTRIC"
+              ? "KWH"
+              : "MCF";
+
+        const quotes = Array.isArray(data.quotes) ? data.quotes : [];
+        const best = quotes.find((q: { isBestOffer?: boolean }) => q.isBestOffer);
+        const supplierId =
+          typeof (best as { supplierId?: string } | undefined)?.supplierId === "string"
+            ? (best as { supplierId: string }).supplierId
+            : "";
+
+        setForm({
+          ...EMPTY_CONTRACT_FORM,
+          customerId: typeof data.customerId === "string" ? data.customerId : "",
+          supplierId,
+          energyType,
+          priceUnit,
+          brokerMargin: data.brokerMargin != null ? String(data.brokerMargin) : "",
+          customerUtility: typeof data.ldcUtility === "string" ? data.ldcUtility : "",
+          annualUsage: annualTotal > 0 ? String(annualTotal) : "",
+          avgMonthlyUsage: avgMonthlyTotal > 0 ? String(avgMonthlyTotal) : "",
+          notes:
+            typeof data.notes === "string" && data.notes.trim()
+              ? `From RFP closeout. ${data.notes}`
+              : "From RFP closeout.",
+        });
+        setAddOpen(true);
+      } catch (err) {
+        console.error("RFP closeout prefill failed:", err);
+        rfpCloseoutPrefillDoneRef.current = false;
+      }
+    })();
+  }, [rfpRequestIdFromQuery, contractIdFromQuery, editContract]);
 
   useEffect(() => {
     fetch("/api/customers")

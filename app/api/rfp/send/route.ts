@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { getGmailClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
-import { EnergyType, PriceUnit } from "@/generated/prisma/client";
+import { CalendarEventType, EnergyType, PriceUnit } from "@/generated/prisma/client";
 
 /**
  * POST /api/rfp/send
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     if (quoteDue) {
       await prisma.calendarEvent.create({
         data: {
-          title: `RFP quote deadline - ${customer.name}`,
+          title: `Supplier quote due — RFP (${customer.name})`,
           description: [
             `Energy type: ${formatEnergyType(energyType)}`,
             ldcUtility ? `Utility: ${ldcUtility}` : "",
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
             .join("\n"),
           startAt: quoteDue,
           allDay: true,
-          eventType: "RFP_DEADLINE",
+          eventType: CalendarEventType.SUPPLIER_QUOTE_DUE_RFP,
           customerId,
           contactId: customerContactId,
           rfpRequestId: rfpRequest.id,
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const subject = `RFP: ${formatEnergyType(energyType)} - ${customer.name}${customer.company ? ` (${customer.company})` : ""}`;
+    const subjectBase = `RFP: ${formatEnergyType(energyType)} - ${customer.name}${customer.company ? ` (${customer.company})` : ""}`;
     const emailBody = buildRfpEmailBody({
       customer,
       customerContact,
@@ -195,25 +195,27 @@ export async function POST(request: NextRequest) {
     });
 
     const gmail = await getGmailClient();
-    const raw = createMimeMessage({
-      to: recipientEmails,
-      cc: [],
-      bcc: [],
-      subject,
-      text: emailBody,
-      html: undefined,
-    });
+    for (const recipient of supplierRecipients) {
+      const raw = createMimeMessage({
+        to: [recipient.email],
+        cc: [],
+        bcc: [],
+        subject: subjectBase,
+        text: emailBody,
+        html: undefined,
+      });
 
-    const encoded = Buffer.from(raw)
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+      const encoded = Buffer.from(raw)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
 
-    await gmail.users.messages.send({
-      userId: "me",
-      requestBody: { raw: encoded },
-    });
+      await gmail.users.messages.send({
+        userId: "me",
+        requestBody: { raw: encoded },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -373,11 +375,17 @@ function normalizeRequestedTerms(requestedTerms: unknown, customTermMonths: unkn
     }
   }
 
-  const customMonths = Number.parseInt(String(customTermMonths ?? ""), 10);
-  if (Number.isFinite(customMonths) && customMonths > 0) {
-    const key = `M:${customMonths}`;
-    if (!seen.has(key)) {
-      normalized.push({ kind: "months", months: customMonths });
+  const customRaw = String(customTermMonths ?? "").trim();
+  if (customRaw) {
+    for (const part of customRaw.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)) {
+      const customMonths = Number.parseInt(part, 10);
+      if (Number.isFinite(customMonths) && customMonths > 0) {
+        const key = `M:${customMonths}`;
+        if (!seen.has(key)) {
+          normalized.push({ kind: "months", months: customMonths });
+          seen.add(key);
+        }
+      }
     }
   }
 

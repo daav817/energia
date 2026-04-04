@@ -272,7 +272,9 @@ export default function RfpQuotesPage() {
               <SelectContent>
                 {rfpRequests.map((request) => (
                   <SelectItem key={request.id} value={request.id}>
-                    {request.customer.name} · {request.energyType === "ELECTRIC" ? "Electric" : "Gas"}
+                    {`${request.customer.name} · ${
+                      request.energyType === "ELECTRIC" ? "Electric" : "Gas"
+                    }`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -478,7 +480,9 @@ export default function RfpQuotesPage() {
                 <SelectContent>
                   {rfpRequests.map((request) => (
                     <SelectItem key={request.id} value={request.id}>
-                      {request.customer.name} · {request.energyType === "ELECTRIC" ? "Electric" : "Gas"}
+                      {`${request.customer.name} · ${
+                        request.energyType === "ELECTRIC" ? "Electric" : "Gas"
+                      }`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -533,7 +537,7 @@ export default function RfpQuotesPage() {
                   <SelectContent>
                     {requestedMonthTerms.map((term) => (
                       <SelectItem key={term.months} value={String(term.months)}>
-                        {term.months} months
+                        {`${term.months} months`}
                       </SelectItem>
                     ))}
                   </SelectContent>

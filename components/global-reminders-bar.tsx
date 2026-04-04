@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
 
 const STORAGE_HIDDEN = "energia-reminders-bar-hidden";
+const STORAGE_EXPANDED = "energia-reminders-bar-expanded";
 
 type Payload = {
   events: { id: string; title: string; startAt: string; eventType: string }[];
@@ -39,7 +40,7 @@ export function GlobalRemindersBar() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/reminders/upcoming?days=14");
+      const res = await fetch("/api/reminders/upcoming?days=45");
       if (!res.ok) return;
       const json = (await res.json()) as Payload;
       const n =
@@ -56,6 +57,7 @@ export function GlobalRemindersBar() {
   useEffect(() => {
     try {
       setBarHidden(localStorage.getItem(STORAGE_HIDDEN) === "1");
+      setExpanded(localStorage.getItem(STORAGE_EXPANDED) === "1");
     } catch {
       /* ignore */
     }
@@ -69,7 +71,6 @@ export function GlobalRemindersBar() {
 
   const hideBar = () => {
     setBarHidden(true);
-    setExpanded(false);
     try {
       localStorage.setItem(STORAGE_HIDDEN, "1");
     } catch {
@@ -81,9 +82,23 @@ export function GlobalRemindersBar() {
     setBarHidden(false);
     try {
       localStorage.removeItem(STORAGE_HIDDEN);
+      setExpanded(localStorage.getItem(STORAGE_EXPANDED) === "1");
     } catch {
-      /* ignore */
+      setExpanded(false);
     }
+  };
+
+  const toggleExpanded = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      try {
+        if (next) localStorage.setItem(STORAGE_EXPANDED, "1");
+        else localStorage.removeItem(STORAGE_EXPANDED);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   };
 
   if (!data) return null;
@@ -170,7 +185,7 @@ export function GlobalRemindersBar() {
           <button
             type="button"
             className="min-w-0 flex-1 flex items-center gap-1.5 text-left text-xs leading-tight hover:opacity-90"
-            onClick={() => setExpanded(!expanded)}
+            onClick={toggleExpanded}
             aria-expanded={expanded}
           >
             <ChevronDown
@@ -183,7 +198,7 @@ export function GlobalRemindersBar() {
               <span className="font-semibold">Reminders</span>
               <span className="text-amber-800/90 dark:text-amber-200/90 font-normal">
                 {" "}
-                · {total} in the next 14 days
+                · {total} in the next 45 days
               </span>
               {!expanded && summary[0] && (
                 <span className="text-muted-foreground font-normal hidden sm:inline">

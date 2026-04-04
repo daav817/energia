@@ -371,10 +371,18 @@ export default function ContactsPage() {
     const name = form.name.trim() || [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
     if (!name) return;
     try {
+      const trimmedRows = form.emails
+        .map((row) => ({ ...row, email: (row.email || "").trim() }))
+        .filter((row) => row.email);
       const payload = {
         ...form,
         name,
-        emails: form.emails.length ? form.emails : form.email ? [{ email: form.email, type: "work" }] : [],
+        emails:
+          trimmedRows.length > 0
+            ? trimmedRows
+            : form.email?.trim()
+              ? [{ email: form.email.trim(), type: "work" }]
+              : [],
         phones: form.phones.length ? form.phones : form.phone ? [{ phone: form.phone, type: "work" }] : [],
       };
       delete (payload as Record<string, unknown>).email;
@@ -402,10 +410,13 @@ export default function ContactsPage() {
     const name = form.name.trim() || [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
     if (!name) return;
     try {
+      const trimmedRows = form.emails
+        .map((row) => ({ ...row, email: (row.email || "").trim() }))
+        .filter((row) => row.email);
       const payload = {
         ...form,
         name,
-        emails: form.emails.length ? form.emails : form.email ? [{ email: form.email, type: "work" }] : [],
+        emails: trimmedRows,
         phones: form.phones.length ? form.phones : form.phone ? [{ phone: form.phone, type: "work" }] : [],
       };
       delete (payload as Record<string, unknown>).email;

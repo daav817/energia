@@ -2248,6 +2248,7 @@ export const RfpRequestScalarFieldEnum = {
   ldcUtility: 'ldcUtility',
   requestedTerms: 'requestedTerms',
   customerContactId: 'customerContactId',
+  quoteSummaryCcContactIds: 'quoteSummaryCcContactIds',
   sentAt: 'sentAt',
   status: 'status',
   notes: 'notes',

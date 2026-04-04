@@ -59,6 +59,13 @@ type CalendarEventDto = {
   allDay: boolean;
   eventType: string;
   taskId: string | null;
+  licenseId: string | null;
+  license: {
+    id: string;
+    licenseNumber: string;
+    licenseType: string;
+    expirationDate: string | null;
+  } | null;
   customer: { id: string; name: string; company: string | null } | null;
   contact: { id: string; name: string } | null;
   contract: {
@@ -81,12 +88,13 @@ type TaskDto = {
 type ContactOption = { id: string; name: string; company: string | null; label: string | null };
 type TaskListOption = { id: string; name: string };
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 const EVENT_TYPE_OPTIONS = [
   { value: "CONTRACT_RENEWAL", label: "Contract renewal" },
   { value: "LICENSE_EXPIRY", label: "License expiry" },
   { value: "RFP_DEADLINE", label: "RFP deadline" },
+  { value: "SUPPLIER_QUOTE_DUE_RFP", label: "Supplier quote due (RFP)" },
   { value: "FOLLOW_UP", label: "Follow-up" },
   { value: "MEETING", label: "Meeting" },
   { value: "TASK", label: "Task" },
@@ -105,12 +113,35 @@ const SCHEDULE_NEON_DOT = {
     "bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.98),0_0_5px_rgba(34,211,238,1)] ring-1 ring-cyan-200/85 dark:bg-cyan-400 dark:shadow-[0_0_16px_rgba(34,211,238,0.92)] dark:ring-cyan-300/50",
   event:
     "bg-lime-400 shadow-[0_0_14px_rgba(190,242,100,0.98),0_0_5px_rgba(163,230,53,1)] ring-1 ring-lime-200/85 dark:bg-lime-400 dark:shadow-[0_0_16px_rgba(190,242,100,0.95)] dark:ring-lime-300/50",
+  /** RFP sent — supplier quote due (glowing orange) */
+  rfpSupplierQuote:
+    "bg-orange-400 shadow-[0_0_18px_rgba(251,146,60,0.98),0_0_8px_rgba(234,88,12,1),0_0_4px_rgba(249,115,22,1)] ring-2 ring-orange-200/95 dark:bg-orange-500 dark:shadow-[0_0_20px_rgba(251,146,60,0.92)] dark:ring-orange-300/70",
 } as const;
 
 const CELL_MARKER = "h-2.5 w-2.5 mt-0.5 shrink-0 rounded-full";
 const LEGEND_MARKER = "inline-block h-3.5 w-3.5 shrink-0 rounded-full";
 
 /** Marker colors by event type; neon glow so dots stay vivid on gray cells. */
+function yearRowMarkerClass(row: {
+  kind: "Event" | "Task" | "Contract" | "License";
+  eventType?: string;
+}): string {
+  switch (row.kind) {
+    case "Contract":
+      return SCHEDULE_NEON_DOT.contract;
+    case "License":
+      return SCHEDULE_NEON_DOT.license;
+    case "Task":
+      return SCHEDULE_NEON_DOT.task;
+    case "Event":
+      return row.eventType
+        ? calendarEventMarkerClass(row.eventType)
+        : SCHEDULE_NEON_DOT.event;
+    default:
+      return SCHEDULE_NEON_DOT.event;
+  }
+}
+
 function calendarEventMarkerClass(eventType: string): string {
   const t = String(eventType).toUpperCase().replace(/\s+/g, "_");
   switch (t) {
@@ -120,6 +151,8 @@ function calendarEventMarkerClass(eventType: string): string {
       return SCHEDULE_NEON_DOT.license;
     case "RFP_DEADLINE":
       return "bg-rose-400 shadow-[0_0_14px_rgba(251,113,133,0.95),0_0_5px_rgba(251,113,133,1)] ring-1 ring-rose-200/85 dark:bg-rose-500 dark:shadow-[0_0_16px_rgba(251,113,133,0.9)] dark:ring-rose-300/50";
+    case "SUPPLIER_QUOTE_DUE_RFP":
+      return SCHEDULE_NEON_DOT.rfpSupplierQuote;
     case "FOLLOW_UP":
       return "bg-sky-300 shadow-[0_0_14px_rgba(125,211,252,0.98),0_0_5px_rgba(56,189,248,1)] ring-1 ring-sky-200/85 dark:bg-sky-400 dark:shadow-[0_0_16px_rgba(56,189,248,0.92)] dark:ring-sky-300/50";
     case "MEETING":
@@ -154,7 +187,7 @@ function parseApiDateOnlyKey(s: string): string {
 
 function calendarCells(year: number, month: number): Date[] {
   const first = new Date(year, month, 1);
-  const startOffset = (first.getDay() + 6) % 7;
+  const startOffset = first.getDay();
   const gridStart = new Date(year, month, 1 - startOffset);
   const cells: Date[] = [];
   for (let i = 0; i < 42; i++) {
@@ -264,6 +297,7 @@ export default function SchedulePage() {
   const [contractExpSearch, setContractExpSearch] = useState("");
   const [gotoDateInput, setGotoDateInput] = useState("");
   const [yearHighlightedMonth, setYearHighlightedMonth] = useState<number | null>(null);
+  const [scheduleSearch, setScheduleSearch] = useState("");
   const [googleCalendarSyncing, setGoogleCalendarSyncing] = useState(false);
   const yearHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yearMonthCardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -481,6 +515,7 @@ export default function SchedulePage() {
     const map = new Map<string, CalendarEventDto[]>();
     for (const e of events) {
       if (e.taskId) continue;
+      if (String(e.eventType).toUpperCase() === "LICENSE_EXPIRY") continue;
       const key = eventDayKey(e);
       const list = map.get(key) ?? [];
       list.push(e);
@@ -519,9 +554,46 @@ export default function SchedulePage() {
     return map;
   }, [contracts]);
 
+  /** Licenses from DB plus calendar-only LICENSE_EXPIRY events (sidebar + cells stay in sync). */
+  const licensesForSchedule = useMemo(() => {
+    const fromApi = [...licenses];
+    const seen = new Set(fromApi.map((l) => l.id));
+    const extras: LicenseRow[] = [];
+
+    for (const ev of events) {
+      const isLicenseExpiry =
+        String(ev.eventType).toUpperCase().replace(/\s+/g, "_") === "LICENSE_EXPIRY";
+      if (!isLicenseExpiry && ev.taskId) continue;
+      if (!isLicenseExpiry) continue;
+      if (ev.licenseId && seen.has(ev.licenseId)) continue;
+      if (ev.license) {
+        const lid = ev.license.id;
+        if (seen.has(lid)) continue;
+        seen.add(lid);
+        extras.push({
+          id: lid,
+          licenseNumber: ev.license.licenseNumber,
+          licenseType: ev.license.licenseType,
+          expirationDate: ev.license.expirationDate || ev.startAt,
+        });
+        continue;
+      }
+      const syntheticId = `calendar-license-${ev.id}`;
+      if (seen.has(syntheticId)) continue;
+      seen.add(syntheticId);
+      extras.push({
+        id: syntheticId,
+        licenseNumber: ev.title || "License expiry",
+        licenseType: "Calendar",
+        expirationDate: ev.startAt,
+      });
+    }
+    return [...fromApi, ...extras];
+  }, [licenses, events]);
+
   const licensesByExpirationDay = useMemo(() => {
     const map = new Map<string, LicenseRow[]>();
-    for (const lic of licenses) {
+    for (const lic of licensesForSchedule) {
       const key = parseApiDateOnlyKey(lic.expirationDate);
       if (!key) continue;
       const list = map.get(key) ?? [];
@@ -529,7 +601,7 @@ export default function SchedulePage() {
       map.set(key, list);
     }
     return map;
-  }, [licenses]);
+  }, [licensesForSchedule]);
 
   const contractsGroupedByMonthYear = useMemo(() => {
     const sorted = [...contracts].sort(
@@ -588,7 +660,7 @@ export default function SchedulePage() {
   }, [contractsGroupedByMonthYear, contractExpSearch]);
 
   const licensesGroupedByMonthYear = useMemo(() => {
-    const sorted = [...licenses].sort(
+    const sorted = [...licensesForSchedule].sort(
       (a, b) =>
         parseApiDateOnlyKey(a.expirationDate).localeCompare(parseApiDateOnlyKey(b.expirationDate)) ||
         a.licenseNumber.localeCompare(b.licenseNumber)
@@ -611,7 +683,7 @@ export default function SchedulePage() {
       groups.get(ym)!.items.push(lic);
     }
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [licenses]);
+  }, [licensesForSchedule]);
 
   const cells = useMemo(
     () => calendarCells(viewYear, viewMonth),
@@ -632,6 +704,7 @@ export default function SchedulePage() {
     taskId?: string;
     contractId?: string;
     licenseId?: string;
+    eventType?: string;
   };
 
   const yearMonthItems = useMemo(() => {
@@ -651,7 +724,7 @@ export default function SchedulePage() {
           contractId: c.id,
         });
       }
-      for (const lic of licenses) {
+      for (const lic of licensesForSchedule) {
         const dk = parseApiDateOnlyKey(lic.expirationDate);
         if (!dk.startsWith(prefix)) continue;
         rows.push({
@@ -665,6 +738,7 @@ export default function SchedulePage() {
       for (const e of events) {
         const dk = eventDayKey(e);
         if (!dk.startsWith(prefix)) continue;
+        if (String(e.eventType).toUpperCase() === "LICENSE_EXPIRY") continue;
         if (e.taskId) {
           const linked = scheduledTasks.find((t) => t.id === e.taskId);
           const tdk = linked ? taskDayKey(linked) : null;
@@ -676,6 +750,7 @@ export default function SchedulePage() {
           kind: "Event",
           sort: `${dk} event ${e.id}`,
           eventId: e.id,
+          eventType: e.eventType,
         });
       }
       for (const t of scheduledTasks) {
@@ -693,7 +768,39 @@ export default function SchedulePage() {
       map.set(m, rows);
     }
     return map;
-  }, [events, scheduledTasks, contracts, licenses, viewYear]);
+  }, [events, scheduledTasks, contracts, licensesForSchedule, viewYear]);
+
+  const calendarSearchHits = useMemo(() => {
+    const q = scheduleSearch.trim().toLowerCase();
+    if (q.length < 2) return [] as { dateKey: string; snippets: string[] }[];
+    const byDay = new Map<string, Set<string>>();
+    const push = (dateKey: string | null | undefined, snippet: string) => {
+      if (!dateKey || !snippet.trim()) return;
+      const blob = `${dateKey} ${snippet}`.toLowerCase();
+      if (!blob.includes(q)) return;
+      if (!byDay.has(dateKey)) byDay.set(dateKey, new Set());
+      byDay.get(dateKey)!.add(snippet.trim());
+    };
+    for (const e of events) {
+      if (String(e.eventType).toUpperCase() === "LICENSE_EXPIRY") continue;
+      push(eventDayKey(e), e.title);
+    }
+    for (const t of scheduledTasks) {
+      push(taskDayKey(t), t.title);
+    }
+    for (const c of contracts) {
+      push(
+        parseApiDateOnlyKey(c.expirationDate),
+        `${c.customer?.name ?? "Customer"} → ${c.supplier?.name ?? "Supplier"}`
+      );
+    }
+    for (const lic of licensesForSchedule) {
+      push(parseApiDateOnlyKey(lic.expirationDate), `${lic.licenseType} ${lic.licenseNumber}`);
+    }
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateKey, set]) => ({ dateKey, snippets: Array.from(set).slice(0, 8) }));
+  }, [scheduleSearch, events, scheduledTasks, contracts, licensesForSchedule]);
 
   const goMonth = (delta: number) => {
     clearYearMonthHighlight();
@@ -898,7 +1005,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[calc(100dvh-6.5rem)] lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-hidden">
+    <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden p-4">
       <div className="grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[1fr_minmax(280px,340px)] lg:items-stretch">
         <Card className="border-border/50 shadow-md rounded-2xl bg-card/80 backdrop-blur-sm lg:flex lg:h-full lg:min-h-0 lg:flex-col">
           <CardHeader className="shrink-0 space-y-3 border-b border-border/40 bg-muted/20 pb-3">
@@ -1014,6 +1121,10 @@ export default function SchedulePage() {
                 <span className={cn(LEGEND_MARKER, SCHEDULE_NEON_DOT.event)} aria-hidden />
                 Event
               </span>
+              <span className="flex items-center gap-1.5">
+                <span className={cn(LEGEND_MARKER, SCHEDULE_NEON_DOT.rfpSupplierQuote)} aria-hidden />
+                Supplier quote due (RFP)
+              </span>
               <span className="text-[11px] opacity-90">
                 Click a day for the agenda or to add an event.
               </span>
@@ -1049,6 +1160,47 @@ export default function SchedulePage() {
                   ? "Highlights that month for 5 seconds."
                   : "Highlights that day for 5 seconds."}
               </span>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 pt-2 border-t border-border/30">
+              <Label htmlFor="schedule-search" className="text-xs text-muted-foreground shrink-0">
+                Search calendar
+              </Label>
+              <div className="flex flex-1 flex-col gap-2 min-w-0">
+                <div className="flex gap-2 items-center flex-wrap">
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Input
+                    id="schedule-search"
+                    placeholder="Type at least 2 characters (titles, customers, licenses…)"
+                    className="h-9 max-w-md"
+                    value={scheduleSearch}
+                    onChange={(e) => setScheduleSearch(e.target.value)}
+                  />
+                  {scheduleSearch.trim().length > 0 && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setScheduleSearch("")}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {calendarSearchHits.length > 0 && (
+                  <ul className="text-xs space-y-1 max-h-28 overflow-y-auto rounded-md border border-border/50 bg-muted/30 px-2 py-1.5">
+                    {calendarSearchHits.map(({ dateKey, snippets }) => (
+                      <li key={dateKey}>
+                        <button
+                          type="button"
+                          className="text-left w-full hover:bg-muted/80 rounded px-1 py-0.5"
+                          onClick={() => flashDayOnCalendar(dateKey)}
+                        >
+                          <span className="font-medium tabular-nums">{dateKey}</span>
+                          <span className="text-muted-foreground"> — {snippets.join(" · ")}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {scheduleSearch.trim().length >= 2 && calendarSearchHits.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">No matching dates in this loaded range.</p>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
@@ -1091,7 +1243,7 @@ export default function SchedulePage() {
                                 <button
                                   type="button"
                                   className={cn(
-                                    "w-full truncate rounded px-0.5 py-0.5 text-left transition-colors hover:bg-muted/60",
+                                    "flex w-full min-w-0 items-start gap-1 truncate rounded px-0.5 py-0.5 text-left transition-colors hover:bg-muted/60",
                                     r.kind === "Task" && "text-teal-700 dark:text-teal-300",
                                     r.kind === "Contract" && "text-amber-900 dark:text-amber-100",
                                     r.kind === "License" && "text-violet-900 dark:text-violet-100",
@@ -1099,10 +1251,16 @@ export default function SchedulePage() {
                                   )}
                                   onClick={() => handleYearRowAction(r)}
                                 >
-                                  <span className="tabular-nums text-[10px] mr-1 opacity-80 text-muted-foreground">
-                                    {r.day.slice(8)}
+                                  <span
+                                    className={cn(CELL_MARKER, yearRowMarkerClass(r), "mt-0.5 shrink-0")}
+                                    aria-hidden
+                                  />
+                                  <span className="min-w-0 truncate">
+                                    <span className="tabular-nums text-[10px] mr-1 opacity-80 text-muted-foreground">
+                                      {r.day.slice(8)}
+                                    </span>
+                                    {r.label}
                                   </span>
-                                  {r.label}
                                 </button>
                               </li>
                             ))}
@@ -1193,6 +1351,16 @@ export default function SchedulePage() {
                               "z-[4] ring-4 ring-green-500 shadow-[0_0_24px_8px_rgba(34,197,94,0.45)] dark:shadow-[0_0_28px_10px_rgba(34,197,94,0.35)]"
                           )}
                         >
+                          {!inMonth && (
+                            <div
+                              className={cn(
+                                "mb-0.5 text-[10px] font-bold tracking-wide leading-none",
+                                "text-zinc-800 dark:text-zinc-200"
+                              )}
+                            >
+                              {d.toLocaleString("en-US", { month: "short", year: "numeric" })}
+                            </div>
+                          )}
                           <div
                             className={cn(
                               "mb-1.5 text-sm font-semibold tabular-nums",
@@ -1558,9 +1726,7 @@ export default function SchedulePage() {
                   <SelectItem value="__none__">None</SelectItem>
                   {contacts.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                      {c.label ? ` · ${c.label}` : ""}
-                      {c.company ? ` (${c.company})` : ""}
+                      {`${c.name}${c.label ? ` · ${c.label}` : ""}${c.company ? ` (${c.company})` : ""}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1672,7 +1838,10 @@ export default function SchedulePage() {
         events={(() => {
           if (!agendaDate) return [];
           const key = localDateKey(agendaDate);
-          return events.filter((ev) => eventDayKey(ev) === key);
+          return events.filter(
+            (ev) =>
+              eventDayKey(ev) === key && String(ev.eventType).toUpperCase() !== "LICENSE_EXPIRY"
+          );
         })()}
         tasks={(() => {
           if (!agendaDate) return [];
@@ -1745,13 +1914,17 @@ export default function SchedulePage() {
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full flex-wrap gap-x-2 gap-y-1 rounded-md px-1 py-1 text-left hover:bg-muted/50",
+                      "flex w-full min-w-0 items-start gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/50",
                       r.kind === "Task" && "text-teal-700 dark:text-teal-300",
                       r.kind === "Contract" && "text-amber-900 dark:text-amber-100",
                       r.kind === "License" && "text-violet-900 dark:text-violet-100"
                     )}
                     onClick={() => handleYearRowAction(r)}
                   >
+                    <span
+                      className={cn(CELL_MARKER, yearRowMarkerClass(r), "mt-1 shrink-0")}
+                      aria-hidden
+                    />
                     <span className="tabular-nums text-muted-foreground shrink-0">{r.day}</span>
                     <span className="text-xs text-muted-foreground shrink-0 w-14">{r.kind}</span>
                     <span className="min-w-0">{r.label}</span>

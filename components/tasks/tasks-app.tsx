@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -28,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,7 @@ type TaskRow = {
 };
 
 const VIS_KEY = "energia-tasklist-visibility";
+const TASK_SIDEBAR_WIDTH_KEY = "energia-tasks-sidebar-width";
 const REPEAT_OPTIONS = [
   { value: "", label: "Does not repeat" },
   { value: "DAILY", label: "Daily" },
@@ -130,6 +132,9 @@ export function TasksApp() {
   const [loading, setLoading] = useState(true);
   const [expandedDone, setExpandedDone] = useState(false);
   const [visible, setVisible] = useState<Record<string, boolean>>({});
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [graceCompletingIds, setGraceCompletingIds] = useState<string[]>([]);
+  const graceTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -195,6 +200,31 @@ export function TasksApp() {
   }, [selectedId, loadTasks]);
 
   useEffect(() => {
+    graceTimeoutsRef.current.forEach(clearTimeout);
+    graceTimeoutsRef.current.clear();
+    setGraceCompletingIds([]);
+  }, [selectedId]);
+
+  useEffect(() => {
+    try {
+      const w = localStorage.getItem(TASK_SIDEBAR_WIDTH_KEY);
+      if (w) {
+        const n = parseInt(w, 10);
+        if (!Number.isNaN(n)) setSidebarWidth(Math.max(200, Math.min(520, n)));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      graceTimeoutsRef.current.forEach(clearTimeout);
+      graceTimeoutsRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
     const tid = searchParams.get("taskId");
     if (!tid) return;
     (async () => {
@@ -219,13 +249,22 @@ export function TasksApp() {
   };
 
   const selectedList = lists.find((l) => l.id === selectedId);
+  const graceSet = useMemo(() => new Set(graceCompletingIds), [graceCompletingIds]);
   const openTasks = useMemo(
-    () => sortTasks(tasks.filter((t) => t.status !== "COMPLETED"), sortMode),
-    [tasks, sortMode]
+    () =>
+      sortTasks(
+        tasks.filter((t) => t.status !== "COMPLETED" || graceSet.has(t.id)),
+        sortMode
+      ),
+    [tasks, sortMode, graceSet]
   );
   const doneTasks = useMemo(
-    () => sortTasks(tasks.filter((t) => t.status === "COMPLETED"), sortMode),
-    [tasks, sortMode]
+    () =>
+      sortTasks(
+        tasks.filter((t) => t.status === "COMPLETED" && !graceSet.has(t.id)),
+        sortMode
+      ),
+    [tasks, sortMode, graceSet]
   );
 
   const onDragStart = (e: React.DragEvent, listId: string) => {
@@ -256,13 +295,63 @@ export function TasksApp() {
   };
 
   const toggleComplete = async (task: TaskRow) => {
-    const nextStatus = task.status === "COMPLETED" ? "PENDING" : "COMPLETED";
+    if (task.status === "COMPLETED") {
+      const existing = graceTimeoutsRef.current.get(task.id);
+      if (existing) {
+        clearTimeout(existing);
+        graceTimeoutsRef.current.delete(task.id);
+      }
+      setGraceCompletingIds((p) => p.filter((x) => x !== task.id));
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PENDING" }),
+      });
+      if (res.ok && selectedId) loadTasks(selectedId);
+      return;
+    }
     const res = await fetch(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStatus }),
+      body: JSON.stringify({ status: "COMPLETED" }),
     });
-    if (res.ok && selectedId) loadTasks(selectedId);
+    if (!res.ok || !selectedId) return;
+    await loadTasks(selectedId);
+    setGraceCompletingIds((p) => (p.includes(task.id) ? p : [...p, task.id]));
+    const prev = graceTimeoutsRef.current.get(task.id);
+    if (prev) clearTimeout(prev);
+    graceTimeoutsRef.current.set(
+      task.id,
+      setTimeout(() => {
+        graceTimeoutsRef.current.delete(task.id);
+        setGraceCompletingIds((p) => p.filter((x) => x !== task.id));
+        loadTasks(selectedId);
+      }, 2000)
+    );
+  };
+
+  const startResizeSidebar = (startX: number) => {
+    const startW = sidebarWidth;
+    const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - startX;
+      const nw = Math.max(200, Math.min(520, startW + dx));
+      setSidebarWidth(nw);
+      try {
+        localStorage.setItem(TASK_SIDEBAR_WIDTH_KEY, String(nw));
+      } catch {
+        /* ignore */
+      }
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
   };
 
   const openCreate = () => {
@@ -388,8 +477,11 @@ export function TasksApp() {
   }
 
   return (
-    <div className="flex flex-1 min-h-0 w-full flex-row print:block">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-[#dadce0] bg-white p-3 min-h-0 overflow-y-auto print:hidden">
+    <div className="flex flex-1 min-h-0 w-full flex-row print:block relative">
+      <aside
+        className="flex shrink-0 flex-col border-r border-[#dadce0] bg-white p-3 min-h-0 overflow-y-auto print:hidden relative"
+        style={{ width: sidebarWidth }}
+      >
         <Button className="w-full mb-3 rounded-full bg-[#1a73e8] hover:bg-[#1557b0]" onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Create
@@ -458,6 +550,16 @@ export function TasksApp() {
           ))}
         </ul>
       </aside>
+      <div
+        className="w-2 shrink-0 cursor-col-resize hover:bg-primary/30 bg-[#dadce0]/40 transition-colors print:hidden"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          startResizeSidebar(e.clientX);
+        }}
+        title="Drag to resize list"
+        role="separator"
+        aria-orientation="vertical"
+      />
 
       <main
         id="tasks-print-area"
@@ -521,6 +623,7 @@ export function TasksApp() {
                       <Printer className="mr-2 h-4 w-4" />
                       Print list
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={async () => {
                         if (!window.confirm("Delete all completed tasks in this list?")) return;
@@ -533,16 +636,6 @@ export function TasksApp() {
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete completed
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={() => {
-                        setDeleteListTarget(selectedList);
-                        setDeleteListOpen(true);
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete list…
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => void runGoogleTasks("sync")}>
                       Sync with Google Tasks
@@ -572,14 +665,24 @@ export function TasksApp() {
                   <button
                     type="button"
                     role="checkbox"
-                    aria-checked="false"
-                    className="mt-1 h-5 w-5 shrink-0 rounded-full border-2 border-[#5f6368] hover:border-[#1a73e8]"
+                    aria-checked={task.status === "COMPLETED"}
+                    className={cn(
+                      "mt-1 h-5 w-5 shrink-0 rounded-full border-2 border-[#5f6368] hover:border-[#1a73e8]",
+                      task.status === "COMPLETED" && "bg-[#1a73e8] border-[#1a73e8] hover:border-[#1a73e8]"
+                    )}
                     onClick={() => toggleComplete(task)}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       {task.starred && <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />}
-                      <span className="text-[#202124]">{task.title}</span>
+                      <span
+                        className={cn(
+                          "text-[#202124]",
+                          task.status === "COMPLETED" && "line-through text-[#80868b]"
+                        )}
+                      >
+                        {task.title}
+                      </span>
                     </div>
                     {(task.dueDate || task.dueAt) && (
                       <p className="text-xs text-[#5f6368] mt-0.5">

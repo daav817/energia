@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, FileSpreadsheet, FileText, Send, UserPlus } from "lucide-react";
+import {
+  Calculator,
+  FileSpreadsheet,
+  FileText,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Star,
+  Table,
+  UserPlus,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type EnergyType = "ELECTRIC" | "NATURAL_GAS";
 type PriceUnit = "KWH" | "MCF" | "CCF" | "DTH";
@@ -60,7 +71,7 @@ type AccountLine = {
 type RecentRfp = {
   id: string;
   status: string;
-  energyType: EnergyType;
+  energyType: EnergyType | string;
   requestedTerms: unknown;
   quoteDueDate: string | null;
   ldcUtility: string | null;
@@ -96,6 +107,21 @@ const emptyAccountLine = (): AccountLine => ({
   proposedRate: "",
 });
 
+const RFP_SESSION_KEY = "energia-rfp-wip-v1";
+
+function validateCustomTermsInputForString(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  for (const part of t.split(/[,;]+/)) {
+    const p = part.trim();
+    if (!p) continue;
+    if (!/^\d+$/.test(p)) {
+      return `Invalid term "${p}". Use whole numbers separated by commas.`;
+    }
+  }
+  return null;
+}
+
 const emptyCustomerDraft = {
   customerName: "",
   company: "",
@@ -116,10 +142,15 @@ export default function RfpGeneratorPage() {
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [recentRfqs, setRecentRfqs] = useState<RecentRfp[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+  const [utilitiesTableOpen, setUtilitiesTableOpen] = useState(false);
+  const [customTermError, setCustomTermError] = useState<string | null>(null);
 
   const [customerId, setCustomerId] = useState("");
   const [customerContactId, setCustomerContactId] = useState("");
-  const [energyType, setEnergyType] = useState<EnergyType>("NATURAL_GAS");
+  const [energyType, setEnergyType] = useState<EnergyType | "">("");
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
   const [requestedTerms, setRequestedTerms] = useState<RequestedTerm[]>(["12", "24"]);
   const [customTermMonths, setCustomTermMonths] = useState("");
@@ -135,7 +166,12 @@ export default function RfpGeneratorPage() {
   const [accountLines, setAccountLines] = useState<AccountLine[]>([emptyAccountLine()]);
 
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ success?: boolean; sentTo?: number; error?: string } | null>(null);
+  const [result, setResult] = useState<{
+    success?: boolean;
+    sentTo?: number;
+    draftSaved?: boolean;
+    error?: string;
+  } | null>(null);
 
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
@@ -154,11 +190,22 @@ export default function RfpGeneratorPage() {
   }, []);
 
   useEffect(() => {
-    setSelectedSupplierIds((current) =>
-      current.filter((id) => eligibleSuppliersForEnergy(suppliers, energyType).some((supplier) => supplier.id === id))
-    );
-    setBrokerMarginUnit(defaultMarginUnitForEnergy(energyType));
-  }, [energyType, suppliers]);
+    if (energyType) setBrokerMarginUnit(defaultMarginUnitForEnergy(energyType));
+  }, [energyType]);
+
+  useEffect(() => {
+    if (!energyType) {
+      setSelectedSupplierIds([]);
+      return;
+    }
+    setSelectedSupplierIds((current) => {
+      const eligible = eligibleSuppliersForEnergy(suppliers, energyType);
+      const set = new Set(eligible.map((s) => s.id));
+      const kept = current.filter((id) => set.has(id));
+      if (kept.length > 0) return kept;
+      return eligible.map((s) => s.id);
+    });
+  }, [suppliers, energyType]);
 
   useEffect(() => {
     const selectedCustomer = customers.find((customer) => customer.id === customerId);
@@ -169,9 +216,90 @@ export default function RfpGeneratorPage() {
   }, [customerId, customers]);
 
   const eligibleSuppliers = useMemo(
-    () => eligibleSuppliersForEnergy(suppliers, energyType),
+    () => (energyType ? eligibleSuppliersForEnergy(suppliers, energyType) : []),
     [suppliers, energyType]
   );
+
+  const draftRfqs = useMemo(() => recentRfqs.filter((r) => r.status === "draft"), [recentRfqs]);
+  const submittedRfqs = useMemo(() => recentRfqs.filter((r) => r.status !== "draft"), [recentRfqs]);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(RFP_SESSION_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof s.customerId === "string") setCustomerId(s.customerId);
+      if (typeof s.customerContactId === "string") setCustomerContactId(s.customerContactId);
+      if (s.energyType === "ELECTRIC" || s.energyType === "NATURAL_GAS") setEnergyType(s.energyType);
+      if (Array.isArray(s.selectedSupplierIds)) setSelectedSupplierIds(s.selectedSupplierIds as string[]);
+      if (Array.isArray(s.requestedTerms)) setRequestedTerms(s.requestedTerms as RequestedTerm[]);
+      if (typeof s.customTermMonths === "string") setCustomTermMonths(s.customTermMonths);
+      if (typeof s.contractStartMonth === "string") setContractStartMonth(s.contractStartMonth);
+      if (typeof s.contractStartYear === "string") setContractStartYear(s.contractStartYear);
+      if (typeof s.quoteDueDate === "string") setQuoteDueDate(s.quoteDueDate);
+      if (typeof s.googleDriveFolderUrl === "string") setGoogleDriveFolderUrl(s.googleDriveFolderUrl);
+      if (typeof s.summarySpreadsheetUrl === "string") setSummarySpreadsheetUrl(s.summarySpreadsheetUrl);
+      if (typeof s.ldcUtility === "string") setLdcUtility(s.ldcUtility);
+      if (typeof s.brokerMargin === "string") setBrokerMargin(s.brokerMargin);
+      if (s.brokerMarginUnit === "KWH" || s.brokerMarginUnit === "MCF" || s.brokerMarginUnit === "CCF" || s.brokerMarginUnit === "DTH") setBrokerMarginUnit(s.brokerMarginUnit);
+      if (typeof s.notes === "string") setNotes(s.notes);
+      if (Array.isArray(s.accountLines)) setAccountLines(s.accountLines as AccountLine[]);
+      if (typeof s.draftId === "string" || s.draftId === null) setDraftId(s.draftId);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once
+  }, []);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          RFP_SESSION_KEY,
+          JSON.stringify({
+            customerId,
+            customerContactId,
+            energyType,
+            selectedSupplierIds,
+            requestedTerms,
+            customTermMonths,
+            contractStartMonth,
+            contractStartYear,
+            quoteDueDate,
+            googleDriveFolderUrl,
+            summarySpreadsheetUrl,
+            ldcUtility,
+            brokerMargin,
+            brokerMarginUnit,
+            notes,
+            accountLines,
+            draftId,
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [
+    customerId,
+    customerContactId,
+    energyType,
+    selectedSupplierIds,
+    requestedTerms,
+    customTermMonths,
+    contractStartMonth,
+    contractStartYear,
+    quoteDueDate,
+    googleDriveFolderUrl,
+    summarySpreadsheetUrl,
+    ldcUtility,
+    brokerMargin,
+    brokerMarginUnit,
+    notes,
+    accountLines,
+    draftId,
+  ]);
   const suppliersMissingEnergyLabels = useMemo(
     () =>
       suppliers.filter((supplier) => {
@@ -237,7 +365,7 @@ export default function RfpGeneratorPage() {
 
       setCustomers(Array.isArray(customersData) ? customersData : []);
       setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
-      setRecentRfqs(Array.isArray(rfpData) ? rfpData.slice(0, 6) : []);
+      setRecentRfqs(Array.isArray(rfpData) ? rfpData.slice(0, 40) : []);
     } finally {
       setLoading(false);
     }
@@ -361,8 +489,38 @@ export default function RfpGeneratorPage() {
     }
   }
 
-  async function handleSend(e: React.FormEvent) {
+  function validateCustomTermsInput(): string | null {
+    return validateCustomTermsInputForString(customTermMonths);
+  }
+
+  function requestSendConfirm(e: React.FormEvent) {
     e.preventDefault();
+    setResult(null);
+    const termErr = validateCustomTermsInput();
+    setCustomTermError(termErr);
+    if (termErr) return;
+    if (!customerId) {
+      setResult({ error: "Select a customer company." });
+      return;
+    }
+    if (!customerContactId) {
+      setResult({ error: "Select a customer contact." });
+      return;
+    }
+    if (!energyType) {
+      setResult({ error: "Select an energy type." });
+      return;
+    }
+    if (selectedSupplierIds.length === 0) {
+      setResult({ error: "Select at least one supplier to include." });
+      return;
+    }
+    setSendConfirmOpen(true);
+  }
+
+  async function executeSend() {
+    setSendConfirmOpen(false);
+    if (!energyType) return;
     setSending(true);
     setResult(null);
     try {
@@ -396,7 +554,13 @@ export default function RfpGeneratorPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to send RFP");
 
-      setResult({ success: true, sentTo: data.sentTo });
+      setResult({ success: true, sentTo: data.sentTo, draftSaved: false });
+      try {
+        sessionStorage.removeItem(RFP_SESSION_KEY);
+      } catch {
+        /* ignore */
+      }
+      setDraftId(null);
       await loadPageData();
     } catch (error) {
       setResult({ error: error instanceof Error ? error.message : "Failed to send RFP" });
@@ -405,9 +569,164 @@ export default function RfpGeneratorPage() {
     }
   }
 
+  async function saveDraft() {
+    if (!customerId || !energyType) {
+      setResult({ error: "Select a customer and energy type before saving a draft." });
+      return;
+    }
+    const termErr = validateCustomTermsInput();
+    setCustomTermError(termErr);
+    if (termErr) return;
+    setSavingDraft(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/rfp/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draftId: draftId ?? undefined,
+          customerId,
+          customerContactId: customerContactId || undefined,
+          energyType,
+          supplierIds: selectedSupplierIds,
+          requestedTerms,
+          customTermMonths: customTermMonths || undefined,
+          quoteDueDate: quoteDueDate || undefined,
+          contractStartMonth: contractStartMonth || undefined,
+          contractStartYear: contractStartYear || undefined,
+          googleDriveFolderUrl: googleDriveFolderUrl || undefined,
+          summarySpreadsheetUrl: summarySpreadsheetUrl || undefined,
+          ldcUtility: ldcUtility || undefined,
+          brokerMargin: brokerMargin || undefined,
+          brokerMarginUnit,
+          notes: notes || undefined,
+          accountLines: accountLines.map((line) => ({
+            accountNumber: line.accountNumber,
+            serviceAddress: line.serviceAddress || undefined,
+            annualUsage: line.annualUsage,
+            avgMonthlyUsage: line.avgMonthlyUsage,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save draft");
+      setDraftId(data.id);
+      await loadPageData();
+      setResult({ success: true, draftSaved: true });
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Failed to save draft" });
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
+  function clearWorkspaceForm() {
+    setCustomerId("");
+    setCustomerContactId("");
+    setEnergyType("");
+    setSelectedSupplierIds([]);
+    setRequestedTerms(["12", "24"]);
+    setCustomTermMonths("");
+    setContractStartMonth("");
+    setContractStartYear("");
+    setQuoteDueDate("");
+    setGoogleDriveFolderUrl("");
+    setSummarySpreadsheetUrl("");
+    setLdcUtility("");
+    setBrokerMargin("");
+    setBrokerMarginUnit("MCF");
+    setNotes("");
+    setAccountLines([emptyAccountLine()]);
+    setDraftId(null);
+    setResult(null);
+    setCustomTermError(null);
+    try {
+      sessionStorage.removeItem(RFP_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function hydrateDraftFromServer(id: string) {
+    try {
+      const res = await fetch(`/api/rfp/${encodeURIComponent(id)}`);
+      const row = await res.json();
+      if (!res.ok) throw new Error(row.error || "Failed to load draft");
+      if (row.status !== "draft") return;
+      setDraftId(row.id);
+      setCustomerId(row.customerId ?? "");
+      setCustomerContactId(row.customerContactId ?? "");
+      setEnergyType((row.energyType as EnergyType) ?? "");
+      setQuoteDueDate(row.quoteDueDate ? String(row.quoteDueDate).slice(0, 10) : "");
+      setContractStartMonth(row.contractStartMonth != null ? String(row.contractStartMonth) : "");
+      setContractStartYear(row.contractStartYear != null ? String(row.contractStartYear) : "");
+      setGoogleDriveFolderUrl(row.googleDriveFolderUrl ?? "");
+      setSummarySpreadsheetUrl(row.summarySpreadsheetUrl ?? "");
+      setLdcUtility(row.ldcUtility ?? "");
+      setBrokerMargin(row.brokerMargin != null ? String(row.brokerMargin) : "");
+      if (row.brokerMarginUnit === "KWH" || row.brokerMarginUnit === "MCF" || row.brokerMarginUnit === "CCF" || row.brokerMarginUnit === "DTH") setBrokerMarginUnit(row.brokerMarginUnit);
+      setNotes(row.notes ?? "");
+      setSelectedSupplierIds((row.suppliers as { id: string }[] | undefined)?.map((s) => s.id) ?? []);
+      const terms = row.requestedTerms;
+      if (Array.isArray(terms)) {
+        const preset: RequestedTerm[] = [];
+        const customParts: string[] = [];
+        for (const entry of terms) {
+          if (typeof entry === "string" && entry === "NYMEX") preset.push("NYMEX");
+          else if (typeof entry === "string" && ["12", "24", "36"].includes(entry)) {
+            preset.push(entry as RequestedTerm);
+          } else if (entry && typeof entry === "object" && "kind" in entry) {
+            const o = entry as { kind: string; months?: number };
+            if (o.kind === "nymex") preset.push("NYMEX");
+            else if (o.kind === "months" && o.months && ![12, 24, 36].includes(o.months)) {
+              customParts.push(String(o.months));
+            } else if (o.kind === "months" && o.months && [12, 24, 36].includes(o.months)) {
+              preset.push(String(o.months) as RequestedTerm);
+            }
+          }
+        }
+        const uniqPreset = Array.from(new Set(preset));
+        if (uniqPreset.length > 0) setRequestedTerms(uniqPreset);
+        else if (customParts.length > 0) setRequestedTerms([]);
+        else setRequestedTerms(["12", "24"]);
+        setCustomTermMonths(customParts.join(", "));
+      }
+      const lines = row.accountLines as Array<{
+        accountNumber: string;
+        serviceAddress?: string | null;
+        annualUsage: string | number;
+        avgMonthlyUsage: string | number;
+      }>;
+      if (Array.isArray(lines) && lines.length > 0) {
+        setAccountLines(
+          lines.map((L) => ({
+            id: crypto.randomUUID(),
+            accountNumber: L.accountNumber,
+            serviceAddress: L.serviceAddress ?? "",
+            annualUsage: String(L.annualUsage),
+            avgMonthlyUsage: String(L.avgMonthlyUsage),
+            proposedRate: "",
+          }))
+        );
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Failed to load draft" });
+    }
+  }
+
+  async function refreshSuppliersOnly() {
+    try {
+      const suppliersRes = await fetch("/api/suppliers?contacts=1&filter=all");
+      const suppliersData = await suppliersRes.json();
+      setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">RFP workspace</h1>
           <p className="text-muted-foreground">
@@ -415,21 +734,34 @@ export default function RfpGeneratorPage() {
             broker economics before the email goes out.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setAttachContactCustomerId(null);
-            setCustomerDraft(emptyCustomerDraft);
-            setCustomerDialogOpen(true);
-          }}
-        >
-          <UserPlus className="mr-2 h-4 w-4" />
-          Add customer + contact
-        </Button>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <Button type="button" variant="outline" onClick={refreshSuppliersOnly}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh suppliers
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void saveDraft()} disabled={savingDraft}>
+            {savingDraft ? "Saving…" : "Save draft"}
+          </Button>
+          <Button type="button" variant="outline" onClick={clearWorkspaceForm}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Clear page
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setAttachContactCustomerId(null);
+              setCustomerDraft(emptyCustomerDraft);
+              setCustomerDialogOpen(true);
+            }}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add customer + contact
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
-        <form onSubmit={handleSend} className="space-y-6">
+        <form onSubmit={requestSendConfirm} className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -451,11 +783,11 @@ export default function RfpGeneratorPage() {
                     <SelectContent>
                       {customers.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                          {customer.company ? ` (${customer.company})` : ""}
-                          {Array.isArray(customer.contacts) && customer.contacts.length === 0
-                            ? " - no contact on file"
-                            : ""}
+                          {`${customer.name}${customer.company ? ` (${customer.company})` : ""}${
+                            Array.isArray(customer.contacts) && customer.contacts.length === 0
+                              ? " - no contact on file"
+                              : ""
+                          }`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -478,8 +810,7 @@ export default function RfpGeneratorPage() {
                     <SelectContent>
                       {customerContacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id}>
-                          {contact.name}
-                          {contact.email ? ` — ${contact.email}` : ""}
+                          {`${contact.name}${contact.email ? ` — ${contact.email}` : ""}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -512,11 +843,17 @@ export default function RfpGeneratorPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
                   <Label>Energy type *</Label>
-                  <Select value={energyType} onValueChange={(value) => setEnergyType(value as EnergyType)}>
+                  <Select
+                    value={energyType || "__none__"}
+                    onValueChange={(value) =>
+                      setEnergyType(value === "__none__" ? "" : (value as EnergyType))
+                    }
+                  >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select energy type" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">Select energy type…</SelectItem>
                       <SelectItem value="ELECTRIC">Electric</SelectItem>
                       <SelectItem value="NATURAL_GAS">Natural gas</SelectItem>
                     </SelectContent>
@@ -525,17 +862,50 @@ export default function RfpGeneratorPage() {
 
                 <div className="grid gap-2">
                   <Label>LDC / utility *</Label>
-                  <Input
-                    list="rfp-utilities"
-                    value={ldcUtility}
-                    onChange={(e) => setLdcUtility(e.target.value)}
-                    placeholder="Start typing utility name"
-                  />
-                  <datalist id="rfp-utilities">
-                    {UTILITY_OPTIONS.map((utility) => (
-                      <option key={utility} value={utility} />
-                    ))}
-                  </datalist>
+                  <Select
+                    value={
+                      UTILITY_OPTIONS.includes(ldcUtility)
+                        ? ldcUtility
+                        : ldcUtility.trim()
+                          ? "__custom__"
+                          : "__none__"
+                    }
+                    onValueChange={(v) => {
+                      if (v === "__none__") setLdcUtility("");
+                      else if (v === "__custom__") setLdcUtility("");
+                      else setLdcUtility(v);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select utility" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__none__">Select…</SelectItem>
+                      {UTILITY_OPTIONS.map((utility) => (
+                        <SelectItem key={utility} value={utility}>
+                          {utility}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__custom__">Other…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(() => {
+                    const sel = UTILITY_OPTIONS.includes(ldcUtility)
+                      ? ldcUtility
+                      : ldcUtility.trim()
+                        ? "__custom__"
+                        : "__none__";
+                    const showFreeText =
+                      sel === "__custom__" ||
+                      (ldcUtility.trim() !== "" && !UTILITY_OPTIONS.includes(ldcUtility));
+                    return showFreeText ? (
+                      <Input
+                        value={ldcUtility}
+                        onChange={(e) => setLdcUtility(e.target.value)}
+                        placeholder="Utility name"
+                      />
+                    ) : null;
+                  })()}
                 </div>
               </div>
 
@@ -560,16 +930,20 @@ export default function RfpGeneratorPage() {
                     );
                   })}
                 </div>
-                <div className="grid gap-2 md:max-w-[220px]">
-                  <Label htmlFor="custom-term">Custom term (months)</Label>
+                <div className="grid gap-2 md:max-w-md">
+                  <Label htmlFor="custom-term">Custom terms (months)</Label>
                   <Input
                     id="custom-term"
-                    type="number"
-                    min="1"
                     value={customTermMonths}
-                    onChange={(e) => setCustomTermMonths(e.target.value)}
-                    placeholder="Optional"
+                    onChange={(e) => {
+                      setCustomTermMonths(e.target.value);
+                      setCustomTermError(validateCustomTermsInputForString(e.target.value));
+                    }}
+                    placeholder="Comma-separated, e.g. 18, 30, 42"
                   />
+                  {customTermError && (
+                    <p className="text-xs text-destructive">{customTermError}</p>
+                  )}
                 </div>
               </div>
 
@@ -628,10 +1002,16 @@ export default function RfpGeneratorPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Select suppliers</CardTitle>
+              <CardTitle>
+                {energyType === "ELECTRIC"
+                  ? "Select electric suppliers"
+                  : energyType === "NATURAL_GAS"
+                    ? "Select natural gas suppliers"
+                    : "Select suppliers"}
+              </CardTitle>
               <CardDescription>
-                This list filters to suppliers marked for the selected energy type. Supplier labels are
-                also respected where present.
+                Choose who receives the RFP (toggle off suppliers to exclude them). List filters by energy
+                type and contact labels.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -649,13 +1029,24 @@ export default function RfpGeneratorPage() {
               )}
               {eligibleSuppliers.length === 0 && (
                 <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                  No suppliers are currently tagged for {energyType === "ELECTRIC" ? "electric" : "natural gas"}.
+                  {energyType
+                    ? `No suppliers are currently tagged for ${energyType === "ELECTRIC" ? "electric" : "natural gas"}.`
+                    : "Select an energy type to load matching suppliers."}
                 </p>
               )}
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+                Primary / only contact for that supplier (default recipient).
+              </p>
               <div className="grid gap-3 md:grid-cols-2">
                 {eligibleSuppliers.map((supplier) => {
                   const selected = selectedSupplierIds.includes(supplier.id);
-                  const primaryEmail = supplier.contactLinks?.find((contact) => contact.email)?.email || supplier.email;
+                  const links = supplier.contactLinks ?? [];
+                  const primaryEmail =
+                    links.find((c) => c.isPriority)?.email ||
+                    links.find((c) => c.email)?.email ||
+                    supplier.email;
+                  const onlyOne = links.length === 1;
                   return (
                     <button
                       key={supplier.id}
@@ -667,13 +1058,20 @@ export default function RfpGeneratorPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium">{supplier.name}</p>
+                          <p className="font-medium flex items-center gap-1.5">
+                            {supplier.name}
+                            {onlyOne && (
+                              <span className="inline-flex shrink-0" title="Single supplier contact on file">
+                                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" aria-hidden />
+                              </span>
+                            )}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {primaryEmail || "No email on file"}
                           </p>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {selected ? "Selected" : "Click to add"}
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {selected ? "Included" : "Excluded"}
                         </span>
                       </div>
                     </button>
@@ -685,13 +1083,21 @@ export default function RfpGeneratorPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5" />
-                Utility accounts and usage
-              </CardTitle>
-              <CardDescription>
-                Enter one line per meter or utility account from the customer bills.
-              </CardDescription>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5" />
+                    Utility accounts and usage
+                  </CardTitle>
+                  <CardDescription>
+                    Enter one line per meter or utility account from the customer bills.
+                  </CardDescription>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setUtilitiesTableOpen(true)}>
+                  <Table className="mr-2 h-4 w-4" />
+                  Table for email
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {accountLines.map((line, index) => (
@@ -827,7 +1233,12 @@ export default function RfpGeneratorPage() {
                 />
               </div>
 
-              {result?.success && (
+              {result?.success && result.draftSaved && (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+                  Draft saved. You can resume from Unsubmitted RFPs.
+                </div>
+              )}
+              {result?.success && typeof result.sentTo === "number" && (
                 <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
                   RFP sent to {result.sentTo} supplier(s).
                 </div>
@@ -856,8 +1267,11 @@ export default function RfpGeneratorPage() {
               <ChecklistItem checked={Boolean(customerId && customerContactId)}>
                 Customer and contact selected
               </ChecklistItem>
+              <ChecklistItem checked={Boolean(energyType)}>
+                Energy type selected (electric or natural gas)
+              </ChecklistItem>
               <ChecklistItem checked={selectedSupplierIds.length > 0}>
-                At least one supplier selected
+                At least one supplier included
               </ChecklistItem>
               <ChecklistItem checked={Boolean(googleDriveFolderUrl)}>
                 Google Drive bill folder linked
@@ -873,14 +1287,42 @@ export default function RfpGeneratorPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Recent RFPs</CardTitle>
-              <CardDescription>Latest requests saved in the system.</CardDescription>
+              <CardTitle>Unsubmitted RFPs</CardTitle>
+              <CardDescription>Drafts saved in the database. Click to load into the form.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {recentRfqs.length === 0 && (
-                <p className="text-sm text-muted-foreground">No RFP requests have been sent yet.</p>
+              {draftRfqs.length === 0 && (
+                <p className="text-sm text-muted-foreground">No drafts yet. Use Save draft.</p>
               )}
-              {recentRfqs.map((rfp) => (
+              {draftRfqs.map((rfp) => (
+                <button
+                  key={rfp.id}
+                  type="button"
+                  onClick={() => void hydrateDraftFromServer(rfp.id)}
+                  className={`w-full rounded-lg border p-4 text-left transition hover:bg-muted/50 ${
+                    focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""
+                  }`}
+                >
+                  <p className="font-medium">{rfp.customer.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · draft
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Click to continue editing</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Submitted RFPs</CardTitle>
+              <CardDescription>Sent requests and follow-up.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {submittedRfqs.length === 0 && (
+                <p className="text-sm text-muted-foreground">No submitted RFPs yet.</p>
+              )}
+              {submittedRfqs.map((rfp) => (
                 <div
                   key={rfp.id}
                   className={`rounded-lg border p-4 ${focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""}`}
@@ -909,6 +1351,12 @@ export default function RfpGeneratorPage() {
                     >
                       Review quotes
                     </Link>
+                    <Link
+                      href={`/directory/contracts?rfpRequestId=${encodeURIComponent(rfp.id)}`}
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-primary px-3 text-sm font-medium"
+                    >
+                      Add contract (closeout)
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -916,6 +1364,53 @@ export default function RfpGeneratorPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={utilitiesTableOpen} onOpenChange={setUtilitiesTableOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Utility accounts (for email)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Use this table when you want a clean account summary paste into the supplier email body.
+          </p>
+          <table className="mt-4 w-full text-sm border-collapse border border-border">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="border border-border p-2 text-left font-medium">Account #</th>
+                <th className="border border-border p-2 text-left font-medium">Service address</th>
+                <th className="border border-border p-2 text-right font-medium">Annual usage</th>
+                <th className="border border-border p-2 text-right font-medium">Avg monthly</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accountLines.map((line) => (
+                <tr key={line.id}>
+                  <td className="border border-border p-2">{line.accountNumber.trim() || "—"}</td>
+                  <td className="border border-border p-2">{line.serviceAddress.trim() || "—"}</td>
+                  <td className="border border-border p-2 text-right">{line.annualUsage.trim() || "—"}</td>
+                  <td className="border border-border p-2 text-right">{line.avgMonthlyUsage.trim() || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setUtilitiesTableOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={sendConfirmOpen}
+        onOpenChange={setSendConfirmOpen}
+        title="Send RFP to suppliers?"
+        message={`One separate email will be sent to each of ${selectedSupplierIds.length} supplier(s), and calendar reminders will be created. Continue?`}
+        confirmLabel="Send now"
+        cancelLabel="Cancel"
+        variant="default"
+        onConfirm={() => void executeSend()}
+      />
 
       <Dialog
         open={customerDialogOpen}
@@ -1080,7 +1575,8 @@ function defaultMarginUnitForEnergy(energyType: EnergyType): PriceUnit {
   return energyType === "ELECTRIC" ? "KWH" : "MCF";
 }
 
-function marginUnitOptions(energyType: EnergyType): PriceUnit[] {
+function marginUnitOptions(energyType: EnergyType | ""): PriceUnit[] {
+  if (!energyType) return ["KWH", "MCF", "CCF", "DTH"];
   return energyType === "ELECTRIC" ? ["KWH"] : ["MCF", "CCF", "DTH"];
 }
 
@@ -1088,9 +1584,15 @@ function termsForCalculations(requestedTerms: RequestedTerm[], customTermMonths:
   const standardTerms = requestedTerms
     .filter((term): term is "12" | "24" | "36" => term !== "NYMEX")
     .map((term) => Number(term));
-  const custom = Number.parseInt(customTermMonths, 10);
-  const combined = Number.isFinite(custom) && custom > 0 ? [...standardTerms, custom] : standardTerms;
-  return Array.from(new Set(combined)).sort((a, b) => a - b);
+  const customParts: number[] = [];
+  for (const part of customTermMonths
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)) {
+    const n = Number.parseInt(part, 10);
+    if (Number.isFinite(n) && n > 0) customParts.push(n);
+  }
+  return Array.from(new Set([...standardTerms, ...customParts])).sort((a, b) => a - b);
 }
 
 function eligibleSuppliersForEnergy(suppliers: SupplierOption[], energyType: EnergyType) {
