@@ -11,6 +11,10 @@ type Member = {
   customerId: string | null;
   isPriority: boolean;
   name: string;
+  email: string | null;
+  phone: string | null;
+  label: string | null;
+  company: string | null;
   updatedAt: Date;
 };
 
@@ -40,6 +44,8 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        email: true,
+        phone: true,
         company: true,
         customerId: true,
         label: true,
@@ -85,6 +91,10 @@ export async function GET() {
           customerId: c.customerId,
           isPriority: c.isPriority,
           name: c.name,
+          email: c.email,
+          phone: c.phone,
+          label: c.label,
+          company: c.company,
           updatedAt: c.updatedAt,
         });
       }
@@ -94,11 +104,27 @@ export async function GET() {
       }
     }
 
-    const companies = Array.from(map.values())
-      .map((agg) => ({
+    const companies = Array.from(map.entries())
+      .map(([companyKey, agg]) => ({
+        id: companyKey,
         displayName: agg.displayName,
         customerId: agg.customerId,
         primaryContactId: pickPrimaryContactId(agg.members, agg.customerId),
+        contacts: agg.members
+          .slice()
+          .sort((a, b) => {
+            if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+            return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+          })
+          .map((member) => ({
+            id: member.id,
+            customerId: member.customerId,
+            name: member.name,
+            email: member.email,
+            phone: member.phone,
+            label: member.label,
+            company: member.company,
+          })),
       }))
       .sort((a, b) =>
         a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" })

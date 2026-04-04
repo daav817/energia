@@ -56,7 +56,9 @@ type RfpRequestSummary = {
   brokerMarginUnit: string | null;
   ldcUtility: string | null;
   requestedTerms: Array<{ kind: "months"; months: number } | { kind: "nymex" }> | null;
-  customer: { name: string; company: string | null };
+  customer: { id: string; name: string; company: string | null };
+  customerContact?: { id: string; name: string; email: string | null; phone: string | null } | null;
+  quoteSummaryContactIds?: string[];
   suppliers: Array<{ id: string; name: string }>;
   accountLines: Array<{ id: string; accountNumber: string; annualUsage: number; avgMonthlyUsage: number }>;
 };
@@ -74,12 +76,23 @@ const emptyForm = {
   notes: "",
 };
 
+type CustomerContactRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+};
+
 export default function RfpQuotesPage() {
   const [quotes, setQuotes] = useState<RfpQuote[]>([]);
   const [rfpRequests, setRfpRequests] = useState<RfpRequestSummary[]>([]);
   const [selectedRfpId, setSelectedRfpId] = useState("");
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [recipientsSaving, setRecipientsSaving] = useState(false);
+  const [customerContacts, setCustomerContacts] = useState<CustomerContactRow[]>([]);
+  const [primaryContactId, setPrimaryContactId] = useState("");
+  const [extraRecipientIds, setExtraRecipientIds] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const selectedRequest =
@@ -122,6 +135,34 @@ export default function RfpQuotesPage() {
   useEffect(() => {
     void fetchQuotes(selectedRfpId);
   }, [selectedRfpId]);
+
+  useEffect(() => {
+    if (!selectedRequest?.customer?.id) {
+      setCustomerContacts([]);
+      setPrimaryContactId("");
+      setExtraRecipientIds([]);
+      return;
+    }
+
+    setPrimaryContactId(selectedRequest.customerContact?.id ?? "");
+    setExtraRecipientIds(
+      (selectedRequest.quoteSummaryContactIds || []).filter(
+        (id) => id && id !== selectedRequest.customerContact?.id
+      )
+    );
+
+    void (async () => {
+      const res = await fetch(`/api/customers/${selectedRequest.customer.id}?contacts=1`);
+      const data = await res.json();
+      const rows = Array.isArray(data?.contacts) ? (data.contacts as CustomerContactRow[]) : [];
+      setCustomerContacts(rows);
+    })();
+  }, [
+    selectedRequest?.id,
+    selectedRequest?.customer?.id,
+    selectedRequest?.customerContact?.id,
+    (selectedRequest?.quoteSummaryContactIds ?? []).join(","),
+  ]);
 
   useEffect(() => {
     const request = formRequest;
@@ -240,6 +281,27 @@ export default function RfpQuotesPage() {
     }
   };
 
+  const handleSaveQuoteRecipients = async () => {
+    if (!selectedRequest) return;
+    setRecipientsSaving(true);
+    try {
+      const merged = Array.from(
+        new Set([primaryContactId, ...extraRecipientIds].filter(Boolean))
+      );
+      const res = await fetch(`/api/rfp/${selectedRequest.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerContactId: primaryContactId || null,
+          quoteSummaryContactIds: merged,
+        }),
+      });
+      if (res.ok) await loadRfpRequests();
+    } finally {
+      setRecipientsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -307,6 +369,78 @@ export default function RfpQuotesPage() {
               <p className="text-sm text-muted-foreground">
                 Accounts: {selectedRequest.accountLines.length}
               </p>
+
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <p className="text-sm font-medium">Customer quote summary recipients</p>
+                <p className="text-xs text-muted-foreground">
+                  Choose who should receive the consolidated quote summary. The primary contact is the main signer or
+                  negotiator; check additional people at the same company to copy them as well.
+                </p>
+                {customerContacts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No contacts on file for this customer.</p>
+                ) : (
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Label>Primary customer contact</Label>
+                      <Select value={primaryContactId} onValueChange={setPrimaryContactId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select contact" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customerContacts.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {`${c.name}${c.email ? ` — ${c.email}` : ""}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Also send summary to</Label>
+                      <div className="max-h-40 space-y-2 overflow-y-auto rounded border p-2">
+                        {customerContacts.map((c) => {
+                          const disabled = c.id === primaryContactId;
+                          const checked = extraRecipientIds.includes(c.id);
+                          return (
+                            <label
+                              key={c.id}
+                              className={`flex items-center gap-2 text-sm ${disabled ? "opacity-50" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border accent-primary"
+                                disabled={disabled}
+                                checked={disabled ? false : checked}
+                                onChange={() => {
+                                  setExtraRecipientIds((current) =>
+                                    current.includes(c.id)
+                                      ? current.filter((id) => id !== c.id)
+                                      : [...current, c.id]
+                                  );
+                                }}
+                              />
+                              <span>
+                                {c.name}
+                                {c.email ? ` (${c.email})` : ""}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={recipientsSaving || !primaryContactId}
+                      onClick={() => void handleSaveQuoteRecipients()}
+                    >
+                      {recipientsSaving ? "Saving..." : "Save recipients"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button
                   type="button"

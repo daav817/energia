@@ -45,6 +45,7 @@ export function getAuthUrl(loginHint?: string): string {
       "https://www.googleapis.com/auth/contacts",
       "https://www.googleapis.com/auth/tasks",
       "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/drive.readonly",
     ],
     prompt: "select_account consent",
     ...(loginHint && { login_hint: loginHint }),
@@ -97,6 +98,37 @@ export async function getGmailClient() {
 
   const gmail = google.gmail({ version: "v1", auth: oauth2 });
   return gmail;
+}
+
+export async function getGoogleOAuthClient() {
+  const tokens = loadTokens();
+  if (!tokens?.refresh_token) {
+    throw new Error("Google account not connected. Complete OAuth flow first.");
+  }
+
+  const oauth2 = getOAuth2Client();
+  oauth2.setCredentials({
+    refresh_token: tokens.refresh_token,
+    access_token: tokens.access_token,
+    expiry_date: tokens.expiry_date,
+  });
+
+  const { token } = await oauth2.getAccessToken();
+  if (token) {
+    const creds = oauth2.credentials;
+    saveTokens({
+      refresh_token: tokens.refresh_token,
+      access_token: creds.access_token || undefined,
+      expiry_date: creds.expiry_date ?? undefined,
+    });
+  }
+
+  return oauth2;
+}
+
+export async function getGoogleDriveClient() {
+  const auth = await getGoogleOAuthClient();
+  return google.drive({ version: "v3", auth });
 }
 
 export function isGmailConnected(): boolean {

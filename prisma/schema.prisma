@@ -369,6 +369,7 @@ model RfpRequest {
   ldcUtility            String?   @map("ldc_utility")
   requestedTerms        Json?     @map("requested_terms")
   customerContactId     String?   @map("customer_contact_id")
+  quoteSummaryContactIds String[] @default([]) @map("quote_summary_contact_ids")
   sentAt           DateTime?  @map("sent_at")
   status           String     @default("draft") // draft, sent, quotes_received
   notes            String?    @db.Text

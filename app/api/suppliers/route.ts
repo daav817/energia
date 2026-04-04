@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { mergeContactsForSupplier } from "@/lib/supplier-rfp-contacts";
 import { prisma } from "@/lib/prisma";
 
 type EnergyFilter = "electric" | "gas" | "both" | "all";
@@ -29,15 +30,43 @@ export async function GET(request: NextRequest) {
     const suppliers = await prisma.supplier.findMany({
       where,
       orderBy: { name: "asc" },
-      include: withContacts
-        ? {
-            contactLinks: {
-              select: { id: true, name: true, email: true, phone: true, isPriority: true, label: true },
-            },
-          }
-        : undefined,
     });
-    return NextResponse.json(suppliers);
+
+    if (!withContacts) {
+      return NextResponse.json(suppliers);
+    }
+
+    const supplierIds = suppliers.map((s) => s.id);
+    const contactPool =
+      supplierIds.length === 0
+        ? []
+        : await prisma.contact.findMany({
+            where: {
+              OR: [
+                { supplierId: { in: supplierIds } },
+                { label: { contains: "supplier", mode: "insensitive" } },
+                { label: { contains: "vendor", mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              company: true,
+              supplierId: true,
+              label: true,
+              isPriority: true,
+              emails: { orderBy: { order: "asc" }, select: { email: true } },
+            },
+          });
+
+    const suppliersWithContacts = suppliers.map((supplier) => ({
+      ...supplier,
+      contactLinks: mergeContactsForSupplier(supplier, contactPool),
+    }));
+
+    return NextResponse.json(suppliersWithContacts);
   } catch (error) {
     console.error("Suppliers fetch error:", error);
     return NextResponse.json(
