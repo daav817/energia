@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ChevronsLeft,
   ChevronsRight,
-  ExternalLink,
   Search,
+  X,
 } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
@@ -23,12 +24,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DayAgendaDialog } from "@/components/schedule/day-agenda-dialog";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
+import { TaskCreateDialog } from "@/components/tasks/task-create-dialog";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 const DASH_CAL_STORAGE_KEY = "energia-dashboard-cal";
+const DASH_EMAIL_SEARCH_STORAGE_KEY = "energia-dash-email-search-v1";
+const DASH_TASK_ACC_STORAGE_KEY = "energia-dash-task-acc-v1";
+const DASH_EMAIL_DAY_COLLAPSED_KEY = "energia-dash-email-day-collapsed-v1";
 
 const SCHEDULE_NEON_DOT = {
   contract:
@@ -82,6 +88,53 @@ function addYears(year: number, delta: number): number {
 function localDateKey(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+type DashEmailScopeDays = 1 | 7 | 14 | 30;
+
+function gmailDayFolder(d: Date): string {
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+/** Gmail `q` fragment: all folders (`in:anywhere`) + received date range (local calendar days). */
+function anywhereQueryForScope(days: DashEmailScopeDays): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (days === 1) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return `in:anywhere after:${gmailDayFolder(today)} before:${gmailDayFolder(tomorrow)}`;
+  }
+  const start = new Date(today);
+  start.setDate(start.getDate() - (days - 1));
+  return `in:anywhere after:${gmailDayFolder(start)}`;
+}
+
+function maxResultsForEmailScope(days: DashEmailScopeDays): number {
+  switch (days) {
+    case 1:
+      return 50;
+    case 7:
+      return 120;
+    case 14:
+      return 180;
+    case 30:
+      return 300;
+    default:
+      return 100;
+  }
+}
+
+function emailHeaderDayKey(dateStr: string): string {
+  const t = Date.parse(dateStr);
+  if (Number.isNaN(t)) return "unknown";
+  return localDateKey(new Date(t));
+}
+
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
 }
 
 function startOfWeekSunday(d: Date): Date {
@@ -151,9 +204,28 @@ type TaskDto = {
   dueAt: string | null;
   taskListId: string | null;
   taskList: { id: string; name: string } | null;
+  listSortOrder: number;
 };
 
+function taskDayKey(t: TaskDto): string | null {
+  const raw = t.dueAt || t.dueDate;
+  if (!raw) return null;
+  return parseApiDateOnlyKey(String(raw));
+}
+
 type EmailMsg = { id: string; subject: string; from: string; snippet: string; date: string };
+
+/** Filter search-result messages to the same received window as the Inbox day buttons. */
+function emailMsgInReceivedScope(m: EmailMsg, days: DashEmailScopeDays): boolean {
+  const t = Date.parse(m.date);
+  if (Number.isNaN(t)) return true;
+  const msgDay = startOfLocalDay(new Date(t));
+  const today = startOfLocalDay(new Date());
+  if (days === 1) return msgDay.getTime() === today.getTime();
+  const start = new Date(today);
+  start.setDate(start.getDate() - (days - 1));
+  return msgDay >= start && msgDay <= today;
+}
 
 type ContractRow = {
   id: string;
@@ -220,7 +292,16 @@ export default function DashboardPage() {
   const [openAcc, setOpenAcc] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [emailModalId, setEmailModalId] = useState<string | null>(null);
-  const [weekDayModal, setWeekDayModal] = useState<{ key: string; label: string } | null>(null);
+  const [emailScopeDays, setEmailScopeDays] = useState<DashEmailScopeDays>(7);
+  const [dashEmailTab, setDashEmailTab] = useState<"inbox" | "search">("inbox");
+  const [emailSearchInput, setEmailSearchInput] = useState("");
+  const [emailSearchResults, setEmailSearchResults] = useState<EmailMsg[] | null>(null);
+  const [emailSearching, setEmailSearching] = useState(false);
+  const [lastEmailSearchQuery, setLastEmailSearchQuery] = useState("");
+  const [dashAgendaOpen, setDashAgendaOpen] = useState(false);
+  const [dashAgendaDate, setDashAgendaDate] = useState<Date | null>(null);
+  /** Per-day row collapsed in Emails multi-day view; key present and true => collapsed */
+  const [emailDayCollapsed, setEmailDayCollapsed] = useState<Record<string, boolean>>({});
   const [dashCalView, setDashCalView] = useState<DashCalView>("week");
   const [dashWeekStart, setDashWeekStart] = useState(() => startOfWeekSunday(new Date()));
   const [dashMonth, setDashMonth] = useState(() => new Date().getMonth());
@@ -231,6 +312,92 @@ export default function DashboardPage() {
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractModalId, setContractModalId] = useState<string | null>(null);
   const [wideLayout, setWideLayout] = useState(true);
+  const [taskSyncing, setTaskSyncing] = useState(false);
+  const [dashTaskCreateOpen, setDashTaskCreateOpen] = useState(false);
+  const [dashTaskCreateListId, setDashTaskCreateListId] = useState<string>("");
+  const taskAccHydratedRef = useRef(false);
+  const skipEmailDayPersistRef = useRef(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(DASH_EMAIL_DAY_COLLAPSED_KEY);
+      if (raw) {
+        const j = JSON.parse(raw) as Record<string, boolean>;
+        if (j && typeof j === "object" && !Array.isArray(j)) setEmailDayCollapsed(j);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (skipEmailDayPersistRef.current) {
+      skipEmailDayPersistRef.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(DASH_EMAIL_DAY_COLLAPSED_KEY, JSON.stringify(emailDayCollapsed));
+    } catch {
+      /* ignore */
+    }
+  }, [emailDayCollapsed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || taskLists.length === 0 || taskAccHydratedRef.current) return;
+    taskAccHydratedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DASH_TASK_ACC_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, boolean>;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+      setOpenAcc((prev) => {
+        const next = { ...prev };
+        for (const l of taskLists) {
+          if (Object.prototype.hasOwnProperty.call(parsed, l.id)) next[l.id] = parsed[l.id];
+        }
+        return next;
+      });
+    } catch {
+      /* ignore */
+    }
+  }, [taskLists]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || taskLists.length === 0) return;
+    try {
+      const subset: Record<string, boolean> = {};
+      for (const l of taskLists) {
+        if (Object.prototype.hasOwnProperty.call(openAcc, l.id)) subset[l.id] = openAcc[l.id];
+      }
+      localStorage.setItem(DASH_TASK_ACC_STORAGE_KEY, JSON.stringify(subset));
+    } catch {
+      /* ignore */
+    }
+  }, [openAcc, taskLists]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem(DASH_EMAIL_SEARCH_STORAGE_KEY);
+      if (!raw) return;
+      const j = JSON.parse(raw) as {
+        input?: string;
+        results?: EmailMsg[] | null;
+        lastQuery?: string;
+        tab?: "inbox" | "search";
+      };
+      if (typeof j.input === "string") setEmailSearchInput(j.input);
+      if (Array.isArray(j.results)) {
+        setEmailSearchResults(j.results);
+        if (typeof j.lastQuery === "string") setLastEmailSearchQuery(j.lastQuery);
+        if (j.tab === "search") setDashEmailTab("search");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     const p = readDashCal();
@@ -304,8 +471,10 @@ export default function DashboardPage() {
       const fromIso = fromD.toISOString();
       const toIso = toD.toISOString();
 
+      const emQ = encodeURIComponent(anywhereQueryForScope(emailScopeDays));
+      const emMax = maxResultsForEmailScope(emailScopeDays);
       const [emRes, calRes, listsRes, tasksRes, cRes, lRes, rfpRes] = await Promise.all([
-        fetch("/api/emails?maxResults=10&labelIds=INBOX"),
+        fetch(`/api/emails?maxResults=${emMax}&q=${emQ}`),
         fetch(`/api/calendar/overview?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`),
         fetch("/api/task-lists"),
         fetch("/api/tasks?includeCompleted=true"),
@@ -413,7 +582,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [dashCalView, dashWeekStart, dashMonth, dashYear]);
+  }, [dashCalView, dashWeekStart, dashMonth, dashYear, emailScopeDays]);
 
   useEffect(() => {
     load();
@@ -671,6 +840,139 @@ export default function DashboardPage() {
     [router]
   );
 
+  const listSource = useMemo(() => {
+    const raw = dashEmailTab === "search" ? (emailSearchResults ?? []) : emails;
+    if (dashEmailTab !== "search") return raw;
+    return raw.filter((m) => emailMsgInReceivedScope(m, emailScopeDays));
+  }, [dashEmailTab, emailSearchResults, emails, emailScopeDays]);
+
+  const emailsGroupedByDay = useMemo(() => {
+    const sorted = [...listSource].sort(
+      (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)
+    );
+    const groups = new Map<string, EmailMsg[]>();
+    for (const m of sorted) {
+      const k = emailHeaderDayKey(m.date);
+      if (k === "unknown") {
+        if (!groups.has("_nodate")) groups.set("_nodate", []);
+        groups.get("_nodate")!.push(m);
+        continue;
+      }
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(m);
+    }
+    return Array.from(groups.entries()).sort(([ka], [kb]) => {
+      if (ka === "_nodate") return 1;
+      if (kb === "_nodate") return -1;
+      return kb.localeCompare(ka);
+    });
+  }, [listSource]);
+
+  const showEmailDaySeparators =
+    (dashEmailTab === "inbox" && emailScopeDays > 1) ||
+    (dashEmailTab === "search" && emailsGroupedByDay.length > 1);
+
+  const runDashEmailSearch = useCallback(async () => {
+    const q = emailSearchInput.trim();
+    if (!q) return;
+    setEmailSearching(true);
+    try {
+      const params = new URLSearchParams({
+        maxResults: "100",
+        q,
+      });
+      const res = await fetch(`/api/emails?${params.toString()}`);
+      const j = await res.json();
+      const msgs = Array.isArray(j.messages) ? (j.messages as EmailMsg[]) : [];
+      setEmailSearchResults(msgs);
+      setLastEmailSearchQuery(q);
+      setDashEmailTab("search");
+      try {
+        sessionStorage.setItem(
+          DASH_EMAIL_SEARCH_STORAGE_KEY,
+          JSON.stringify({
+            input: emailSearchInput,
+            results: msgs,
+            lastQuery: q,
+            tab: "search",
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    } finally {
+      setEmailSearching(false);
+    }
+  }, [emailSearchInput]);
+
+  const clearDashEmailSearch = useCallback(() => {
+    setEmailSearchResults(null);
+    setLastEmailSearchQuery("");
+    setDashEmailTab("inbox");
+    try {
+      sessionStorage.removeItem(DASH_EMAIL_SEARCH_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const runGoogleTasksSync = useCallback(async () => {
+    setTaskSyncing(true);
+    try {
+      const res = await fetch("/api/google-tasks/sync", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(typeof data.error === "string" ? data.error : "Google Tasks sync failed.");
+        return;
+      }
+      await load();
+      window.alert(
+        typeof data.pulled === "number" || typeof data.pushed === "number"
+          ? `Synced tasks (pulled ${data.pulled ?? "—"}, pushed ${data.pushed ?? "—"}).`
+          : "Google Tasks sync completed."
+      );
+    } catch {
+      window.alert("Could not run Google Tasks sync.");
+    } finally {
+      setTaskSyncing(false);
+    }
+  }, [load]);
+
+  const moveTaskPriority = useCallback(
+    async (listId: string, taskId: string, dir: "up" | "down") => {
+      const raw = tasksByList[listId] ?? [];
+      const items = [...raw].sort(
+        (a, b) =>
+          (a.listSortOrder ?? 0) - (b.listSortOrder ?? 0) ||
+          new Date(a.dueAt || a.dueDate || 0).getTime() -
+            new Date(b.dueAt || b.dueDate || 0).getTime() ||
+          a.title.localeCompare(b.title)
+      );
+      const idx = items.findIndex((t) => t.id === taskId);
+      if (idx < 0) return;
+      const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= items.length) return;
+      const a = items[idx];
+      const b = items[swapIdx];
+      const orderA = a.listSortOrder ?? idx;
+      const orderB = b.listSortOrder ?? swapIdx;
+      await Promise.all([
+        fetch(`/api/tasks/${encodeURIComponent(a.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listSortOrder: orderB }),
+        }),
+        fetch(`/api/tasks/${encodeURIComponent(b.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listSortOrder: orderA }),
+        }),
+      ]);
+      await load();
+    },
+    [tasksByList, load]
+  );
+
   const resizeHandleClass =
     "relative w-1.5 mx-0.5 rounded-sm bg-border/80 hover:bg-primary/40 data-[panel-group-direction=vertical]:h-1.5 data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:my-0.5 outline-none";
 
@@ -693,37 +995,215 @@ export default function DashboardPage() {
             >
               <Panel defaultSize={50} minSize={18} className="min-h-0">
                 <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-row items-center justify-between space-y-0 gap-2">
-              <div className="min-w-0">
-                <CardTitle className="text-sm font-semibold flex flex-wrap items-baseline gap-x-2 gap-y-0">
-                  <span>Today&apos;s emails</span>
-                  <span className="font-bold text-foreground tabular-nums">
-                    {new Date().toLocaleDateString(undefined, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </CardTitle>
-                <CardDescription className="text-[11px]">Latest from Emails</CardDescription>
+            <CardHeader className="py-2 px-3 pb-2 shrink-0 space-y-2 border-b border-border/40">
+              <div className="flex rounded-md border border-border/60 bg-muted/30 p-0.5 gap-0.5 w-fit">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    dashEmailTab === "inbox"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDashEmailTab("inbox")}
+                >
+                  Inbox
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    dashEmailTab === "search"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => emailSearchResults != null && setDashEmailTab("search")}
+                  disabled={emailSearchResults == null}
+                  title={
+                    lastEmailSearchQuery
+                      ? `Last search: ${lastEmailSearchQuery}`
+                      : "Run a search to see results here"
+                  }
+                >
+                  Results
+                  {emailSearchResults != null ? ` (${emailSearchResults.length})` : ""}
+                </button>
               </div>
-              <Button variant="ghost" size="sm" className="h-8 text-xs shrink-0" asChild>
-                <Link href="/inbox">
-                  Emails <ExternalLink className="ml-1 h-3 w-3" />
-                </Link>
-              </Button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1 min-w-0">
+                  <span className="text-[10px] text-muted-foreground shrink-0 mr-0.5">Show:</span>
+                  {([1, 7, 14, 30] as const).map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      variant={emailScopeDays === d ? "default" : "outline"}
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => setEmailScopeDays(d)}
+                    >
+                      {d === 1 ? "Today" : `${d} days`}
+                    </Button>
+                  ))}
+                </div>
+                {showEmailDaySeparators ? (
+                  <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() => setEmailDayCollapsed({})}
+                    >
+                      Expand all days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() =>
+                        setEmailDayCollapsed(
+                          Object.fromEntries(emailsGroupedByDay.map(([k]) => [k, true]))
+                        )
+                      }
+                    >
+                      Collapse all days
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex gap-1.5 items-center min-w-0 flex-1">
+                <div className="relative flex-1 min-w-0">
+                  <Search
+                    className="pointer-events-none absolute left-2 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    className={cn(
+                      "h-8 w-full text-xs pl-8",
+                      emailSearchInput ? "pr-8" : "pr-2"
+                    )}
+                    placeholder="Search… (same as Gmail / Emails page)"
+                    value={emailSearchInput}
+                    onChange={(e) => setEmailSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void runDashEmailSearch();
+                    }}
+                    aria-label="Search emails"
+                  />
+                  {emailSearchInput ? (
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="Clear search"
+                      onClick={() => setEmailSearchInput("")}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 shrink-0 text-xs"
+                  disabled={emailSearching || !emailSearchInput.trim()}
+                  onClick={() => void runDashEmailSearch()}
+                >
+                  {emailSearching ? "…" : "Search"}
+                </Button>
+                {emailSearchResults != null ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => clearDashEmailSearch()}
+                  >
+                    Clear results
+                  </Button>
+                ) : null}
+              </div>
+            </div>
             </CardHeader>
             <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
-              {emails.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-2 py-4">No messages.</p>
+              {listSource.length === 0 ? (
+                <p className="text-xs text-muted-foreground px-2 py-4">
+                  {dashEmailTab === "search"
+                    ? "No results in this date window. Widen the day range or clear filters."
+                    : "No messages in this date range."}
+                </p>
+              ) : showEmailDaySeparators ? (
+                <div className="space-y-2 py-1">
+                  {emailsGroupedByDay.map(([dayKey, msgs]) => {
+                    const collapsed = !!emailDayCollapsed[dayKey];
+                    return (
+                      <div key={dayKey} className="space-y-0">
+                        <button
+                          type="button"
+                          className={cn(
+                            "sticky top-0 z-[1] -mx-1 mb-1 flex w-full items-center gap-2 border-l-4 border-primary bg-muted/95 px-2 py-1.5 text-left text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm",
+                            "border-y border-r border-border/50 rounded-r-md hover:bg-muted transition-colors"
+                          )}
+                          onClick={() =>
+                            setEmailDayCollapsed((s) => ({
+                              ...s,
+                              [dayKey]: !collapsed,
+                            }))
+                          }
+                          aria-expanded={!collapsed}
+                        >
+                          {collapsed ? (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="tabular-nums text-muted-foreground shrink-0">
+                            {dayKey === "_nodate"
+                              ? "—"
+                              : new Date(dayKey + "T12:00:00").toLocaleDateString(undefined, {
+                                  weekday: "long",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                          </span>
+                          <span className="h-px flex-1 bg-border/80" aria-hidden />
+                          <span className="text-[10px] font-normal text-muted-foreground">
+                            {msgs.length} message{msgs.length === 1 ? "" : "s"}
+                          </span>
+                        </button>
+                        {!collapsed ? (
+                          <ul className="space-y-0 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
+                            {msgs.map((m) => (
+                              <li key={m.id}>
+                                <button
+                                  type="button"
+                                  className="block w-full px-2 py-1.5 text-left hover:bg-muted/80 bg-background/50"
+                                  title={m.subject}
+                                  onClick={() => setEmailModalId(m.id)}
+                                >
+                                  <p className="text-xs font-medium truncate">
+                                    {m.subject || "(No subject)"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
-                <ul className="space-y-0 divide-y divide-border/50">
-                  {emails.map((m) => (
+                <ul className="space-y-0 divide-y divide-border/50 rounded-md border border-border/30 overflow-hidden">
+                  {listSource.map((m) => (
                     <li key={m.id}>
                       <button
                         type="button"
-                        className="block w-full px-2 py-1.5 rounded-md hover:bg-muted/80 text-left"
+                        className="block w-full px-2 py-1.5 text-left hover:bg-muted/80"
                         title={m.subject}
                         onClick={() => setEmailModalId(m.id)}
                       >
@@ -868,16 +1348,20 @@ export default function DashboardPage() {
             <CardContent className="flex-1 min-h-0 overflow-hidden px-2 pb-2 flex flex-col gap-1">
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground shrink-0 px-1">
                 <span className="inline-flex items-center gap-1">
-                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.event)} /> Event
+                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.contract)} /> Contract expiry
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.license)} /> License
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className={cn("inline-block h-2 w-2 rounded-full", DOT.task)} /> Task
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.contract)} /> Contract
+                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.event)} /> Event
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.license)} /> License
+                  <span className={cn("inline-block h-2 w-2 rounded-full", DOT.rfpSupplierQuote)} /> Supplier
+                  quote due (RFP)
                 </span>
               </div>
               {dashCalView === "year" ? (
@@ -917,25 +1401,22 @@ export default function DashboardPage() {
                       const dayContracts = contractsByExpirationDay.get(key) ?? [];
                       const dayLicenses = licensesByExpirationDay.get(key) ?? [];
                       const isToday = key === localDateKey(new Date());
-                      const openDayModal = () =>
-                        setWeekDayModal({
-                          key,
-                          label: d.toLocaleDateString(undefined, {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          }),
-                        });
+                      const openDashAgenda = () => {
+                        setDashAgendaDate(
+                          new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0)
+                        );
+                        setDashAgendaOpen(true);
+                      };
                       return (
                         <div
                           key={`${key}-${i}`}
                           role="button"
                           tabIndex={0}
-                          onClick={openDayModal}
+                          onClick={openDashAgenda}
                           onKeyDown={(ev) => {
                             if (ev.key === "Enter" || ev.key === " ") {
                               ev.preventDefault();
-                              openDayModal();
+                              openDashAgenda();
                             }
                           }}
                           className={cn(
@@ -1063,29 +1544,41 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-7 gap-1 flex-1 min-h-0 text-[10px] sm:text-[11px]">
-                  {dayKeys.map((key, idx) => {
+                <div className="flex flex-1 min-h-0 flex-col gap-1 overflow-hidden">
+                  <div className="rounded-md border border-emerald-200/90 bg-emerald-100/90 dark:border-emerald-800/55 dark:bg-emerald-950/85 shrink-0">
+                    <div className="grid grid-cols-7 gap-1 text-[9px] font-semibold uppercase tracking-wide text-emerald-950 dark:text-emerald-100">
+                      {dayKeys.map((key, idx) => (
+                        <div key={key} className="py-1.5 text-center tabular-nums">
+                          {WEEKDAYS[idx].slice(0, 3)}{" "}
+                          <span className="font-normal opacity-90">
+                            {new Date(key + "T12:00:00").getDate()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 flex-1 min-h-0 text-[10px] sm:text-[11px]">
+                  {dayKeys.map((key) => {
                     const d = new Date(key + "T12:00:00");
                     const evs = eventsByDay.get(key) ?? [];
                     const tks = tasksByDay.get(key) ?? [];
                     const dayContracts = contractsByExpirationDay.get(key) ?? [];
                     const dayLicenses = licensesByExpirationDay.get(key) ?? [];
                     const isToday = key === localDateKey(new Date());
-                    const openDayModal = () =>
-                      setWeekDayModal({
-                        key,
-                        label: `${WEEKDAYS[idx]} ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
-                      });
+                    const openDashAgenda = () => {
+                      setDashAgendaDate(new Date(key + "T12:00:00"));
+                      setDashAgendaOpen(true);
+                    };
                     return (
                       <div
                         key={key}
                         role="button"
                         tabIndex={0}
-                        onClick={openDayModal}
+                        onClick={openDashAgenda}
                         onKeyDown={(ev) => {
                           if (ev.key === "Enter" || ev.key === " ") {
                             ev.preventDefault();
-                            openDayModal();
+                            openDashAgenda();
                           }
                         }}
                         className={cn(
@@ -1095,9 +1588,6 @@ export default function DashboardPage() {
                           isToday && "ring-2 ring-primary/35 ring-offset-1 ring-offset-background"
                         )}
                       >
-                        <div className="font-semibold text-center border-b border-border/30 pb-0.5 mb-0.5 shrink-0 text-xs">
-                          {WEEKDAYS[idx]} <span className="text-muted-foreground">{d.getDate()}</span>
-                        </div>
                         {dayContracts.length > 0 && (
                           <div className="mb-1 space-y-0.5">
                             {dayContracts.slice(0, 2).map((c) => (
@@ -1157,6 +1647,7 @@ export default function DashboardPage() {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1173,11 +1664,47 @@ export default function DashboardPage() {
             >
               <Panel defaultSize={55} minSize={22} className="min-h-0">
                 <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-row items-center justify-between space-y-0">
+            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-row flex-wrap items-center justify-between gap-1">
               <CardTitle className="text-sm font-semibold">Tasks</CardTitle>
-              <Button variant="ghost" size="sm" className="h-8 text-xs" asChild>
-                <Link href="/tasks">All tasks</Link>
-              </Button>
+              <div className="flex flex-wrap items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] px-2"
+                  disabled={taskSyncing}
+                  onClick={() => void runGoogleTasksSync()}
+                >
+                  {taskSyncing ? "…" : "Sync"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] px-2"
+                  disabled={taskLists.length === 0}
+                  onClick={() => {
+                    const next: Record<string, boolean> = {};
+                    for (const l of taskLists) next[l.id] = true;
+                    setOpenAcc(next);
+                  }}
+                >
+                  Expand all
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] px-2"
+                  disabled={taskLists.length === 0}
+                  onClick={() => setOpenAcc({})}
+                >
+                  Collapse all
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 text-xs" asChild>
+                  <Link href="/tasks">All tasks</Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1 space-y-1">
               {taskLists.length === 0 ? (
@@ -1186,35 +1713,54 @@ export default function DashboardPage() {
                 taskLists.map((list) => {
                   const open = openAcc[list.id] ?? false;
                   const items = tasksByList[list.id] ?? [];
+                  const sortedItems = [...items].sort(
+                    (a, b) =>
+                      (a.listSortOrder ?? 0) - (b.listSortOrder ?? 0) ||
+                      a.title.localeCompare(b.title)
+                  );
                   return (
                     <div key={list.id} className="rounded-md border border-border/50 bg-background/60">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-1 px-2 py-1.5 text-left text-xs font-medium hover:bg-muted/50"
-                        onClick={() => setOpenAcc((s) => ({ ...s, [list.id]: !open }))}
-                      >
-                        {open ? (
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                        )}
-                        <span className="truncate">{list.name}</span>
-                        <span className="text-muted-foreground text-[10px]">
-                          ({items.length}
-                          {(completedTasksByList[list.id]?.length ?? 0) > 0
-                            ? ` · ${completedTasksByList[list.id]?.length} done`
-                            : ""}
-                          )
-                        </span>
-                      </button>
+                      <div className="flex items-center gap-1 px-1 py-0.5">
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-1 px-1 py-1.5 text-left text-xs font-medium hover:bg-muted/50 rounded-md"
+                          onClick={() => setOpenAcc((s) => ({ ...s, [list.id]: !open }))}
+                        >
+                          {open ? (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                          )}
+                          <span className="truncate">{list.name}</span>
+                          <span className="text-muted-foreground text-[10px] shrink-0">
+                            ({items.length}
+                            {(completedTasksByList[list.id]?.length ?? 0) > 0
+                              ? ` · ${completedTasksByList[list.id]?.length} done`
+                              : ""}
+                            )
+                          </span>
+                        </button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[10px] shrink-0"
+                          onClick={() => {
+                            setDashTaskCreateListId(list.id);
+                            setDashTaskCreateOpen(true);
+                          }}
+                        >
+                          New task
+                        </Button>
+                      </div>
                       {open && (
                         <div className="border-t border-border/40 px-2 py-1 space-y-2">
                           <ul className="space-y-1">
                             {items.length === 0 ? (
                               <li className="text-[10px] text-muted-foreground">No open tasks</li>
                             ) : (
-                              items.slice(0, 12).map((t) => (
-                                <li key={t.id} className="flex items-start gap-2 text-[11px]">
+                              sortedItems.slice(0, 12).map((t, ti) => (
+                                <li key={t.id} className="flex items-start gap-1 text-[11px] group">
                                   <button
                                     type="button"
                                     className={cn(
@@ -1224,8 +1770,33 @@ export default function DashboardPage() {
                                     aria-label="Toggle done"
                                     onClick={() => toggleDashboardTask(t)}
                                   />
-                                  <span className={cn(t.status === "COMPLETED" && "line-through opacity-70")}>
+                                  <span
+                                    className={cn(
+                                      "min-w-0 flex-1",
+                                      t.status === "COMPLETED" && "line-through opacity-70"
+                                    )}
+                                  >
                                     {t.title}
+                                  </span>
+                                  <span className="flex shrink-0 flex-col gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      type="button"
+                                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                                      aria-label="Move up"
+                                      disabled={ti === 0}
+                                      onClick={() => void moveTaskPriority(list.id, t.id, "up")}
+                                    >
+                                      <ChevronUp className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                                      aria-label="Move down"
+                                      disabled={ti >= sortedItems.length - 1}
+                                      onClick={() => void moveTaskPriority(list.id, t.id, "down")}
+                                    >
+                                      <ChevronDown className="h-3 w-3" />
+                                    </button>
                                   </span>
                                 </li>
                               ))
@@ -1261,11 +1832,16 @@ export default function DashboardPage() {
               <PanelResizeHandle className={resizeHandleClass} />
               <Panel defaultSize={45} minSize={18} className="min-h-0">
                 <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="py-2 px-3 pb-1 shrink-0">
-              <CardTitle className="text-sm font-semibold">Pending RFPs and quotes</CardTitle>
-              <CardDescription className="text-[11px]">
-                Open supplier sends and logged customer quote-summary emails.
-              </CardDescription>
+            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
+              <div className="min-w-0">
+                <CardTitle className="text-sm font-semibold">Pending RFPs and quotes</CardTitle>
+                <CardDescription className="text-[11px]">
+                  Open supplier sends and logged customer quote-summary emails.
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
+                <Link href="/rfp">RFP Generator</Link>
+              </Button>
             </CardHeader>
             <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
               {pendingRfpQuotes.length === 0 ? (
@@ -1462,19 +2038,115 @@ export default function DashboardPage() {
           }}
         />
 
+        <DayAgendaDialog
+          open={dashAgendaOpen}
+          onOpenChange={(o) => {
+            setDashAgendaOpen(o);
+            if (!o) setDashAgendaDate(null);
+          }}
+          dayLabel={
+            dashAgendaDate
+              ? dashAgendaDate.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : ""
+          }
+          events={(() => {
+            if (!dashAgendaDate) return [];
+            const key = localDateKey(dashAgendaDate);
+            return events
+              .filter(
+                (ev) =>
+                  eventDayKey(ev) === key &&
+                  String(ev.eventType).toUpperCase() !== "LICENSE_EXPIRY"
+              )
+              .map((ev) => ({
+                id: ev.id,
+                title: ev.title,
+                startAt: ev.startAt,
+                taskId: ev.taskId,
+              }));
+          })()}
+          tasks={(() => {
+            if (!dashAgendaDate) return [];
+            const key = localDateKey(dashAgendaDate);
+            return weekTasks
+              .filter((t) => taskDayKey(t) === key)
+              .map((t) => ({ id: t.id, title: t.title }));
+          })()}
+          contracts={(() => {
+            if (!dashAgendaDate) return [];
+            const key = localDateKey(dashAgendaDate);
+            return (contractsByExpirationDay.get(key) ?? []).map((c) => ({
+              id: c.id,
+              label: `${c.customer?.name ?? "Customer"} → ${c.supplier?.name ?? "Supplier"}`,
+            }));
+          })()}
+          licenses={(() => {
+            if (!dashAgendaDate) return [];
+            const key = localDateKey(dashAgendaDate);
+            return (licensesByExpirationDay.get(key) ?? []).map((l) => ({
+              id: l.id,
+              label: `${l.licenseType} ${l.licenseNumber}`,
+            }));
+          })()}
+          onAddEvent={() => {
+            const d = dashAgendaDate;
+            setDashAgendaOpen(false);
+            setDashAgendaDate(null);
+            if (d) {
+              router.push(`/schedule?flashDate=${encodeURIComponent(localDateKey(d))}`);
+            } else router.push("/schedule");
+          }}
+          onEditEvent={() => {}}
+          onEditTask={(id) => {
+            setDashAgendaOpen(false);
+            setDashAgendaDate(null);
+            router.push(`/tasks?taskId=${encodeURIComponent(id)}`);
+          }}
+          onOpenContract={(id) => {
+            setContractModalId(id);
+            setContractModalOpen(true);
+            setDashAgendaOpen(false);
+            setDashAgendaDate(null);
+          }}
+          variant="dashboard"
+          scheduleDayHref={
+            dashAgendaDate
+              ? `/schedule?flashDate=${encodeURIComponent(localDateKey(dashAgendaDate))}`
+              : "/schedule"
+          }
+        />
+
+        <TaskCreateDialog
+          open={dashTaskCreateOpen}
+          onOpenChange={(o) => {
+            setDashTaskCreateOpen(o);
+            if (!o) setDashTaskCreateListId("");
+          }}
+          lists={taskLists}
+          defaultListId={dashTaskCreateListId}
+          onCreated={() => void load()}
+        />
+
         <Dialog open={emailModalId != null} onOpenChange={(o) => !o && setEmailModalId(null)}>
-          <DialogContent className="max-w-4xl h-[min(90vh,820px)] flex flex-col">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl max-h-[90vh] h-[min(90vh,820px)] flex flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+            <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-3 text-left">
               <DialogTitle>Email</DialogTitle>
             </DialogHeader>
-            {emailModalId ? (
-              <iframe
-                title="Email message"
-                className="flex-1 min-h-[480px] w-full rounded border bg-background"
-                src={`/inbox/email/${encodeURIComponent(emailModalId)}?embed=1`}
-              />
-            ) : null}
-            <DialogFooter className="sm:justify-end">
+            <div className="flex min-h-0 flex-1 flex-col px-6 pb-3">
+              {emailModalId ? (
+                <iframe
+                  title="Email message"
+                  className="h-full min-h-[320px] w-full flex-1 rounded-md border bg-background"
+                  src={`/inbox/email/${encodeURIComponent(emailModalId)}?embed=1`}
+                />
+              ) : null}
+            </div>
+            <DialogFooter className="shrink-0 border-t border-border/50 px-6 py-4 sm:justify-end">
               <Button variant="outline" asChild>
                 <Link
                   href={emailModalId ? `/inbox/email/${encodeURIComponent(emailModalId)}` : "/inbox"}
@@ -1485,73 +2157,6 @@ export default function DashboardPage() {
                 </Link>
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={weekDayModal != null} onOpenChange={(o) => !o && setWeekDayModal(null)}>
-          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{weekDayModal?.label ?? "Day"}</DialogTitle>
-            </DialogHeader>
-            {weekDayModal ? (
-              <div className="space-y-4 text-sm">
-                {(() => {
-                  const key = weekDayModal.key;
-                  const evs = events.filter(
-                    (e) =>
-                      eventDayKey(e) === key &&
-                      !e.taskId &&
-                      String(e.eventType).toUpperCase() !== "LICENSE_EXPIRY"
-                  );
-                  const tks = weekTasks.filter((t) => {
-                    const raw = t.dueAt || t.dueDate;
-                    if (!raw) return false;
-                    return parseApiDateOnlyKey(String(raw)) === key;
-                  });
-                  return (
-                    <>
-                      <section>
-                        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Events</h4>
-                        {evs.length === 0 ? (
-                          <p className="text-muted-foreground text-xs">None this week.</p>
-                        ) : (
-                          <ul className="space-y-1">
-                            {evs.map((ev) => (
-                              <li key={ev.id} className="rounded border px-2 py-1">
-                                <p className="font-medium">{ev.title}</p>
-                                <p className="text-[10px] text-muted-foreground">{ev.eventType}</p>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </section>
-                      <section>
-                        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Tasks</h4>
-                        {tks.length === 0 ? (
-                          <p className="text-muted-foreground text-xs">None due this day.</p>
-                        ) : (
-                          <ul className="space-y-1">
-                            {tks.map((t) => (
-                              <li key={t.id}>
-                                <Link
-                                  href={`/tasks?taskId=${encodeURIComponent(t.id)}`}
-                                  className="block rounded border px-2 py-1 hover:bg-muted/60"
-                                >
-                                  {t.title}
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </section>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/schedule?flashDate=${encodeURIComponent(key)}`}>Open in calendar</Link>
-                      </Button>
-                    </>
-                  );
-                })()}
-              </div>
-            ) : null}
           </DialogContent>
         </Dialog>
 

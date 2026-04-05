@@ -6,14 +6,15 @@ import { cn } from "@/lib/utils";
 
 const MAIN_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/mail", label: "Mail" },
   { href: "/inbox", label: "Emails" },
+  { href: "/drive", label: "Drive" },
   { href: "/contacts", label: "Contacts" },
   { href: "/schedule", label: "Calendar" },
   { href: "/tasks", label: "Tasks" },
   { href: "/directory/contracts", label: "Contracts" },
   { href: "/rfp", label: "RFP Generator" },
   { href: "/quotes", label: "Quotes" },
+  { href: "/news", label: "News" },
 ] as const;
 
 export function AppMainNav() {
@@ -51,17 +52,6 @@ export function AppMainNav() {
             </Link>
           );
         })}
-        <Link
-          href="/news"
-          className={cn(
-            "ml-auto rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
-            pathname === "/news" || pathname.startsWith("/news/")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          )}
-        >
-          News
-        </Link>
       </div>
     </nav>
   );

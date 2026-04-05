@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma, CalendarEventType, EnergyType, PriceUnit } from "@/generated/prisma/client";
+import { Prisma, CalendarEventType, EnergyType, PriceUnit, type Customer } from "@/generated/prisma/client";
 import { getGmailClient, getGoogleDriveClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { flattenDeliverableSupplierContacts } from "@/lib/supplier-rfp-contacts";
 
 type SendMode = "preview" | "test" | "send";
 type Attachment = { filename: string; content: Buffer; mimeType: string };
+
+function enrollmentDetailsFromBody(body: Record<string, unknown>): Prisma.InputJsonValue | undefined {
+  const raw = body.enrollmentDetails;
+  if (raw == null || raw === "") return undefined;
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw as Prisma.InputJsonValue;
+  if (typeof raw === "string") {
+    try {
+      const j = JSON.parse(raw) as unknown;
+      if (j && typeof j === "object" && !Array.isArray(j)) return j as Prisma.InputJsonValue;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,10 +82,13 @@ export async function POST(request: NextRequest) {
     }
 
     const supplierContactSelections = supplierSelectionsFromBody(body);
+    const enrollmentDetails = enrollmentDetailsFromBody(body);
 
     const rfpRequest = await prisma.rfpRequest.create({
       data: {
-        customerId: payload.customer.id,
+        customerId: isRfpUnlinkedPlaceholderCustomer(payload.customer.id)
+          ? null
+          : payload.customer.id,
         customerContactId: payload.customerContact.id,
         energyType: payload.energyType,
         annualUsage: new Prisma.Decimal(payload.totals.annualUsage),
@@ -87,6 +105,7 @@ export async function POST(request: NextRequest) {
         ldcUtility: payload.ldcUtility,
         requestedTerms: payload.termValues,
         ...(supplierContactSelections ? { supplierContactSelections } : {}),
+        ...(enrollmentDetails !== undefined ? { enrollmentDetails } : {}),
         notes: payload.notes,
         status: "sent",
         sentAt: new Date(),
@@ -122,7 +141,9 @@ export async function POST(request: NextRequest) {
           startAt: quoteDue,
           allDay: true,
           eventType: CalendarEventType.SUPPLIER_QUOTE_DUE_RFP,
-          customerId: payload.customer.id,
+          customerId: isRfpUnlinkedPlaceholderCustomer(payload.customer.id)
+            ? null
+            : payload.customer.id,
           contactId: payload.customerContact.id,
           rfpRequestId: rfpRequest.id,
         },
@@ -265,13 +286,26 @@ function buildRfpEmailBody(opts: {
     : opts.billAttachmentName
       ? `Attached file: ${escapeHtml(opts.billAttachmentName)}`
       : "—";
-  const usageReference = [
-    opts.usageSummaryUrl ? `<a href="${escapeHtml(opts.usageSummaryUrl)}">Open usage summary</a>` : "",
-    opts.usageSummaryAttachmentName ? `Attached file: ${escapeHtml(opts.usageSummaryAttachmentName)}` : "",
-    usageSummaryLines.join("<br /><br />"),
-  ]
-    .filter(Boolean)
-    .join("<br /><br />");
+  /** Spreadsheet link / attachment replaces the in-email usage table. */
+  const externalUsageOnly = Boolean(opts.usageSummaryUrl || opts.usageSummaryAttachmentName);
+  const usageReference = externalUsageOnly
+    ? [
+        opts.usageSummaryUrl ? `<a href="${escapeHtml(opts.usageSummaryUrl)}">Open usage summary</a>` : "",
+        opts.usageSummaryAttachmentName
+          ? `Attached file: ${escapeHtml(opts.usageSummaryAttachmentName)}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("<br /><br />")
+    : [
+        opts.usageSummaryUrl ? `<a href="${escapeHtml(opts.usageSummaryUrl)}">Open usage summary</a>` : "",
+        opts.usageSummaryAttachmentName
+          ? `Attached file: ${escapeHtml(opts.usageSummaryAttachmentName)}`
+          : "",
+        usageSummaryLines.join("<br /><br />"),
+      ]
+        .filter(Boolean)
+        .join("<br /><br />");
 
   const rows = [
     ["Energy Type", formatEnergyType(opts.energyType)],
@@ -285,7 +319,7 @@ function buildRfpEmailBody(opts: {
   ];
 
   const utilityAccountsTableHtml =
-    opts.accountLines.length > 0
+    !externalUsageOnly && opts.accountLines.length > 0
       ? `
       <p style="margin: 20px 0 8px;"><strong>Utility accounts &amp; usage</strong></p>
       <table style="border-collapse: collapse; width: 100%; max-width: 760px;">
@@ -348,7 +382,7 @@ function buildRfpEmailBody(opts: {
     </div>
   `.trim();
 
-  const textLines = [
+  const textLines: string[] = [
     `${opts.customer.name} | ${formatEnergyType(opts.energyType)} Quote`,
     `Date Submitted: ${formatDisplayDate(new Date().toISOString())}`,
     "",
@@ -365,13 +399,20 @@ function buildRfpEmailBody(opts: {
     `Broker Margin: ${marginText}`,
     `Customer Bills: ${opts.billDocumentUrl || (opts.billAttachmentName ? `Attached file: ${opts.billAttachmentName}` : "—")}`,
     `Usage Summary Link: ${opts.usageSummaryUrl || (opts.usageSummaryAttachmentName ? `Attached file: ${opts.usageSummaryAttachmentName}` : "—")}`,
-    usageSummaryText,
-    "",
-    "Utility accounts & usage (table):",
-    ...opts.accountLines.map((line) =>
-      `  ${line.accountNumber} | ${line.serviceAddress || "—"} | annual ${formatUsage(line.annualUsage)} | avg mo ${formatUsage(line.avgMonthlyUsage)}`
-    ),
-    "",
+  ];
+  if (!externalUsageOnly) {
+    textLines.push(
+      usageSummaryText,
+      "",
+      "Utility accounts & usage (table):",
+      ...opts.accountLines.map(
+        (line) =>
+          `  ${line.accountNumber} | ${line.serviceAddress || "—"} | annual ${formatUsage(line.annualUsage)} | avg mo ${formatUsage(line.avgMonthlyUsage)}`
+      ),
+      ""
+    );
+  }
+  textLines.push(
     opts.notes || "",
     "If you have any questions about this request, please contact me.",
     "",
@@ -381,8 +422,8 @@ function buildRfpEmailBody(opts: {
     "Energia Power LLC",
     "234-207-2994",
     "234-414-6763 (fax)",
-    "tamara@energiapower.llc",
-  ];
+    "tamara@energiapower.llc"
+  );
 
   return { text: textLines.filter(Boolean).join("\n"), html };
 }
@@ -462,6 +503,42 @@ function createMimeMessage(opts: {
   ].join("\r\n");
 }
 
+/** Placeholder id when building RFP content from Contacts only (no CRM Customer row). */
+const RFP_UNLINKED_CUSTOMER_ID = "__rfp_unlinked_customer__";
+
+function isRfpUnlinkedPlaceholderCustomer(id: string): boolean {
+  return id === RFP_UNLINKED_CUSTOMER_ID;
+}
+
+function previewCustomerFromContact(row: {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  customerId: string | null;
+}): Customer {
+  const displayName = (row.company?.trim() || row.name?.trim() || "Customer").trim();
+  const now = new Date();
+  return {
+    id: RFP_UNLINKED_CUSTOMER_ID,
+    name: displayName,
+    company: row.company?.trim() || null,
+    email: row.email,
+    phone: row.phone,
+    address: null,
+    city: null,
+    state: null,
+    zip: null,
+    notes: null,
+    hasElectric: false,
+    hasNaturalGas: false,
+    googleContactId: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 async function buildRfpPayload(body: Record<string, unknown>, attachments: Attachment[] = []) {
   let customerId = String(body.customerId || "").trim();
   const customerContactId = String(body.customerContactId || "").trim();
@@ -475,25 +552,49 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
     throw new Error("customerContactId and energyType are required");
   }
 
-  const contactRecord = await prisma.contact.findUnique({
+  const contactRow = await prisma.contact.findUnique({
     where: { id: customerContactId },
-    select: { id: true, customerId: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      company: true,
+      customerId: true,
+    },
   });
-  if (!contactRecord) {
+  if (!contactRow) {
     throw new Error("Customer contact not found");
   }
 
-  if (!customerId && contactRecord.customerId) {
-    customerId = contactRecord.customerId;
+  if (!customerId && contactRow.customerId) {
+    customerId = contactRow.customerId;
   }
+
+  let customer: Customer;
   if (!customerId) {
-    throw new Error(
-      "This contact is not linked to a customer record yet. Use “Add customer + contact” to create the company record and link, then try again."
-    );
+    customer = previewCustomerFromContact(contactRow);
+  } else {
+    if (contactRow.customerId && contactRow.customerId !== customerId) {
+      throw new Error("Selected customer contact does not belong to the resolved customer record.");
+    }
+    const dbCustomer = await prisma.customer.findUnique({
+      where: { id: customerId },
+    });
+    if (!dbCustomer) {
+      throw new Error("Customer not found");
+    }
+    customer = dbCustomer;
   }
-  if (contactRecord.customerId && contactRecord.customerId !== customerId) {
-    throw new Error("Selected customer contact does not belong to the resolved customer record.");
-  }
+
+  const customerContact = {
+    id: contactRow.id,
+    name: contactRow.name,
+    email: contactRow.email,
+    phone: contactRow.phone,
+    customerId: contactRow.customerId,
+  };
+
   if (supplierIds.length === 0) {
     throw new Error("Select at least one supplier");
   }
@@ -508,7 +609,17 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
   const summaryDriveFileId = nonEmptyString(body.summaryDriveFileId);
   const usageSummaryAttachmentName = nonEmptyString(body.summaryAttachmentName);
   if (accountLines.length > 1 && !usageSummaryUrl && !usageSummaryAttachmentName) {
-    throw new Error("A usage summary link or local file is required when multiple accounts are included");
+    const everyLineComplete = accountLines.every((line) => {
+      const accountNumber = String(line.accountNumber ?? "").trim();
+      const annualUsage = Number(line.annualUsage);
+      const avgMonthlyUsage = Number(line.avgMonthlyUsage);
+      return accountNumber && Number.isFinite(annualUsage) && Number.isFinite(avgMonthlyUsage);
+    });
+    if (!everyLineComplete) {
+      throw new Error(
+        "Multiple accounts: add a usage summary link or file, or enter account number and annual and average monthly usage on every account line."
+      );
+    }
   }
 
   const termValues = normalizeRequestedTerms(body.requestedTerms, body.customTermMonths);
@@ -516,34 +627,13 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
     throw new Error("Select at least one requested term");
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-  });
-  if (!customer) {
-    throw new Error("Customer not found");
-  }
-
-  const customerContact = await prisma.contact.findFirst({
-    where: {
-      id: customerContactId,
-      OR: [{ customerId }, { customerId: null }],
-    },
-    select: { id: true, name: true, email: true, phone: true, customerId: true },
-  });
-  if (!customerContact) {
-    throw new Error("Customer contact not found. Add contact information before sending the RFP.");
-  }
-
   const suppliers = await prisma.supplier.findMany({
-    where: {
-      id: { in: supplierIds },
-      ...(energyType === "ELECTRIC" ? { isElectric: true } : { isNaturalGas: true }),
-    },
+    where: { id: { in: supplierIds } },
     select: { id: true, name: true },
   });
 
   if (suppliers.length !== supplierIds.length) {
-    throw new Error("One or more selected suppliers do not match the requested energy type");
+    throw new Error("One or more selected suppliers were not found");
   }
 
   const contactPool = await prisma.contact.findMany({

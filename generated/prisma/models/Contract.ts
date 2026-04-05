@@ -66,6 +66,7 @@ export type ContractMinAggregateOutputType = {
   totalMeters: number | null
   status: string | null
   notes: string | null
+  signedContractDriveUrl: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -90,6 +91,7 @@ export type ContractMaxAggregateOutputType = {
   totalMeters: number | null
   status: string | null
   notes: string | null
+  signedContractDriveUrl: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -114,6 +116,7 @@ export type ContractCountAggregateOutputType = {
   totalMeters: number
   status: number
   notes: number
+  signedContractDriveUrl: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -160,6 +163,7 @@ export type ContractMinAggregateInputType = {
   totalMeters?: true
   status?: true
   notes?: true
+  signedContractDriveUrl?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -184,6 +188,7 @@ export type ContractMaxAggregateInputType = {
   totalMeters?: true
   status?: true
   notes?: true
+  signedContractDriveUrl?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -208,6 +213,7 @@ export type ContractCountAggregateInputType = {
   totalMeters?: true
   status?: true
   notes?: true
+  signedContractDriveUrl?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -319,6 +325,7 @@ export type ContractGroupByOutputType = {
   totalMeters: number | null
   status: string
   notes: string | null
+  signedContractDriveUrl: string | null
   createdAt: Date
   updatedAt: Date
   _count: ContractCountAggregateOutputType | null
@@ -366,6 +373,7 @@ export type ContractWhereInput = {
   totalMeters?: Prisma.IntNullableFilter<"Contract"> | number | null
   status?: Prisma.StringFilter<"Contract"> | string
   notes?: Prisma.StringNullableFilter<"Contract"> | string | null
+  signedContractDriveUrl?: Prisma.StringNullableFilter<"Contract"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Contract"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Contract"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerScalarRelationFilter, Prisma.CustomerWhereInput>
@@ -397,6 +405,7 @@ export type ContractOrderByWithRelationInput = {
   totalMeters?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  signedContractDriveUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   customer?: Prisma.CustomerOrderByWithRelationInput
@@ -431,6 +440,7 @@ export type ContractWhereUniqueInput = Prisma.AtLeast<{
   totalMeters?: Prisma.IntNullableFilter<"Contract"> | number | null
   status?: Prisma.StringFilter<"Contract"> | string
   notes?: Prisma.StringNullableFilter<"Contract"> | string | null
+  signedContractDriveUrl?: Prisma.StringNullableFilter<"Contract"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Contract"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Contract"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerScalarRelationFilter, Prisma.CustomerWhereInput>
@@ -462,6 +472,7 @@ export type ContractOrderByWithAggregationInput = {
   totalMeters?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  signedContractDriveUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ContractCountOrderByAggregateInput
@@ -494,6 +505,7 @@ export type ContractScalarWhereWithAggregatesInput = {
   totalMeters?: Prisma.IntNullableWithAggregatesFilter<"Contract"> | number | null
   status?: Prisma.StringWithAggregatesFilter<"Contract"> | string
   notes?: Prisma.StringNullableWithAggregatesFilter<"Contract"> | string | null
+  signedContractDriveUrl?: Prisma.StringNullableWithAggregatesFilter<"Contract"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Contract"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Contract"> | Date | string
 }
@@ -515,6 +527,7 @@ export type ContractCreateInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -546,6 +559,7 @@ export type ContractUncheckedCreateInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -571,6 +585,7 @@ export type ContractUpdateInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -602,6 +617,7 @@ export type ContractUncheckedUpdateInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -630,6 +646,7 @@ export type ContractCreateManyInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -651,6 +668,7 @@ export type ContractUpdateManyMutationInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -675,6 +693,7 @@ export type ContractUncheckedUpdateManyInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -709,6 +728,7 @@ export type ContractCountOrderByAggregateInput = {
   totalMeters?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  signedContractDriveUrl?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -743,6 +763,7 @@ export type ContractMaxOrderByAggregateInput = {
   totalMeters?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  signedContractDriveUrl?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -767,6 +788,7 @@ export type ContractMinOrderByAggregateInput = {
   totalMeters?: Prisma.SortOrder
   status?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  signedContractDriveUrl?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -1036,6 +1058,7 @@ export type ContractCreateWithoutCustomerInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   supplier: Prisma.SupplierCreateNestedOneWithoutContractsInput
@@ -1065,6 +1088,7 @@ export type ContractUncheckedCreateWithoutCustomerInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -1122,6 +1146,7 @@ export type ContractScalarWhereInput = {
   totalMeters?: Prisma.IntNullableFilter<"Contract"> | number | null
   status?: Prisma.StringFilter<"Contract"> | string
   notes?: Prisma.StringNullableFilter<"Contract"> | string | null
+  signedContractDriveUrl?: Prisma.StringNullableFilter<"Contract"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Contract"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Contract"> | Date | string
 }
@@ -1143,6 +1168,7 @@ export type ContractCreateWithoutSupplierInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -1172,6 +1198,7 @@ export type ContractUncheckedCreateWithoutSupplierInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -1223,6 +1250,7 @@ export type ContractCreateWithoutCommissionPaymentsInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -1253,6 +1281,7 @@ export type ContractUncheckedCreateWithoutCommissionPaymentsInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
@@ -1293,6 +1322,7 @@ export type ContractUpdateWithoutCommissionPaymentsInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -1323,6 +1353,7 @@ export type ContractUncheckedUpdateWithoutCommissionPaymentsInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
@@ -1347,6 +1378,7 @@ export type ContractCreateWithoutDocumentsInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -1377,6 +1409,7 @@ export type ContractUncheckedCreateWithoutDocumentsInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -1417,6 +1450,7 @@ export type ContractUpdateWithoutDocumentsInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -1447,6 +1481,7 @@ export type ContractUncheckedUpdateWithoutDocumentsInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -1471,6 +1506,7 @@ export type ContractCreateWithoutCalendarEventsInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -1501,6 +1537,7 @@ export type ContractUncheckedCreateWithoutCalendarEventsInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -1541,6 +1578,7 @@ export type ContractUpdateWithoutCalendarEventsInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -1571,6 +1609,7 @@ export type ContractUncheckedUpdateWithoutCalendarEventsInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -1595,6 +1634,7 @@ export type ContractCreateWithoutRfpQuotesInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -1625,6 +1665,7 @@ export type ContractUncheckedCreateWithoutRfpQuotesInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -1665,6 +1706,7 @@ export type ContractUpdateWithoutRfpQuotesInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -1695,6 +1737,7 @@ export type ContractUncheckedUpdateWithoutRfpQuotesInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -1719,6 +1762,7 @@ export type ContractCreateWithoutMainContactInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
@@ -1748,6 +1792,7 @@ export type ContractUncheckedCreateWithoutMainContactInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
@@ -1801,6 +1846,7 @@ export type ContractCreateManyCustomerInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1822,6 +1868,7 @@ export type ContractUpdateWithoutCustomerInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   supplier?: Prisma.SupplierUpdateOneRequiredWithoutContractsNestedInput
@@ -1851,6 +1898,7 @@ export type ContractUncheckedUpdateWithoutCustomerInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -1878,6 +1926,7 @@ export type ContractUncheckedUpdateManyWithoutCustomerInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1901,6 +1950,7 @@ export type ContractCreateManySupplierInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1922,6 +1972,7 @@ export type ContractUpdateWithoutSupplierInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -1951,6 +2002,7 @@ export type ContractUncheckedUpdateWithoutSupplierInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -1978,6 +2030,7 @@ export type ContractUncheckedUpdateManyWithoutSupplierInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2001,6 +2054,7 @@ export type ContractCreateManyMainContactInput = {
   totalMeters?: number | null
   status?: string
   notes?: string | null
+  signedContractDriveUrl?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2022,6 +2076,7 @@ export type ContractUpdateWithoutMainContactInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
@@ -2051,6 +2106,7 @@ export type ContractUncheckedUpdateWithoutMainContactInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
@@ -2078,6 +2134,7 @@ export type ContractUncheckedUpdateManyWithoutMainContactInput = {
   totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2160,6 +2217,7 @@ export type ContractSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   totalMeters?: boolean
   status?: boolean
   notes?: boolean
+  signedContractDriveUrl?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
@@ -2192,6 +2250,7 @@ export type ContractSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   totalMeters?: boolean
   status?: boolean
   notes?: boolean
+  signedContractDriveUrl?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
@@ -2219,6 +2278,7 @@ export type ContractSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   totalMeters?: boolean
   status?: boolean
   notes?: boolean
+  signedContractDriveUrl?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
@@ -2246,11 +2306,12 @@ export type ContractSelectScalar = {
   totalMeters?: boolean
   status?: boolean
   notes?: boolean
+  signedContractDriveUrl?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ContractOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "supplierId" | "mainContactId" | "energyType" | "priceUnit" | "pricePerUnit" | "startDate" | "expirationDate" | "termMonths" | "annualUsage" | "avgMonthlyUsage" | "contractIncome" | "brokerMargin" | "customerUtility" | "signedDate" | "totalMeters" | "status" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["contract"]>
+export type ContractOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "supplierId" | "mainContactId" | "energyType" | "priceUnit" | "pricePerUnit" | "startDate" | "expirationDate" | "termMonths" | "annualUsage" | "avgMonthlyUsage" | "contractIncome" | "brokerMargin" | "customerUtility" | "signedDate" | "totalMeters" | "status" | "notes" | "signedContractDriveUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["contract"]>
 export type ContractInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
   supplier?: boolean | Prisma.SupplierDefaultArgs<ExtArgs>
@@ -2303,6 +2364,10 @@ export type $ContractPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     totalMeters: number | null
     status: string
     notes: string | null
+    /**
+     * Google Drive (or similar) link to the executed/signed customer contract PDF/PNG.
+     */
+    signedContractDriveUrl: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["contract"]>
@@ -2754,6 +2819,7 @@ export interface ContractFieldRefs {
   readonly totalMeters: Prisma.FieldRef<"Contract", 'Int'>
   readonly status: Prisma.FieldRef<"Contract", 'String'>
   readonly notes: Prisma.FieldRef<"Contract", 'String'>
+  readonly signedContractDriveUrl: Prisma.FieldRef<"Contract", 'String'>
   readonly createdAt: Prisma.FieldRef<"Contract", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Contract", 'DateTime'>
 }

@@ -187,6 +187,7 @@ export const ContractScalarFieldEnum = {
   totalMeters: 'totalMeters',
   status: 'status',
   notes: 'notes',
+  signedContractDriveUrl: 'signedContractDriveUrl',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -328,6 +329,7 @@ export const RfpRequestScalarFieldEnum = {
   sentAt: 'sentAt',
   status: 'status',
   notes: 'notes',
+  enrollmentDetails: 'enrollmentDetails',
   parentRfpId: 'parentRfpId',
   refreshSequence: 'refreshSequence',
   createdAt: 'createdAt',

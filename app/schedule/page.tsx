@@ -13,6 +13,7 @@ import {
   Trash2,
   Search,
   Settings,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -313,6 +314,8 @@ export default function SchedulePage() {
   const [gotoDateInput, setGotoDateInput] = useState("");
   const [yearHighlightedMonth, setYearHighlightedMonth] = useState<number | null>(null);
   const [scheduleSearch, setScheduleSearch] = useState("");
+  const [scheduleSearchHitsOpen, setScheduleSearchHitsOpen] = useState(false);
+  const scheduleSearchContainerRef = useRef<HTMLDivElement>(null);
   const [googleCalendarSyncing, setGoogleCalendarSyncing] = useState(false);
   const yearHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yearMonthCardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -338,6 +341,16 @@ export default function SchedulePage() {
       if (yearHighlightTimerRef.current) clearTimeout(yearHighlightTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!scheduleSearchHitsOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const el = scheduleSearchContainerRef.current;
+      if (el && !el.contains(e.target as Node)) setScheduleSearchHitsOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [scheduleSearchHitsOpen]);
 
   useEffect(() => {
     if (calendarView === "month" || calendarView === "week") {
@@ -846,6 +859,16 @@ export default function SchedulePage() {
       .map(([dateKey, set]) => ({ dateKey, snippets: Array.from(set).slice(0, 8) }));
   }, [scheduleSearch, events, scheduledTasks, contracts, licensesForSchedule]);
 
+  useEffect(() => {
+    const q = scheduleSearch.trim();
+    if (q.length < 2) {
+      setScheduleSearchHitsOpen(false);
+      return;
+    }
+    if (calendarSearchHits.length > 0) setScheduleSearchHitsOpen(true);
+    else setScheduleSearchHitsOpen(false);
+  }, [scheduleSearch, calendarSearchHits]);
+
   const goMonth = (delta: number) => {
     clearYearMonthHighlight();
     const { y, m } = addMonths(viewYear, viewMonth, delta);
@@ -1061,10 +1084,9 @@ export default function SchedulePage() {
         <Card className="border-border/50 shadow-md rounded-2xl bg-card/80 backdrop-blur-sm lg:flex lg:h-full lg:min-h-0 lg:flex-col">
           <CardHeader className="shrink-0 space-y-3 border-b border-border/40 bg-muted/20 pb-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-3">
-              <h1 className="text-lg font-semibold tracking-tight flex items-center gap-2 shrink-0 sm:text-xl md:text-2xl">
-                <CalendarDays className="h-5 w-5 shrink-0 text-primary sm:h-6 sm:w-6" />
-                Schedule
-              </h1>
+              <div className="flex shrink-0 items-center gap-2 text-primary md:hidden" aria-hidden>
+                <CalendarDays className="h-5 w-5" />
+              </div>
               <div className="flex flex-1 flex-wrap items-center justify-center gap-1 min-w-0">
                 <Button
                   variant="ghost"
@@ -1242,24 +1264,42 @@ export default function SchedulePage() {
               <Label htmlFor="schedule-search" className="text-xs text-muted-foreground shrink-0 pt-2">
                 Search calendar
               </Label>
-              <div className="relative flex flex-1 flex-col gap-0 min-w-0 max-w-xl">
-                <div className="flex gap-2 items-center flex-wrap">
-                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div
+                ref={scheduleSearchContainerRef}
+                className="relative flex flex-1 flex-col gap-0 min-w-0 max-w-xl"
+              >
+                <div className="relative w-full max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="schedule-search"
                     placeholder="Type at least 2 characters (titles, customers, licenses…)"
-                    className="h-9 w-full max-w-md pr-8"
+                    className={`h-9 w-full pl-9 ${scheduleSearch.trim() ? "pr-9" : "pr-3"}`}
                     value={scheduleSearch}
                     onChange={(e) => setScheduleSearch(e.target.value)}
+                    onFocus={() => {
+                      if (scheduleSearch.trim().length >= 2 && calendarSearchHits.length > 0) {
+                        setScheduleSearchHitsOpen(true);
+                      }
+                    }}
                     autoComplete="off"
                   />
                   {scheduleSearch.trim().length > 0 && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setScheduleSearch("")}>
-                      Clear
-                    </Button>
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 z-[1] -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="Clear search"
+                      onClick={() => {
+                        setScheduleSearch("");
+                        setScheduleSearchHitsOpen(false);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   )}
                 </div>
-                {scheduleSearch.trim().length >= 2 && calendarSearchHits.length > 0 && (
+                {scheduleSearchHitsOpen &&
+                  scheduleSearch.trim().length >= 2 &&
+                  calendarSearchHits.length > 0 && (
                   <ul
                     className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover px-0 py-1 text-xs shadow-md"
                     role="listbox"
@@ -1269,7 +1309,10 @@ export default function SchedulePage() {
                         <button
                           type="button"
                           className="text-left w-full hover:bg-muted/80 rounded-sm px-3 py-2 border-b border-border/40 last:border-b-0"
-                          onClick={() => flashDayOnCalendar(dateKey)}
+                          onClick={() => {
+                            flashDayOnCalendar(dateKey);
+                            setScheduleSearchHitsOpen(false);
+                          }}
                         >
                           <span className="font-medium tabular-nums">{dateKey}</span>
                           <span className="text-muted-foreground"> — {snippets.join(" · ")}</span>

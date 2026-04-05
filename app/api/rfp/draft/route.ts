@@ -28,14 +28,15 @@ export async function POST(request: NextRequest) {
       brokerMarginUnit,
       accountLines,
       notes,
+      enrollmentDetails,
     } = body;
 
-    if (!customerId || !energyType) {
-      return NextResponse.json(
-        { error: "customerId and energyType are required to save a draft" },
-        { status: 400 }
-      );
+    if (!energyType) {
+      return NextResponse.json({ error: "energyType is required to save a draft" }, { status: 400 });
     }
+
+    const resolvedCustomerId =
+      customerId != null && String(customerId).trim() ? String(customerId).trim() : null;
 
     if (draftId) {
       const existing = await prisma.rfpRequest.findFirst({
@@ -67,6 +68,22 @@ export async function POST(request: NextRequest) {
         ? supplierIds.map((id: string) => String(id))
         : [];
 
+    let enrollmentJson: Prisma.InputJsonValue | undefined;
+    if (enrollmentDetails != null && enrollmentDetails !== "") {
+      if (typeof enrollmentDetails === "object" && !Array.isArray(enrollmentDetails)) {
+        enrollmentJson = enrollmentDetails as Prisma.InputJsonValue;
+      } else if (typeof enrollmentDetails === "string") {
+        try {
+          const j = JSON.parse(enrollmentDetails) as unknown;
+          if (j && typeof j === "object" && !Array.isArray(j)) {
+            enrollmentJson = j as Prisma.InputJsonValue;
+          }
+        } catch {
+          enrollmentJson = undefined;
+        }
+      }
+    }
+
     const contactSelectionsRaw =
       supplierContactSelections &&
       typeof supplierContactSelections === "object" &&
@@ -75,7 +92,7 @@ export async function POST(request: NextRequest) {
         : null;
 
     const baseData = {
-      customerId: String(customerId),
+      customerId: resolvedCustomerId,
       customerContactId: customerContactId ? String(customerContactId) : null,
       energyType: energyType as EnergyType,
       supplierContactSelections: (contactSelectionsRaw ?? {}) as Prisma.InputJsonValue,
@@ -99,6 +116,7 @@ export async function POST(request: NextRequest) {
       requestedTerms: termValues.length > 0 ? termValues : [],
       notes: notes || null,
       status: "draft",
+      ...(enrollmentJson !== undefined ? { enrollmentDetails: enrollmentJson } : {}),
     };
 
     if (draftId) {

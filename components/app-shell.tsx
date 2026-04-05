@@ -20,11 +20,21 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const inboxListLayout = pathname === "/inbox";
+
   return (
     <>
       <GlobalRemindersBar />
       <AppMainNav />
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">{children}</main>
+      <main
+        className={
+          inboxListLayout
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            : "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+        }
+      >
+        {children}
+      </main>
     </>
   );
 }

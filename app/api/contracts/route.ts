@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       signedDate,
       totalMeters,
       notes,
+      signedContractDriveUrl,
     } = body;
 
     if (!customerId || !supplierId || !energyType || !priceUnit || !pricePerUnit || !startDate || !expirationDate || !termMonths) {
@@ -119,6 +120,10 @@ export async function POST(request: NextRequest) {
         customerUtility: customerUtility || null,
         signedDate: signedDate ? new Date(signedDate) : null,
         totalMeters: totalMeters != null ? Number(totalMeters) : null,
+        signedContractDriveUrl:
+          signedContractDriveUrl != null && String(signedContractDriveUrl).trim() !== ""
+            ? String(signedContractDriveUrl).trim()
+            : null,
         notes: null,
         status: "active",
       },

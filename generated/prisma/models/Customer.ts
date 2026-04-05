@@ -668,10 +668,12 @@ export type CustomerCreateNestedOneWithoutRfpRequestsInput = {
   connect?: Prisma.CustomerWhereUniqueInput
 }
 
-export type CustomerUpdateOneRequiredWithoutRfpRequestsNestedInput = {
+export type CustomerUpdateOneWithoutRfpRequestsNestedInput = {
   create?: Prisma.XOR<Prisma.CustomerCreateWithoutRfpRequestsInput, Prisma.CustomerUncheckedCreateWithoutRfpRequestsInput>
   connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutRfpRequestsInput
   upsert?: Prisma.CustomerUpsertWithoutRfpRequestsInput
+  disconnect?: Prisma.CustomerWhereInput | boolean
+  delete?: Prisma.CustomerWhereInput | boolean
   connect?: Prisma.CustomerWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.CustomerUpdateToOneWithWhereWithoutRfpRequestsInput, Prisma.CustomerUpdateWithoutRfpRequestsInput>, Prisma.CustomerUncheckedUpdateWithoutRfpRequestsInput>
 }

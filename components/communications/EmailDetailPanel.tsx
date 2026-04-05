@@ -751,8 +751,8 @@ export function EmailDetailPanel({
   }
 
   return (
-    <Card className="flex flex-col h-full">
-      <CardHeader className="flex flex-row items-start justify-between py-4">
+    <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <CardHeader className="shrink-0 flex flex-row items-start justify-between py-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base truncate">{detail?.subject || email.subject}</CardTitle>
@@ -899,7 +899,9 @@ export function EmailDetailPanel({
           </Tooltip>
         )}
       </div>
-      <CardContent className="flex-1 overflow-auto border-t pt-4 space-y-4">{detailBody}</CardContent>
+      <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t pt-4 space-y-4">
+        {detailBody}
+      </CardContent>
     </Card>
   );
 }

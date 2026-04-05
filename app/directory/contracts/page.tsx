@@ -53,8 +53,10 @@ import {
   normalizeCompanyKey,
   isCustomerCandidateContact,
 } from "@/lib/customers-overview";
+import { cn } from "@/lib/utils";
 import { ContactLabelsField } from "@/components/contact-labels-field";
 import { ComposeEmailModal } from "@/components/compose-email-modal";
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,6 +104,7 @@ type Contract = {
   customerUtility: string | null;
   signedDate: string | null;
   totalMeters: number | null;
+  signedContractDriveUrl?: string | null;
   status: string;
   customer: { id: string; name: string; company: string | null; notes?: string | null };
   supplier: { id: string; name: string; email?: string | null; phone?: string | null; website?: string | null; address?: string | null; city?: string | null; state?: string | null; zip?: string | null };
@@ -128,6 +131,7 @@ const EMPTY_CONTRACT_FORM = {
   signedDate: "",
   totalMeters: "",
   notes: "",
+  signedContractDriveUrl: "",
 };
 
 /** Single note per customer (stored on Customer); legacy per-contract notes still shown until migrated. */
@@ -641,6 +645,7 @@ export default function ContractsPage() {
           signedDate: form.signedDate || null,
           totalMeters: form.totalMeters ? parseInt(form.totalMeters, 10) : null,
           notes: form.notes || null,
+          signedContractDriveUrl: form.signedContractDriveUrl.trim() || null,
         }),
       });
       const data = await res.json();
@@ -822,6 +827,7 @@ export default function ContractsPage() {
       signedDate: c.signedDate ? new Date(c.signedDate).toISOString().slice(0, 10) : "",
       totalMeters: c.totalMeters != null ? String(c.totalMeters) : "",
       notes: sharedCustomerNotes(c),
+      signedContractDriveUrl: c.signedContractDriveUrl ?? "",
     });
   };
 
@@ -853,6 +859,7 @@ export default function ContractsPage() {
           signedDate: form.signedDate || null,
           totalMeters: form.totalMeters ? parseInt(form.totalMeters, 10) : null,
           notes: form.notes || null,
+          signedContractDriveUrl: form.signedContractDriveUrl.trim() || null,
         }),
       });
       const data = await res.json();
@@ -2158,6 +2165,7 @@ type ContractFormState = {
   signedDate: string;
   totalMeters: string;
   notes: string;
+  signedContractDriveUrl: string;
 };
 
 function AddCustomerModal({
@@ -2509,8 +2517,8 @@ function AddContractDialog({
   const [addSupplierInitialName, setAddSupplierInitialName] = useState("");
   const [utilityOpen, setUtilityOpen] = useState(false);
   const [signedPreviewFile, setSignedPreviewFile] = useState<File | null>(null);
-  const [signedPreviewUrl, setSignedPreviewUrl] = useState("");
   const [signedObjectUrl, setSignedObjectUrl] = useState<string | null>(null);
+  const [signedPreviewLarge, setSignedPreviewLarge] = useState(false);
 
   useEffect(() => {
     if (!signedPreviewFile) {
@@ -2525,7 +2533,7 @@ function AddContractDialog({
   useEffect(() => {
     if (!open) {
       setSignedPreviewFile(null);
-      setSignedPreviewUrl("");
+      setSignedPreviewLarge(false);
     }
   }, [open]);
 
@@ -3206,10 +3214,10 @@ function AddContractDialog({
 
         <aside className="space-y-3 border-t lg:border-t-0 lg:border-l border-border/60 pt-4 lg:pt-0 lg:pl-4">
           <div>
-            <Label>Signed contract preview</Label>
+            <Label>Signed customer contract (preview)</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              PDF or PNG from disk, or a document / Drive URL. For on-screen review only unless you attach via contract
-              documents elsewhere.
+              Choose a PDF or PNG from disk, paste a Google Drive link, or pick a file from the Drive page. The link is
+              saved on the contract for reference.
             </p>
           </div>
           <Input
@@ -3218,21 +3226,40 @@ function AddContractDialog({
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
               setSignedPreviewFile(f);
-              if (f) setSignedPreviewUrl("");
+              if (f) setForm((prev) => ({ ...prev, signedContractDriveUrl: "" }));
             }}
           />
-          <Input
-            placeholder="https://… document link"
-            value={signedPreviewUrl}
-            onChange={(e) => {
-              setSignedPreviewUrl(e.target.value);
-              if (e.target.value.trim()) setSignedPreviewFile(null);
-            }}
-          />
+          <div className="flex flex-wrap gap-2 items-center">
+            <Input
+              placeholder="Google Drive link to signed contract…"
+              className="flex-1 min-w-[200px]"
+              value={form.signedContractDriveUrl}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((prev) => ({ ...prev, signedContractDriveUrl: v }));
+                if (v.trim()) setSignedPreviewFile(null);
+              }}
+            />
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link href="/drive" target="_blank" rel="noopener noreferrer">
+                Drive
+              </Link>
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSignedPreviewLarge((v) => !v)}
+            >
+              {signedPreviewLarge ? "Smaller preview" : "Larger preview"}
+            </Button>
+          </div>
           {(() => {
-            const url = (signedObjectUrl || signedPreviewUrl.trim()) as string;
+            const url = (signedObjectUrl || form.signedContractDriveUrl.trim()) as string;
             if (!url) return null;
-            const nameOrUrl = (signedPreviewFile?.name || signedPreviewUrl || url).toLowerCase();
+            const nameOrUrl = (signedPreviewFile?.name || form.signedContractDriveUrl || url).toLowerCase();
             const isPdf =
               nameOrUrl.endsWith(".pdf") ||
               (signedPreviewFile?.type || "").includes("pdf") ||
@@ -3241,7 +3268,10 @@ function AddContractDialog({
               return (
                 <iframe
                   title="Contract PDF preview"
-                  className="w-full h-[min(52vh,520px)] rounded-md border bg-muted/20"
+                  className="w-full rounded-md border bg-muted/20"
+                  style={{
+                    height: signedPreviewLarge ? "min(88vh, 920px)" : "min(52vh, 520px)",
+                  }}
                   src={url}
                 />
               );
@@ -3250,7 +3280,10 @@ function AddContractDialog({
               <img
                 src={url}
                 alt="Contract preview"
-                className="w-full max-h-[min(52vh,520px)] object-contain rounded-md border bg-muted/20"
+                className={cn(
+                  "w-full object-contain rounded-md border bg-muted/20",
+                  signedPreviewLarge ? "max-h-[min(88vh,920px)]" : "max-h-[min(52vh,520px)]"
+                )}
               />
             );
           })()}

@@ -149,6 +149,8 @@ model Contract {
   totalMeters      Int?       @map("total_meters")
   status           String     @default("active") // active, archived, cancelled, pending
   notes            String?    @db.Text
+  /// Google Drive (or similar) link to the executed/signed customer contract PDF/PNG.
+  signedContractDriveUrl String? @map("signed_contract_drive_url") @db.Text
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
@@ -355,7 +357,8 @@ model License {
 
 model RfpRequest {
   id               String     @id @default(cuid())
-  customerId       String     @map("customer_id")
+  /// Optional when the RFP uses directory company + contact only (no CRM Customer row yet).
+  customerId       String?    @map("customer_id")
   energyType       EnergyType @map("energy_type")
   annualUsage      Decimal?   @map("annual_usage") @db.Decimal(14, 2)
   avgMonthlyUsage  Decimal?   @map("avg_monthly_usage") @db.Decimal(14, 2)
@@ -381,6 +384,8 @@ model RfpRequest {
   sentAt           DateTime?  @map("sent_at")
   status           String     @default("draft") // draft, sent, quotes_received
   notes            String?    @db.Text
+  /// Enrollment / contract-timing context (JSON): cycle ID, SDI, transition type, meter read fallbacks, etc.
+  enrollmentDetails Json?     @map("enrollment_details")
   /// When this row was created by re-issuing supplier emails for an earlier request, links to that parent.
   parentRfpId      String?    @map("parent_rfp_id")
   /// 0 = original supplier send, 1 = first refresh/re-issue, etc.
@@ -388,7 +393,7 @@ model RfpRequest {
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer         Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   customerContact  Contact?         @relation("RfpCustomerContact", fields: [customerContactId], references: [id], onDelete: SetNull)
   parentRfp        RfpRequest?      @relation("RfpReissueChain", fields: [parentRfpId], references: [id], onDelete: SetNull)
   childReissues    RfpRequest[]     @relation("RfpReissueChain")

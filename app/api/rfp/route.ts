@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         customer: { select: { id: true, name: true, company: true } },
-        customerContact: { select: { id: true, name: true, email: true, phone: true } },
+        customerContact: {
+          select: { id: true, name: true, email: true, phone: true, company: true },
+        },
         suppliers: { select: { id: true, name: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {

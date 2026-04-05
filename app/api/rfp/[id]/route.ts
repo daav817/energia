@@ -12,7 +12,9 @@ export async function GET(
       where: { id },
       include: {
         customer: { select: { id: true, name: true, company: true } },
-        customerContact: { select: { id: true, name: true, email: true, phone: true } },
+        customerContact: {
+          select: { id: true, name: true, email: true, phone: true, company: true },
+        },
         suppliers: { select: { id: true, name: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {
@@ -90,7 +92,9 @@ export async function PATCH(
       data,
       include: {
         customer: { select: { id: true, name: true, company: true } },
-        customerContact: { select: { id: true, name: true, email: true, phone: true } },
+        customerContact: {
+          select: { id: true, name: true, email: true, phone: true, company: true },
+        },
         suppliers: { select: { id: true, name: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {
@@ -104,5 +108,23 @@ export async function PATCH(
   } catch (error) {
     console.error("RFP request update error:", error);
     return NextResponse.json({ error: "Failed to update RFP request" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const row = await prisma.rfpRequest.findUnique({ where: { id }, select: { id: true } });
+    if (!row) {
+      return NextResponse.json({ error: "RFP request not found" }, { status: 404 });
+    }
+    await prisma.rfpRequest.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("RFP request delete error:", error);
+    return NextResponse.json({ error: "Failed to delete RFP request" }, { status: 500 });
   }
 }

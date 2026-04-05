@@ -27,6 +27,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TaskCreateDialog } from "@/components/tasks/task-create-dialog";
 
 type TaskListRow = {
   id: string;
@@ -137,18 +139,9 @@ export function TasksApp() {
   const graceTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createListIdOverride, setCreateListIdOverride] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    allDay: true,
-    dueDate: "",
-    dueAt: "",
-    repeat: "",
-    starred: false,
-    taskListId: "",
-  });
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -242,6 +235,21 @@ export function TasksApp() {
       }
     })();
   }, [searchParams]);
+
+  const handledCreateFromUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    const create = searchParams.get("create");
+    const listId = searchParams.get("listId");
+    if (create !== "1" || !listId) return;
+    if (!lists.some((l) => l.id === listId)) return;
+    const key = `create:${listId}`;
+    if (handledCreateFromUrl.current === key) return;
+    handledCreateFromUrl.current = key;
+    setSelectedId(listId);
+    setCreateListIdOverride(listId);
+    setCreateOpen(true);
+  }, [searchParams, loading, lists]);
 
   const persistVis = (next: Record<string, boolean>) => {
     setVisible(next);
@@ -355,41 +363,8 @@ export function TasksApp() {
   };
 
   const openCreate = () => {
-    setForm({
-      title: "",
-      description: "",
-      allDay: true,
-      dueDate: "",
-      dueAt: "",
-      repeat: "",
-      starred: false,
-      taskListId: selectedId ?? "",
-    });
+    setCreateListIdOverride(null);
     setCreateOpen(true);
-  };
-
-  const submitCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.taskListId || !form.title.trim()) return;
-    const res = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        taskListId: form.taskListId,
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        allDay: form.allDay,
-        dueDate: form.allDay ? form.dueDate || null : null,
-        dueAt: !form.allDay && form.dueAt ? form.dueAt : null,
-        repeatRule: form.repeat || null,
-        starred: form.starred,
-      }),
-    });
-    if (res.ok) {
-      setCreateOpen(false);
-      loadTasks(form.taskListId);
-      loadLists();
-    }
   };
 
   const openEditTask = (task: TaskRow) => {
@@ -605,48 +580,59 @@ export function TasksApp() {
                       <Settings className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        const n = window.prompt("Rename list", selectedList.name);
-                        if (!n?.trim()) return;
-                        fetch(`/api/task-lists/${selectedList.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ name: n.trim() }),
-                        }).then(() => loadLists());
-                      }}
-                    >
-                      Rename list
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => window.print()}>
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print list
-                    </DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="min-w-[14rem]">
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          const n = window.prompt("Rename list", selectedList.name);
+                          if (!n?.trim()) return;
+                          fetch(`/api/task-lists/${selectedList.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: n.trim() }),
+                          }).then(() => loadLists());
+                        }}
+                      >
+                        Rename list
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => window.print()}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Print list
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={async () => {
+                          if (!window.confirm("Delete all completed tasks in this list?")) return;
+                          await fetch(`/api/task-lists/${selectedList.id}/purge-completed`, {
+                            method: "POST",
+                          });
+                          loadTasks(selectedList.id);
+                          loadLists();
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete completed
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={async () => {
-                        if (!window.confirm("Delete all completed tasks in this list?")) return;
-                        await fetch(`/api/task-lists/${selectedList.id}/purge-completed`, {
-                          method: "POST",
-                        });
-                        loadTasks(selectedList.id);
-                        loadLists();
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete completed
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => void runGoogleTasks("sync")}>
-                      Sync with Google Tasks
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => void runGoogleTasks("import")}>
-                      <CloudDownload className="mr-2 h-4 w-4" />
-                      Import Google Tasks
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href="/api/gmail/connect">Reconnect Google (Tasks access)</a>
-                    </DropdownMenuItem>
+                    <DropdownMenuGroup>
+                      <div
+                        className="px-2 py-1.5 text-xs font-semibold text-muted-foreground"
+                        role="presentation"
+                      >
+                        Google Tasks
+                      </div>
+                      <DropdownMenuItem onSelect={() => void runGoogleTasks("sync")}>
+                        Sync with Google Tasks
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => void runGoogleTasks("import")}>
+                        <CloudDownload className="mr-2 h-4 w-4" />
+                        Import Google Tasks
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href="/api/gmail/connect">Reconnect Google (Tasks access)</a>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button variant="outline" size="sm" asChild>
@@ -887,108 +873,19 @@ export function TasksApp() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New task</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitCreate} className="space-y-3">
-            <div className="grid gap-2">
-              <Label>List</Label>
-              <Select
-                value={form.taskListId}
-                onValueChange={(v) => setForm((f) => ({ ...f, taskListId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select list" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lists.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Title</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Description</Label>
-              <textarea
-                className="min-h-[72px] w-full rounded-md border px-3 py-2 text-sm"
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.allDay}
-                onChange={(e) => setForm((f) => ({ ...f, allDay: e.target.checked }))}
-              />
-              All day
-            </label>
-            {form.allDay ? (
-              <div className="grid gap-2">
-                <Label>Due date</Label>
-                <Input
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                />
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <Label>Due date &amp; time</Label>
-                <Input
-                  type="datetime-local"
-                  value={form.dueAt}
-                  onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))}
-                />
-              </div>
-            )}
-            <div className="grid gap-2">
-              <Label>Repeat</Label>
-              <Select
-                value={form.repeat || "__none__"}
-                onValueChange={(v) => setForm((f) => ({ ...f, repeat: v === "__none__" ? "" : v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Does not repeat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REPEAT_OPTIONS.map((o) => (
-                    <SelectItem key={o.value || "nr"} value={o.value || "__none__"}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.starred}
-                onChange={(e) => setForm((f) => ({ ...f, starred: e.target.checked }))}
-              />
-              Starred
-            </label>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Save</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <TaskCreateDialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          setCreateOpen(o);
+          if (!o) setCreateListIdOverride(null);
+        }}
+        lists={lists}
+        defaultListId={createListIdOverride ?? selectedId ?? ""}
+        onCreated={(listId) => {
+          loadTasks(listId);
+          void loadLists();
+        }}
+      />
     </div>
   );
 }

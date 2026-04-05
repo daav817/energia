@@ -16,6 +16,7 @@ import {
   Send,
   Table2,
   Upload,
+  Trash2,
   UserPlus,
   X,
 } from "lucide-react";
@@ -51,6 +52,7 @@ import {
   filterSupplierContactsForRfpEnergy,
   pickDefaultSupplierContactId,
 } from "@/lib/supplier-rfp-contacts";
+import { normalizeCompanyKey } from "@/lib/customers-overview";
 
 type EnergyType = "ELECTRIC" | "NATURAL_GAS";
 type EnergyChoice = "" | EnergyType;
@@ -140,10 +142,29 @@ type RecentRfp = {
   parentRfpId?: string | null;
   refreshSequence?: number;
   quoteSummarySentAt?: string | null;
-  customer: { name: string; company: string | null };
+  customer: { name: string; company: string | null } | null;
+  customerContact?: {
+    id: string;
+    name: string;
+    email: string | null;
+    company?: string | null;
+  } | null;
   suppliers: Array<{ id: string; name: string }>;
   accountLines: Array<{ accountNumber: string; annualUsage: string; avgMonthlyUsage: string }>;
 };
+
+function rfpListCustomerTitle(rfp: RecentRfp): string {
+  const company = (
+    rfp.customer?.company?.trim() ||
+    rfp.customer?.name?.trim() ||
+    rfp.customerContact?.company?.trim() ||
+    ""
+  ).trim();
+  const contact = (rfp.customerContact?.name || "").trim();
+  if (company && contact) return `${company} — ${contact}`;
+  if (company) return company;
+  return contact || "Customer";
+}
 
 function defaultCustomerContactLabels(energy: EnergyChoice): string {
   const parts: string[] = ["customer"];
@@ -155,6 +176,49 @@ function defaultCustomerContactLabels(energy: EnergyChoice): string {
 const RFP_WIP_STORAGE_KEY = "energia-rfp-wip-v2";
 
 const TERM_OPTIONS: RequestedTerm[] = ["12", "24", "36", "NYMEX"];
+
+type RfpEnrollmentForm = {
+  currentContractEndDate: string;
+  utilityCycleId: string;
+  currentSupplier: string;
+  sdiAccountNumber: string;
+  lastMeterReadDate: string;
+  nextScheduledReadDate: string;
+  transitionType: string;
+};
+
+const EMPTY_RFP_ENROLLMENT: RfpEnrollmentForm = {
+  currentContractEndDate: "",
+  utilityCycleId: "",
+  currentSupplier: "",
+  sdiAccountNumber: "",
+  lastMeterReadDate: "",
+  nextScheduledReadDate: "",
+  transitionType: "",
+};
+
+const TRANSITION_TYPE_OPTIONS: { value: string; label: string; help: string }[] = [
+  {
+    value: "Start on Flow (Standard)",
+    label: "Start on Flow (Standard)",
+    help: "Most efficient. Tells the supplier to drop the enrollment into the very next available window.",
+  },
+  {
+    value: "Date-Certain / Fixed Month",
+    label: "Date-Certain / Fixed Month",
+    help: '"I want this to start specifically in October." Use this for clients who want to align with a fiscal year.',
+  },
+  {
+    value: "Seamless Renewal (Direct-to-Direct)",
+    label: "Seamless Renewal (Direct-to-Direct)",
+    help: 'Use this when the client is currently with a 3rd party supplier. It signals that the new supplier needs to time their "814 Enrollment" to "knock out" the old supplier\'s rate exactly on the meter read day.',
+  },
+  {
+    value: "Drop to Default (Bridge)",
+    label: "Drop to Default (Bridge)",
+    help: 'Use this if the current supplier\'s "holdover" rate is a rip-off. You tell the new supplier to wait one month while the customer "rests" on the utility\'s default rate.',
+  },
+];
 const UTILITY_OPTIONS = [
   "AEP Ohio",
   "AES Ohio",
@@ -212,7 +276,7 @@ function validateCustomTermsInput(raw: string): string | null {
 
 function mapDbTermsToRequestedTerms(rt: unknown): RequestedTerm[] {
   const out: RequestedTerm[] = [];
-  if (!Array.isArray(rt)) return ["12", "24"];
+  if (!Array.isArray(rt)) return ["12", "24", "36"];
   for (const entry of rt) {
     const e = entry as { kind?: string; months?: number };
     if (e?.kind === "nymex") out.push("NYMEX");
@@ -221,7 +285,7 @@ function mapDbTermsToRequestedTerms(rt: unknown): RequestedTerm[] {
       if (m === 12 || m === 24 || m === 36) out.push(String(m) as RequestedTerm);
     }
   }
-  return out.length ? [...new Set(out)] : ["12", "24"];
+  return out.length ? [...new Set(out)] : ["12", "24", "36"];
 }
 
 function mapDbTermsToCustomMonthsString(rt: unknown): string {
@@ -237,6 +301,90 @@ function mapDbTermsToCustomMonthsString(rt: unknown): string {
   return [...new Set(nums)].sort((a, b) => a - b).join(", ");
 }
 
+type LoadedRfpCustomerPayload = {
+  customerId?: string | null;
+  customerContactId?: string | null;
+  customer?: { name?: string | null; company?: string | null } | null;
+  customerContact?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    company?: string | null;
+  } | null;
+};
+
+type LoadedRfpApiResponse = LoadedRfpCustomerPayload & {
+  error?: string;
+  energyType?: string;
+  requestedTerms?: unknown;
+  contractStartYear?: number | null;
+  contractStartMonth?: number | null;
+  quoteDueDate?: string | null;
+  googleDriveFolderUrl?: string | null;
+  summarySpreadsheetUrl?: string | null;
+  ldcUtility?: string | null;
+  brokerMargin?: unknown;
+  brokerMarginUnit?: string;
+  notes?: string | null;
+  enrollmentDetails?: unknown;
+  accountLines?: Array<{
+    accountNumber: string;
+    serviceAddress?: string | null;
+    annualUsage: unknown;
+    avgMonthlyUsage: unknown;
+  }>;
+  supplierContactSelections?: unknown;
+  status?: string;
+  id?: string;
+  suppliers?: Array<{ id: string }>;
+};
+
+function normalizeCustomerCompaniesPayload(raw: unknown): CustomerCompanyOption[] {
+  const arr = Array.isArray((raw as { companies?: unknown })?.companies)
+    ? (raw as { companies: CustomerCompanyOption[] }).companies
+    : [];
+  return arr.filter((c) => {
+    const n = String(c.displayName ?? "").trim();
+    return n !== "." && n !== "";
+  });
+}
+
+/** Match saved RFP to a customer-companies row using DB ids and normalized company names. */
+function resolveSavedRfpCompanyRow(
+  companies: CustomerCompanyOption[],
+  data: LoadedRfpCustomerPayload
+): CustomerCompanyOption | null {
+  const cid = data.customerId && String(data.customerId).trim() ? String(data.customerId).trim() : "";
+  if (cid) {
+    const byCust = companies.find((c) => c.customerId === cid);
+    if (byCust) return byCust;
+  }
+  const contactId =
+    data.customerContactId && String(data.customerContactId).trim()
+      ? String(data.customerContactId).trim()
+      : "";
+  if (contactId) {
+    const byContact = companies.find((c) => c.contacts?.some((ct) => ct.id === contactId));
+    if (byContact) return byContact;
+  }
+  const nameKeys = [data.customer?.company, data.customer?.name]
+    .map((s) => normalizeCompanyKey(String(s ?? "")))
+    .filter(Boolean);
+  for (const key of nameKeys) {
+    const hit = companies.find((c) => normalizeCompanyKey(c.displayName) === key);
+    if (hit) return hit;
+  }
+  const contactCo = data.customerContact?.company
+    ? normalizeCompanyKey(String(data.customerContact.company))
+    : "";
+  if (contactCo) {
+    const hit = companies.find((c) => normalizeCompanyKey(c.displayName) === contactCo);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 export default function RfpGeneratorPage() {
   const [customerCompanies, setCustomerCompanies] = useState<CustomerCompanyOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
@@ -247,10 +395,21 @@ export default function RfpGeneratorPage() {
   const [customerCompanySearch, setCustomerCompanySearch] = useState("");
   const [customerCompanyDropdownOpen, setCustomerCompanyDropdownOpen] = useState(false);
   const [customerContactId, setCustomerContactId] = useState("");
+  /** When API contact is missing from /customer-companies bucket, keep Select working after Continue Editing. */
+  const [rfpExtraCustomerContact, setRfpExtraCustomerContact] = useState<
+    NonNullable<CustomerCompanyOption["contacts"]>[number] | null
+  >(null);
   const [energyType, setEnergyType] = useState<EnergyChoice>("");
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
   const [selectedSupplierContactIds, setSelectedSupplierContactIds] = useState<Record<string, string>>({});
-  const [requestedTerms, setRequestedTerms] = useState<RequestedTerm[]>(["12", "24"]);
+  const [requestedTerms, setRequestedTerms] = useState<RequestedTerm[]>(["12", "24", "36"]);
+  const [enrollment, setEnrollment] = useState<RfpEnrollmentForm>({ ...EMPTY_RFP_ENROLLMENT });
+  const [meterModalOpen, setMeterModalOpen] = useState(false);
+  const [meterUtility, setMeterUtility] = useState<"AEP" | "DUKE" | "FIRSTENERGY" | "COLUMBIA">("AEP");
+  const [meterAccount, setMeterAccount] = useState("");
+  const [meterLoading, setMeterLoading] = useState(false);
+  const [meterRows, setMeterRows] = useState<{ monthKey: string; readDate: string; label: string }[]>([]);
+  const [meterNotice, setMeterNotice] = useState("");
   const [customTermMonths, setCustomTermMonths] = useState("");
   const [contractStartValue, setContractStartValue] = useState("");
   const [quoteDueDate, setQuoteDueDate] = useState("");
@@ -292,6 +451,8 @@ export default function RfpGeneratorPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [deleteRfpTarget, setDeleteRfpTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleteRfpLoading, setDeleteRfpLoading] = useState(false);
   const [utilityTableModalOpen, setUtilityTableModalOpen] = useState(false);
   const [customTermsError, setCustomTermsError] = useState("");
   const [testEmailFoundId, setTestEmailFoundId] = useState<string | null>(null);
@@ -317,6 +478,8 @@ export default function RfpGeneratorPage() {
   const customerCompanyInputRef = useRef<HTMLInputElement>(null);
   const ldcUtilityInputRef = useRef<HTMLInputElement>(null);
   const skipNextWipPersist = useRef(false);
+  /** Skip one company↔contact sync after hydrating a saved RFP so useEffect does not wipe loaded contact. */
+  const suppressContactCompanySyncRef = useRef(false);
 
   useEffect(() => {
     void loadPageData();
@@ -332,7 +495,7 @@ export default function RfpGeneratorPage() {
       const raw = localStorage.getItem(RFP_WIP_STORAGE_KEY);
       if (!raw || skipNextWipPersist.current) return;
       const data = JSON.parse(raw) as Record<string, unknown>;
-      if (data.version !== 2) return;
+      if (data.version !== 2 && data.version !== 3) return;
       if (typeof data.customerCompanyId === "string") setCustomerCompanyId(data.customerCompanyId);
       if (typeof data.customerContactId === "string") setCustomerContactId(data.customerContactId);
       if (data.energyType === "ELECTRIC" || data.energyType === "NATURAL_GAS") setEnergyType(data.energyType);
@@ -363,6 +526,9 @@ export default function RfpGeneratorPage() {
       if (typeof data.selectedBillDriveFileId === "string") setSelectedBillDriveFileId(data.selectedBillDriveFileId);
       if (typeof data.selectedSummaryDriveFileId === "string") setSelectedSummaryDriveFileId(data.selectedSummaryDriveFileId);
       if (typeof data.activeDraftId === "string") setActiveDraftId(data.activeDraftId);
+      if (data.version === 3 && data.enrollment && typeof data.enrollment === "object") {
+        setEnrollment({ ...EMPTY_RFP_ENROLLMENT, ...(data.enrollment as RfpEnrollmentForm) });
+      }
     } catch {
       /* ignore */
     }
@@ -379,7 +545,7 @@ export default function RfpGeneratorPage() {
       localStorage.setItem(
         RFP_WIP_STORAGE_KEY,
         JSON.stringify({
-          version: 2,
+          version: 3,
           customerCompanyId,
           customerContactId,
           energyType,
@@ -399,6 +565,7 @@ export default function RfpGeneratorPage() {
           selectedBillDriveFileId,
           selectedSummaryDriveFileId,
           activeDraftId,
+          enrollment,
         })
       );
     }, 400);
@@ -424,6 +591,7 @@ export default function RfpGeneratorPage() {
     selectedBillDriveFileId,
     selectedSummaryDriveFileId,
     activeDraftId,
+    enrollment,
   ]);
 
   useEffect(() => {
@@ -575,22 +743,43 @@ export default function RfpGeneratorPage() {
 
   const selectedCustomer = customerCompanies.find((customer) => customer.id === customerCompanyId) ?? null;
   const customerContacts = selectedCustomer?.contacts ?? [];
-  const selectedCustomerHasContacts = customerContacts.length > 0;
+  const customerContactsForSelect = useMemo(() => {
+    if (
+      rfpExtraCustomerContact &&
+      customerContactId === rfpExtraCustomerContact.id &&
+      !customerContacts.some((c) => c.id === rfpExtraCustomerContact.id)
+    ) {
+      return [...customerContacts, rfpExtraCustomerContact];
+    }
+    return customerContacts;
+  }, [customerContacts, rfpExtraCustomerContact, customerContactId]);
+  const selectedCustomerHasContacts = customerContactsForSelect.length > 0;
   const selectedCustomerNeedsSetup = Boolean(selectedCustomer && !selectedCustomerHasContacts);
   const resolvedCustomerIdForValidation =
     selectedCustomer?.customerId ||
-    customerContacts.find((contact) => contact.id === customerContactId)?.customerId ||
+    customerContactsForSelect.find((contact) => contact.id === customerContactId)?.customerId ||
     contactRecordCustomerId ||
     "";
   const filteredCustomerCompanies = useMemo(() => {
+    const base = customerCompanies.filter((c) => {
+      const n = String(c.displayName ?? "").trim();
+      return n !== "." && n !== "";
+    });
     const query = customerCompanySearch.trim().toLowerCase();
-    if (!query) return customerCompanies;
-    return customerCompanies.filter((customer) => {
+    if (!query) return base;
+    /** While dropdown is open with an existing pick, show full list until the user types (clears selection). */
+    if (customerCompanyDropdownOpen && customerCompanyId) return base;
+    return base.filter((customer) => {
       const label = customer.displayName.toLowerCase();
       if (label.startsWith(query)) return true;
       return label.split(/\s+/).some((part) => part.startsWith(query));
     });
-  }, [customerCompanies, customerCompanySearch]);
+  }, [
+    customerCompanies,
+    customerCompanySearch,
+    customerCompanyDropdownOpen,
+    customerCompanyId,
+  ]);
   const suppliersTableRows = useMemo(() => {
     if (!energyType) return [];
     const et = energyType;
@@ -608,6 +797,15 @@ export default function RfpGeneratorPage() {
       };
     });
   }, [eligibleSuppliers, energyType, selectedSupplierContactIds]);
+
+  const enrollmentDetailsPayload = useMemo(() => {
+    const o: Record<string, string> = {};
+    (Object.keys(enrollment) as (keyof RfpEnrollmentForm)[]).forEach((k) => {
+      const v = enrollment[k]?.trim();
+      if (v) o[k] = v;
+    });
+    return Object.keys(o).length > 0 ? o : null;
+  }, [enrollment]);
 
   const draftRfqs = useMemo(() => recentRfqs.filter((r) => r.status === "draft"), [recentRfqs]);
   const submittedRfqs = useMemo(() => recentRfqs.filter((r) => r.status !== "draft"), [recentRfqs]);
@@ -666,6 +864,29 @@ export default function RfpGeneratorPage() {
     return parts.length ? parts.join(", ") : "";
   }, [requestedTerms, customTermMonths]);
 
+  const hasExternalUsageSummary = Boolean(
+    summarySpreadsheetUrl.trim() || localSummaryFile
+  );
+  /** At least one account line has usage suitable for the email table (multi-account checklist). */
+  const hasAccountUsageDataForMultiChecklist = accountLines.some(
+    (line) =>
+      line.accountNumber.trim() &&
+      line.annualUsage.trim() &&
+      line.avgMonthlyUsage.trim()
+  );
+  const usageSummaryWhenMultiChecklistOk =
+    accountLines.length === 1 ||
+    hasExternalUsageSummary ||
+    hasAccountUsageDataForMultiChecklist;
+
+  function dismissResultError() {
+    setResult((current) => {
+      if (!current?.error) return current;
+      const { error: _e, ...rest } = current;
+      return Object.keys(rest).length > 0 ? (rest as typeof current) : null;
+    });
+  }
+
   async function loadPageData() {
     setLoading(true);
     try {
@@ -680,13 +901,37 @@ export default function RfpGeneratorPage() {
         rfpRes.json(),
       ]);
 
-      const companyOptions = Array.isArray(customersData?.companies) ? customersData.companies : [];
+      const companyOptions = (Array.isArray(customersData?.companies) ? customersData.companies : []).filter(
+        (c: CustomerCompanyOption) => {
+          const n = String(c.displayName ?? "").trim();
+          return n !== "." && n !== "";
+        }
+      );
       setCustomerCompanies(companyOptions);
       setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
       setRecentRfqs(Array.isArray(rfpData) ? rfpData.slice(0, 40) : []);
       return companyOptions as CustomerCompanyOption[];
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function deleteRfpById(id: string) {
+    setDeleteRfpLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/rfp/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Delete failed");
+      setActiveDraftId((cur) => (cur === id ? null : cur));
+      setDeleteRfpTarget(null);
+      await loadPageData();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to delete RFP";
+      setResult({ error: msg });
+      throw e instanceof Error ? e : new Error(msg);
+    } finally {
+      setDeleteRfpLoading(false);
     }
   }
 
@@ -781,9 +1026,6 @@ export default function RfpGeneratorPage() {
     }
     const termErr = validateCustomTermsInput(customTermMonths);
     if (termErr) return termErr;
-    if (!resolvedCustomerIdForValidation) {
-      return "The selected customer contact must be linked to a customer record before preview or send. Use “Add customer + contact” to create the customer and link this contact.";
-    }
     if (!customerContactId) {
       return "Select a customer contact before previewing or sending the RFP.";
     }
@@ -823,10 +1065,12 @@ export default function RfpGeneratorPage() {
     setCustomerCompanyId("");
     setCustomerCompanySearch("");
     setCustomerContactId("");
+    setRfpExtraCustomerContact(null);
     setEnergyType("");
     setSelectedSupplierIds([]);
     setSelectedSupplierContactIds({});
-    setRequestedTerms(["12", "24"]);
+    setRequestedTerms(["12", "24", "36"]);
+    setEnrollment({ ...EMPTY_RFP_ENROLLMENT });
     setCustomTermMonths("");
     setCustomTermsError("");
     setContractStartValue("");
@@ -851,9 +1095,9 @@ export default function RfpGeneratorPage() {
   }
 
   async function saveDraftToServer() {
-    if (!resolvedCustomerIdForValidation || !energyType) {
+    if (!customerCompanyId || !customerContactId || !energyType) {
       setResult({
-        error: "Select a customer company with a linked record and an energy type before saving.",
+        error: "Select a customer company, contact, and energy type before saving.",
       });
       return;
     }
@@ -870,7 +1114,7 @@ export default function RfpGeneratorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           draftId: activeDraftId || undefined,
-          customerId: resolvedCustomerIdForValidation,
+          ...(resolvedCustomerIdForValidation ? { customerId: resolvedCustomerIdForValidation } : {}),
           customerContactId: customerContactId || undefined,
           energyType,
           supplierIds: selectedSupplierIds,
@@ -892,6 +1136,7 @@ export default function RfpGeneratorPage() {
             avgMonthlyUsage: line.avgMonthlyUsage,
           })),
           notes: notes || undefined,
+          enrollmentDetails: enrollmentDetailsPayload ?? undefined,
         }),
       });
       const data = await res.json();
@@ -910,22 +1155,60 @@ export default function RfpGeneratorPage() {
   async function loadSavedRfpIntoForm(id: string) {
     setLoading(true);
     setResult(null);
+    suppressContactCompanySyncRef.current = true;
     try {
-      const res = await fetch(`/api/rfp/${encodeURIComponent(id)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load RFP");
+      const [rfpRes, companiesRes] = await Promise.all([
+        fetch(`/api/rfp/${encodeURIComponent(id)}`),
+        fetch("/api/contacts/customer-companies"),
+      ]);
+      const data = (await rfpRes.json()) as LoadedRfpApiResponse;
+      if (!rfpRes.ok) throw new Error(typeof data.error === "string" ? data.error : "Failed to load RFP");
 
-      const companyRow = customerCompanies.find((c) => c.customerId === data.customerId) ?? null;
+      const companyOptions = normalizeCustomerCompaniesPayload(await companiesRes.json().catch(() => ({})));
+      setCustomerCompanies(companyOptions);
+
+      const companyRow = resolveSavedRfpCompanyRow(companyOptions, data);
+      let extraContact: NonNullable<CustomerCompanyOption["contacts"]>[number] | null = null;
+
       if (companyRow) {
         setCustomerCompanyId(companyRow.id);
         setCustomerCompanySearch(companyRow.displayName);
+        const contactId =
+          data.customerContactId && String(data.customerContactId).trim()
+            ? String(data.customerContactId).trim()
+            : "";
+        const inList = Boolean(contactId && companyRow.contacts?.some((ct) => ct.id === contactId));
+        const cc = data.customerContact;
+        if (contactId && !inList && cc && String(cc.id) === contactId) {
+          extraContact = {
+            id: String(cc.id),
+            customerId: companyRow.customerId ?? null,
+            name: (cc.name && String(cc.name).trim()) || "Customer contact",
+            email: cc.email != null ? String(cc.email) : null,
+            phone: cc.phone != null ? String(cc.phone) : null,
+            label: null,
+          };
+        }
       } else if (data.customer) {
         setCustomerCompanyId("");
         setCustomerCompanySearch(
           [data.customer.name, data.customer.company].filter(Boolean).join(" — ") || ""
         );
+      } else if (data.customerContact) {
+        setCustomerCompanyId("");
+        setCustomerCompanySearch(
+          [data.customerContact.company, data.customerContact.name].filter(Boolean).join(" — ") || ""
+        );
+      } else {
+        setCustomerCompanyId("");
+        setCustomerCompanySearch("");
       }
-      setCustomerContactId(data.customerContactId || "");
+      setRfpExtraCustomerContact(extraContact);
+      setCustomerContactId(
+        data.customerContactId && String(data.customerContactId).trim()
+          ? String(data.customerContactId).trim()
+          : ""
+      );
       if (data.energyType === "ELECTRIC" || data.energyType === "NATURAL_GAS") {
         setEnergyType(data.energyType);
       }
@@ -949,6 +1232,25 @@ export default function RfpGeneratorPage() {
         setBrokerMarginUnit(data.brokerMarginUnit);
       }
       setNotes(data.notes || "");
+      if (
+        data.enrollmentDetails &&
+        typeof data.enrollmentDetails === "object" &&
+        !Array.isArray(data.enrollmentDetails)
+      ) {
+        const ed = data.enrollmentDetails as Record<string, string>;
+        setEnrollment({
+          ...EMPTY_RFP_ENROLLMENT,
+          currentContractEndDate: ed.currentContractEndDate ?? "",
+          utilityCycleId: ed.utilityCycleId ?? "",
+          currentSupplier: ed.currentSupplier ?? "",
+          sdiAccountNumber: ed.sdiAccountNumber ?? "",
+          lastMeterReadDate: ed.lastMeterReadDate ?? "",
+          nextScheduledReadDate: ed.nextScheduledReadDate ?? "",
+          transitionType: ed.transitionType ?? "",
+        });
+      } else {
+        setEnrollment({ ...EMPTY_RFP_ENROLLMENT });
+      }
       setAccountLines(
         Array.isArray(data.accountLines) && data.accountLines.length > 0
           ? data.accountLines.map(
@@ -972,13 +1274,14 @@ export default function RfpGeneratorPage() {
         setSelectedSupplierContactIds(selections as Record<string, string>);
       }
       if (data.status === "draft") {
-        setActiveDraftId(data.id);
+        setActiveDraftId(typeof data.id === "string" ? data.id : null);
         setReissueParentRfpId(null);
       } else {
         setActiveDraftId(null);
-        setReissueParentRfpId(String(data.id));
+        setReissueParentRfpId(typeof data.id === "string" ? data.id : null);
       }
     } catch (error) {
+      suppressContactCompanySyncRef.current = false;
       setResult({ error: error instanceof Error ? error.message : "Failed to load RFP" });
     } finally {
       setLoading(false);
@@ -1260,6 +1563,27 @@ export default function RfpGeneratorPage() {
     }
   }
 
+  async function fetchMeterSchedule() {
+    setMeterLoading(true);
+    setMeterNotice("");
+    setMeterRows([]);
+    try {
+      const res = await fetch("/api/utilities/meter-read-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ utility: meterUtility, accountNumber: meterAccount.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load meter read dates");
+      setMeterRows(Array.isArray(data.months) ? data.months : []);
+      setMeterNotice(typeof data.notice === "string" ? data.notice : "");
+    } catch (e) {
+      setMeterNotice(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setMeterLoading(false);
+    }
+  }
+
   async function sendRfpRequest(
     mode: "preview" | "test" | "send",
     extraFields?: Record<string, string>
@@ -1323,6 +1647,7 @@ export default function RfpGeneratorPage() {
         avgMonthlyUsage: line.avgMonthlyUsage,
       })),
       ...(mode === "send" && reissueParentRfpId ? { reissueParentRfpId } : {}),
+      ...(enrollmentDetailsPayload ? { enrollmentDetails: enrollmentDetailsPayload } : {}),
     };
   }
 
@@ -1333,46 +1658,69 @@ export default function RfpGeneratorPage() {
           {draftNotice}
         </div>
       )}
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">RFP workspace</h1>
-          <p className="text-muted-foreground">
-            Build a supplier request from customer bills, choose the right suppliers, and preview
-            broker economics before the email goes out.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={() => setResetConfirmOpen(true)}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset page
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={savingDraft}
-            onClick={() => void saveDraftToServer()}
-          >
-            {savingDraft ? "Saving…" : "Save RFP"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setAttachContactCustomerId(null);
-              setCustomerDraft({
-                ...emptyCustomerDraft,
-                contactLabel: defaultCustomerContactLabels(energyType),
-              });
-              setCustomerDialogOpen(true);
-            }}
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add customer + contact
-          </Button>
+      <div className="sticky top-0 z-40 -mx-1 border-b border-border/80 bg-background/95 px-2 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:px-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="shrink-0 text-lg font-bold tracking-tight sm:text-xl">RFP workspace</h1>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setResetConfirmOpen(true)}>
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={savingDraft}
+              onClick={() => void saveDraftToServer()}
+            >
+              {savingDraft ? "Saving…" : "Save RFP"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setAttachContactCustomerId(null);
+                setCustomerDraft({
+                  ...emptyCustomerDraft,
+                  contactLabel: defaultCustomerContactLabels(energyType),
+                });
+                setCustomerDialogOpen(true);
+              }}
+            >
+              <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+              Add customer
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={handlePreview} disabled={previewLoading}>
+              <Mail className="mr-1.5 h-3.5 w-3.5" />
+              {previewLoading ? "Preview…" : "Preview email"}
+            </Button>
+            <Input
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="Test email"
+              className="h-8 w-[min(100%,11rem)] sm:w-44"
+            />
+            <Button type="button" variant="outline" size="sm" onClick={handleTestSend} disabled={testingEmail}>
+              {testingEmail ? "Sending…" : "Test RFP"}
+            </Button>
+            {testEmailFoundId ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => setTestEmailViewOpen(true)}>
+                View test
+              </Button>
+            ) : rfpTestEmailOk ? (
+              <span className="text-xs text-muted-foreground">Waiting for test delivery…</span>
+            ) : null}
+            <Button type="submit" form="rfp-workspace-form" size="sm" disabled={sending}>
+              <Send className="mr-1.5 h-3.5 w-3.5" />
+              {sending ? "Sending…" : "Send RFP"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
-        <form onSubmit={handleSend} className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)] xl:items-start">
+        <form id="rfp-workspace-form" onSubmit={handleSend} className="space-y-6">
           <Card>
             <CardHeader className="pb-4">
               <CardDescription className="flex items-start gap-2 text-base text-foreground">
@@ -1406,92 +1754,97 @@ export default function RfpGeneratorPage() {
                     Choose one energy type for this RFP (required before suppliers appear).
                   </p>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Customer Company *</Label>
-                  <div className="relative">
-                    <Input
-                      ref={customerCompanyInputRef}
-                      value={customerCompanySearch}
-                      onFocus={() => setCustomerCompanyDropdownOpen(true)}
-                      onBlur={() => window.setTimeout(() => setCustomerCompanyDropdownOpen(false), 120)}
-                      onChange={(e) => {
-                        setCustomerCompanySearch(e.target.value);
-                        setCustomerCompanyDropdownOpen(true);
-                        if (customerCompanyId) setCustomerCompanyId("");
-                      }}
-                      placeholder={loading ? "Loading customer companies..." : "Type customer company name"}
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setCustomerCompanyDropdownOpen((current) => !current);
-                        customerCompanyInputRef.current?.focus();
-                      }}
-                      aria-label="Toggle customer company list"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                    {customerCompanyDropdownOpen && (
-                      <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover shadow-md">
-                        {filteredCustomerCompanies.length === 0 ? (
-                          <p className="px-3 py-2 text-sm text-muted-foreground">No customer companies match that search.</p>
-                        ) : (
-                          filteredCustomerCompanies.map((customer) => {
-                            const isSelected = customer.id === customerCompanyId;
-                            return (
-                              <button
-                                key={customer.id}
-                                type="button"
-                                className={`w-full border-b px-3 py-2 text-left text-sm last:border-b-0 ${
-                                  isSelected ? "bg-primary/10 font-medium" : "hover:bg-muted/50"
-                                }`}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setCustomerCompanyId(customer.id);
-                                  setCustomerCompanySearch(customer.displayName);
-                                  setCustomerCompanyDropdownOpen(false);
-                                }}
-                              >
-                                {`${customer.displayName}${
-                                  Array.isArray(customer.contacts) && customer.contacts.length === 0
-                                    ? " - no contact on file"
-                                    : ""
-                                }`}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    )}
+                <div className="grid min-w-0 gap-4 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-2">
+                    <Label>Customer Company *</Label>
+                    <div className="relative">
+                      <Input
+                        ref={customerCompanyInputRef}
+                        value={customerCompanySearch}
+                        onFocus={() => setCustomerCompanyDropdownOpen(true)}
+                        onBlur={() => window.setTimeout(() => setCustomerCompanyDropdownOpen(false), 120)}
+                        onChange={(e) => {
+                          setCustomerCompanySearch(e.target.value);
+                          setCustomerCompanyDropdownOpen(true);
+                          if (customerCompanyId) {
+                            setCustomerCompanyId("");
+                            setRfpExtraCustomerContact(null);
+                          }
+                        }}
+                        placeholder={loading ? "Loading customer companies..." : "Type customer company name"}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setCustomerCompanyDropdownOpen((current) => !current);
+                          customerCompanyInputRef.current?.focus();
+                        }}
+                        aria-label="Toggle customer company list"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                      {customerCompanyDropdownOpen && (
+                        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover shadow-md">
+                          {filteredCustomerCompanies.length === 0 ? (
+                            <p className="px-3 py-2 text-sm text-muted-foreground">No customer companies match that search.</p>
+                          ) : (
+                            filteredCustomerCompanies.map((customer) => {
+                              const isSelected = customer.id === customerCompanyId;
+                              return (
+                                <button
+                                  key={customer.id}
+                                  type="button"
+                                  className={`w-full border-b px-3 py-2 text-left text-sm last:border-b-0 ${
+                                    isSelected ? "bg-primary/10 font-medium" : "hover:bg-muted/50"
+                                  }`}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setCustomerCompanyId(customer.id);
+                                    setCustomerCompanySearch(customer.displayName);
+                                    setRfpExtraCustomerContact(null);
+                                    setCustomerCompanyDropdownOpen(false);
+                                  }}
+                                >
+                                  {`${customer.displayName}${
+                                    Array.isArray(customer.contacts) && customer.contacts.length === 0
+                                      ? " - no contact on file"
+                                      : ""
+                                  }`}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Type to filter, or use the chevron to open the company list.
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Type to filter, or use the chevron to open the scrollable company list.
-                  </p>
+                  <div className="grid min-w-0 gap-2">
+                    <Label>Customer contact *</Label>
+                    <Select
+                      value={customerContactId}
+                      onValueChange={setCustomerContactId}
+                      disabled={!customerCompanyId || customerContactsForSelect.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer contact" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customerContactsForSelect.map((contact) => (
+                          <SelectItem key={contact.id} value={contact.id}>
+                            {contact.name}
+                            {contact.email ? ` — ${contact.email}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Customer contact *</Label>
-                <Select
-                  value={customerContactId}
-                  onValueChange={setCustomerContactId}
-                  disabled={!customerCompanyId || customerContacts.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer contact" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customerContacts.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {contact.name}
-                        {contact.email ? ` — ${contact.email}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               {selectedCustomerNeedsSetup && (
@@ -1622,6 +1975,116 @@ export default function RfpGeneratorPage() {
                 </div>
               </div>
 
+              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <h3 className="text-sm font-semibold">Enrollment &amp; timing context</h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label>Current end of contract date</Label>
+                    <Input
+                      type="date"
+                      value={enrollment.currentContractEndDate}
+                      onChange={(e) =>
+                        setEnrollment((s) => ({ ...s, currentContractEndDate: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Utility cycle ID (from bill)</Label>
+                    <Input
+                      value={enrollment.utilityCycleId}
+                      onChange={(e) => setEnrollment((s) => ({ ...s, utilityCycleId: e.target.value }))}
+                      placeholder="If unknown, use meter read dates below"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Current supplier</Label>
+                    <Input
+                      value={enrollment.currentSupplier}
+                      onChange={(e) => setEnrollment((s) => ({ ...s, currentSupplier: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Account / SDI number</Label>
+                    <Input
+                      value={enrollment.sdiAccountNumber}
+                      onChange={(e) =>
+                        setEnrollment((s) => ({ ...s, sdiAccountNumber: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+                {!enrollment.utilityCycleId.trim() ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label>Last meter read date</Label>
+                      <Input
+                        type="date"
+                        value={enrollment.lastMeterReadDate}
+                        onChange={(e) =>
+                          setEnrollment((s) => ({ ...s, lastMeterReadDate: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Next scheduled read date</Label>
+                      <Input
+                        type="date"
+                        value={enrollment.nextScheduledReadDate}
+                        onChange={(e) =>
+                          setEnrollment((s) => ({ ...s, nextScheduledReadDate: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                <div className="grid gap-2">
+                  <Label>Transition type</Label>
+                  <Select
+                    value={enrollment.transitionType || "__none__"}
+                    onValueChange={(v) =>
+                      setEnrollment((s) => ({
+                        ...s,
+                        transitionType: v === "__none__" ? "" : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select transition type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Select —</SelectItem>
+                      {TRANSITION_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {enrollment.transitionType ? (
+                    <p className="text-xs text-muted-foreground leading-snug">
+                      {
+                        TRANSITION_TYPE_OPTIONS.find((o) => o.value === enrollment.transitionType)
+                          ?.help
+                      }
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Choose how the new supplier should time enrollment relative to meter reads and the
+                      prior supplier.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setMeterModalOpen(true)}>
+                    Ohio utility meter read dates…
+                  </Button>
+                  <p className="text-xs text-muted-foreground pb-1">
+                    AEP, Duke, FirstEnergy, Columbia Gas — uses account/SDI to request a schedule (see modal for
+                    data source notice).
+                  </p>
+                </div>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
                   <Label>Contract start month / year *</Label>
@@ -1644,85 +2107,52 @@ export default function RfpGeneratorPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label>Bill PDF link or local file *</Label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        value={googleDriveFolderUrl}
-                        onChange={(e) => {
-                          setGoogleDriveFolderUrl(e.target.value);
-                          setSelectedBillDriveFileId("");
-                          if (e.target.value) setLocalBillFile(null);
-                        }}
-                        placeholder="https://drive.google.com/..."
-                        className={googleDriveFolderUrl ? "pr-10" : undefined}
-                      />
-                      {googleDriveFolderUrl ? (
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          onClick={() => {
-                            setGoogleDriveFolderUrl("");
-                            setSelectedBillDriveFileId("");
-                          }}
-                          aria-label="Clear bill link"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => openDrivePicker("bill")}>
-                      <FolderOpen className="mr-2 h-4 w-4" />
-                      Browse
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!googleDriveFolderUrl && !localBillFile}
-                      onClick={() => openSelectedDocument("bill")}
-                    >
-                      View
-                    </Button>
-                  </div>
-                  {localBillFile && (
-                    <p className="text-xs text-muted-foreground">
-                      Local file selected: {localBillFile.name}
-                    </p>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  <Label>Usage Summary Link or local file</Label>
-                  <div className="flex gap-2">
+              <div className="grid gap-2">
+                <Label>Bill PDF link or local file *</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
                     <Input
-                      value={summarySpreadsheetUrl}
+                      value={googleDriveFolderUrl}
                       onChange={(e) => {
-                        setSummarySpreadsheetUrl(e.target.value);
-                        setSelectedSummaryDriveFileId("");
-                        if (e.target.value) setLocalSummaryFile(null);
+                        setGoogleDriveFolderUrl(e.target.value);
+                        setSelectedBillDriveFileId("");
+                        if (e.target.value) setLocalBillFile(null);
                       }}
-                      placeholder="Required when multiple utility accounts are included"
+                      placeholder="https://drive.google.com/..."
+                      className={googleDriveFolderUrl ? "pr-10" : undefined}
                     />
-                    <Button type="button" variant="outline" onClick={() => openDrivePicker("summary")}>
-                      <FolderOpen className="mr-2 h-4 w-4" />
-                      Browse
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!summarySpreadsheetUrl && !localSummaryFile}
-                      onClick={() => openSelectedDocument("summary")}
-                    >
-                      View
-                    </Button>
+                    {googleDriveFolderUrl ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => {
+                          setGoogleDriveFolderUrl("");
+                          setSelectedBillDriveFileId("");
+                        }}
+                        aria-label="Clear bill link"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </div>
-                  {localSummaryFile && (
-                    <p className="text-xs text-muted-foreground">
-                      Local file selected: {localSummaryFile.name}
-                    </p>
-                  )}
+                  <Button type="button" variant="outline" onClick={() => openDrivePicker("bill")}>
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                    Browse
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!googleDriveFolderUrl && !localBillFile}
+                    onClick={() => openSelectedDocument("bill")}
+                  >
+                    View
+                  </Button>
                 </div>
+                {localBillFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Local file selected: {localBillFile.name}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1753,16 +2183,29 @@ export default function RfpGeneratorPage() {
                     another tab.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => void refreshSupplierRows()}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh suppliers
-                </Button>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={eligibleSuppliers.length === 0}
+                    onClick={() => setSelectedSupplierIds(eligibleSuppliers.map((s) => s.id))}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedSupplierIds([])}
+                  >
+                    Deselect all
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void refreshSupplierRows()}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh suppliers
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -1785,19 +2228,18 @@ export default function RfpGeneratorPage() {
               )}
               {eligibleSuppliers.length > 0 && (
                 <div className="rounded-lg border">
-                  <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1.35fr)_auto_minmax(0,1.1fr)] gap-2 border-b bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:gap-3 sm:px-4 sm:text-xs">
+                  <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1.4fr)] gap-2 border-b bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:gap-3 sm:px-4 sm:text-xs">
                     <div className="text-center">Incl.</div>
                     <div>Supplier</div>
                     <div>Main contact</div>
-                    <div className="text-center">Add</div>
-                    <div>Email</div>
+                    <div>Email &amp; actions</div>
                   </div>
                   {suppliersTableRows.map(({ supplier, contacts, selectedContact, selectedContactId }) => {
                     const included = selectedSupplierIds.includes(supplier.id);
                     return (
                       <div
                         key={supplier.id}
-                        className="grid grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1.35fr)_auto_minmax(0,1.1fr)] gap-2 border-b px-3 py-3 text-sm last:border-b-0 sm:gap-3 sm:px-4"
+                        className="grid grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1.4fr)] gap-2 border-b px-3 py-3 text-sm last:border-b-0 sm:gap-3 sm:px-4"
                       >
                         <div className="flex items-center justify-center pt-1">
                           <input
@@ -1839,12 +2281,13 @@ export default function RfpGeneratorPage() {
                             <p className="text-muted-foreground">—</p>
                           )}
                         </div>
-                        <div className="flex items-start">
+                        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="truncate text-sm text-muted-foreground">{selectedContact?.email || "—"}</p>
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="h-8 px-2 text-xs"
+                            className="h-8 shrink-0 self-start whitespace-nowrap text-xs"
                             disabled={!energyType || !included}
                             onClick={() =>
                               setNewSupplierContact({
@@ -1856,11 +2299,8 @@ export default function RfpGeneratorPage() {
                               })
                             }
                           >
-                            New contact
+                            Add contact
                           </Button>
-                        </div>
-                        <div className="min-w-0 flex items-center">
-                          <p className="truncate text-sm">{selectedContact?.email || "—"}</p>
                         </div>
                       </div>
                     );
@@ -1895,6 +2335,64 @@ export default function RfpGeneratorPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-lg border bg-muted/25 p-4 space-y-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Usage summary (optional)</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    For supplier emails you can either paste a Drive link to a usage spreadsheet (the email will show
+                    only that link for usage—no table), or leave this blank and use the account lines below—those
+                    fields build the usage table in the email.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Usage summary link or local file</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="relative min-w-[12rem] flex-1">
+                      <Input
+                        value={summarySpreadsheetUrl}
+                        onChange={(e) => {
+                          setSummarySpreadsheetUrl(e.target.value);
+                          setSelectedSummaryDriveFileId("");
+                          if (e.target.value) setLocalSummaryFile(null);
+                        }}
+                        placeholder="https://drive.google.com/... (optional)"
+                        className={summarySpreadsheetUrl ? "pr-10" : undefined}
+                      />
+                      {summarySpreadsheetUrl ? (
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          onClick={() => {
+                            setSummarySpreadsheetUrl("");
+                            setSelectedSummaryDriveFileId("");
+                          }}
+                          aria-label="Clear usage summary link"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => openDrivePicker("summary")}>
+                      <FolderOpen className="mr-2 h-4 w-4" />
+                      Browse
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!summarySpreadsheetUrl && !localSummaryFile}
+                      onClick={() => openSelectedDocument("summary")}
+                    >
+                      View
+                    </Button>
+                  </div>
+                  {localSummaryFile && (
+                    <p className="text-xs text-muted-foreground">
+                      Local file selected: {localSummaryFile.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {accountLines.map((line, index) => (
                 <div key={line.id} className="rounded-lg border p-4 space-y-4">
                   <div className="flex items-center justify-between gap-2">
@@ -2013,43 +2511,9 @@ export default function RfpGeneratorPage() {
                 />
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                <Button type="button" variant="outline" onClick={handlePreview} disabled={previewLoading}>
-                  <Mail className="mr-2 h-4 w-4" />
-                  {previewLoading ? "Building preview..." : "Preview email"}
-                </Button>
-                <div className="flex flex-wrap gap-2">
-                  <Input
-                    value={testEmail}
-                    onChange={(e) => setTestEmail(e.target.value)}
-                    placeholder="Test email address"
-                    className="w-[260px]"
-                  />
-                  <Button type="button" variant="outline" onClick={handleTestSend} disabled={testingEmail}>
-                    {testingEmail ? "Sending test..." : "Test RFP"}
-                  </Button>
-                  {testEmailFoundId ? (
-                    <Button type="button" variant="secondary" onClick={() => setTestEmailViewOpen(true)}>
-                      View test email
-                    </Button>
-                  ) : rfpTestEmailOk ? (
-                    <span className="text-xs text-muted-foreground self-center">Waiting for inbox delivery…</span>
-                  ) : null}
-                </div>
-                <Button type="submit" disabled={sending}>
-                  <Send className="mr-2 h-4 w-4" />
-                  {sending ? "Sending RFP..." : "Send RFP"}
-                </Button>
-              </div>
-
               {result?.success && typeof result.sentTo === "number" && (
                 <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
                   RFP sent to {result.sentTo} supplier(s).
-                </div>
-              )}
-              {result?.error && (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                  {result.error}
                 </div>
               )}
 
@@ -2057,8 +2521,21 @@ export default function RfpGeneratorPage() {
           </Card>
         </form>
 
-        <div className="space-y-6 self-start xl:sticky xl:top-6">
-          <Card>
+        <div className="flex min-h-0 min-w-0 flex-col gap-6 self-start xl:sticky xl:top-14 xl:max-h-[calc(100dvh-6rem)]">
+          {result?.error ? (
+            <div className="shrink-0 flex gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <p className="min-w-0 flex-1 leading-snug">{result.error}</p>
+              <button
+                type="button"
+                className="shrink-0 rounded-sm p-1 text-destructive hover:bg-destructive/15"
+                onClick={dismissResultError}
+                aria-label="Dismiss message"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
+          <Card className="shrink-0">
             <CardHeader>
               <CardTitle>Quick checklist</CardTitle>
               <CardDescription>Before sending, make sure the package is complete.</CardDescription>
@@ -2074,9 +2551,6 @@ export default function RfpGeneratorPage() {
                 {selectedSupplierIds.length > 0
                   ? `Suppliers selected (${selectedSupplierIds.length})`
                   : "At least one supplier selected"}
-              </ChecklistItem>
-              <ChecklistItem checked={selectedSupplierIds.length > 0 && selectedSupplierIds.every((supplierId) => Boolean(selectedSupplierContactIds[supplierId]))}>
-                One supplier contact per supplier
               </ChecklistItem>
               <ChecklistItem checked={Boolean(ldcUtility.trim())}>
                 LDC / utility filled in ({ldcUtility.trim() || "—"})
@@ -2101,21 +2575,21 @@ export default function RfpGeneratorPage() {
               <ChecklistItem checked={accountLines.every((line) => line.accountNumber && line.annualUsage && line.avgMonthlyUsage)}>
                 Utility account lines completed
               </ChecklistItem>
-              <ChecklistItem checked={accountLines.length === 1 || Boolean(summarySpreadsheetUrl || localSummaryFile)}>
-                Usage summary when multiple accounts exist
+              <ChecklistItem checked={usageSummaryWhenMultiChecklistOk}>
+                Usage summary when multiple accounts exist (link/file or account usage filled)
               </ChecklistItem>
               <ChecklistItem checked={rfpTestEmailOk}>Test RFP email sent successfully</ChecklistItem>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
+          <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden xl:min-h-[12rem]">
+            <CardHeader className="shrink-0">
               <CardTitle>Recent RFPs</CardTitle>
               <CardDescription>
                 Unsubmitted entries are saved from the form; submitted entries have had supplier emails sent.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="min-h-0 flex-1 space-y-8 overflow-y-auto overscroll-contain pr-1 xl:max-h-[min(60dvh,calc(100dvh-14rem))]">
               <section className="space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold">Unsubmitted</h3>
@@ -2133,7 +2607,7 @@ export default function RfpGeneratorPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{rfp.customer.name}</p>
+                        <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
                         <p className="text-sm text-muted-foreground">
                           {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · Draft
                         </p>
@@ -2145,6 +2619,18 @@ export default function RfpGeneratorPage() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button type="button" size="sm" variant="secondary" onClick={() => void loadSavedRfpIntoForm(rfp.id)}>
                         Continue editing
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                        onClick={() =>
+                          setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
+                        }
+                      >
+                        <Trash2 className="mr-1 h-4 w-4 shrink-0" />
+                        Delete
                       </Button>
                     </div>
                   </div>
@@ -2168,7 +2654,7 @@ export default function RfpGeneratorPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{rfp.customer.name}</p>
+                        <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
                         <p className="text-sm text-muted-foreground">
                           {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · {rfp.status}
                         </p>
@@ -2225,6 +2711,18 @@ export default function RfpGeneratorPage() {
                         </Button>
                       </>
                     )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={() =>
+                        setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
+                      }
+                    >
+                      <Trash2 className="mr-1 h-4 w-4 shrink-0" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -2301,6 +2799,88 @@ export default function RfpGeneratorPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={meterModalOpen}
+        onOpenChange={(o) => {
+          setMeterModalOpen(o);
+          if (!o) {
+            setMeterRows([]);
+            setMeterNotice("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Meter read dates (Ohio utilities)</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Enter the customer&apos;s SDI / account number from the bill, pick the utility, then load dates.
+            Production deployments should replace the stub API with audited utility data.
+          </p>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-2">
+              <Label>Utility</Label>
+              <Select
+                value={meterUtility}
+                onValueChange={(v) => setMeterUtility(v as typeof meterUtility)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AEP">AEP</SelectItem>
+                  <SelectItem value="DUKE">Duke Energy</SelectItem>
+                  <SelectItem value="FIRSTENERGY">FirstEnergy</SelectItem>
+                  <SelectItem value="COLUMBIA">Columbia Gas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>SDI / account number</Label>
+              <Input
+                value={meterAccount}
+                onChange={(e) => setMeterAccount(e.target.value)}
+                placeholder="From customer bill"
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={meterLoading || !meterAccount.trim()}
+              onClick={() => void fetchMeterSchedule()}
+            >
+              {meterLoading ? "Loading…" : "Load meter read dates"}
+            </Button>
+            {meterNotice ? (
+              <p className="text-xs text-amber-800 dark:text-amber-200">{meterNotice}</p>
+            ) : null}
+            {meterRows.length > 0 ? (
+              <ul className="max-h-56 space-y-1 overflow-y-auto rounded border text-sm">
+                {meterRows.map((row) => (
+                  <li key={row.monthKey} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-muted/80"
+                      onClick={() => {
+                        setContractStartValue(row.monthKey);
+                        setMeterModalOpen(false);
+                      }}
+                    >
+                      <span className="font-medium tabular-nums">{row.monthKey}</span>
+                      <span className="text-muted-foreground"> — {row.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMeterModalOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={sendConfirmOpen}
         onOpenChange={setSendConfirmOpen}
@@ -2317,42 +2897,68 @@ export default function RfpGeneratorPage() {
         title="Reset RFP page?"
         message="Clear all fields and local progress? Unsaved work in this form will be removed (saved drafts in the list stay in the database)."
         confirmLabel="Reset"
+        variant="default"
         onConfirm={() => {
           clearLocalWipAndResetForm();
           setResetConfirmOpen(false);
         }}
       />
 
+      <ConfirmDialog
+        open={deleteRfpTarget != null}
+        onOpenChange={(o) => !o && !deleteRfpLoading && setDeleteRfpTarget(null)}
+        title="Delete this RFP?"
+        message={
+          deleteRfpTarget
+            ? `Remove “${deleteRfpTarget.title}” permanently? Account lines and calendar links tied to this request will be removed. Saved quotes may lose their link to this RFP.`
+            : ""
+        }
+        confirmLabel={deleteRfpLoading ? "Deleting…" : "Delete"}
+        onConfirm={async () => {
+          if (!deleteRfpTarget) return;
+          await deleteRfpById(deleteRfpTarget.id);
+        }}
+      />
+
       <Dialog open={utilityTableModalOpen} onOpenChange={setUtilityTableModalOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Utility accounts (email table)</DialogTitle>
+            <DialogTitle>Utility accounts (email preview)</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This table is included in the supplier RFP email body. Copy from here if needed.
-          </p>
-          <div className="overflow-x-auto rounded border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50 text-left">
-                  <th className="p-2">Account #</th>
-                  <th className="p-2">Service address</th>
-                  <th className="p-2 text-right">Annual usage</th>
-                  <th className="p-2 text-right">Avg monthly</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accountLines.map((line) => (
-                  <tr key={line.id} className="border-b">
-                    <td className="p-2">{line.accountNumber || "—"}</td>
-                    <td className="p-2">{line.serviceAddress || "—"}</td>
-                    <td className="p-2 text-right">{line.annualUsage || "—"}</td>
-                    <td className="p-2 text-right">{line.avgMonthlyUsage || "—"}</td>
+          {hasExternalUsageSummary ? (
+            <p className="text-sm text-muted-foreground">
+              A usage summary link or file is set—the supplier email uses that link for usage and does not include the
+              account table below. Add account rows if you still need numbers for margin totals on this page.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This table matches what suppliers see in the RFP email. Copy from here if needed.
+            </p>
+          )}
+          {!hasExternalUsageSummary ? (
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="p-2">Account #</th>
+                    <th className="p-2">Service address</th>
+                    <th className="p-2 text-right">Annual usage</th>
+                    <th className="p-2 text-right">Avg monthly</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {accountLines.map((line) => (
+                    <tr key={line.id} className="border-b">
+                      <td className="p-2">{line.accountNumber || "—"}</td>
+                      <td className="p-2">{line.serviceAddress || "—"}</td>
+                      <td className="p-2 text-right">{line.annualUsage || "—"}</td>
+                      <td className="p-2 text-right">{line.avgMonthlyUsage || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

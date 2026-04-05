@@ -85,6 +85,7 @@ export async function PATCH(
       "customerUtility",
       "signedDate",
       "totalMeters",
+      "signedContractDriveUrl",
     ] as const;
 
     for (const field of fields) {

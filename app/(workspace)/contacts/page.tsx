@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo, type FormEvent } from "react";
+import { useEffect, useState, useCallback, useMemo, type FormEvent } from "react";
 import {
   Users,
   Plus,
@@ -197,7 +197,6 @@ export default function ContactsPage() {
     conflicts: Record<string, Record<string, "local" | "google" | "skip">>;
   }>({ incoming: [], outgoing: [], conflicts: {} });
   const [recentEmails, setRecentEmails] = useState<Record<string, Array<{ id: string; subject: string; sentAt: string }>>>({});
-  const recentEmailsFetchedRef = useRef<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteSelectedConfirm, setDeleteSelectedConfirm] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => getDefaultVisibleColumns());
@@ -257,8 +256,6 @@ export default function ContactsPage() {
       if (data.error) throw new Error(data.error);
       setContacts(data.contacts ?? data);
       setTotalCount(data.total ?? (data.contacts ?? data).length);
-      void refreshLabelOptions();
-      void refreshSupplierLabelGaps();
     } catch (err) {
       setContacts([]);
     } finally {
@@ -302,6 +299,11 @@ export default function ContactsPage() {
   }, [fetchContacts]);
 
   useEffect(() => {
+    void refreshLabelOptions();
+    void refreshSupplierLabelGaps();
+  }, [refreshLabelOptions, refreshSupplierLabelGaps]);
+
+  useEffect(() => {
     if (contacts.length === 0) setNeedsGoogleSync(false);
   }, [contacts.length]);
 
@@ -310,36 +312,37 @@ export default function ContactsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchRecentEmails = useCallback(async (contactId: string) => {
-    try {
-      const res = await fetch("/api/contacts/" + contactId + "/recent-emails");
-      const data = await res.json();
-      if (Array.isArray(data)) setRecentEmails((prev) => ({ ...prev, [contactId]: data }));
-    } catch {
-      // ignore
-    }
-  }, []);
-
   useEffect(() => {
-    const BATCH_SIZE = 15;
-    const BATCH_DELAY_MS = 120;
+    if (contacts.length === 0) return;
+    const ids = contacts.map((c) => c.id);
     let cancelled = false;
-    const run = async () => {
-      await new Promise((r) => setTimeout(r, 200));
-      for (let i = 0; i < contacts.length && !cancelled; i += BATCH_SIZE) {
-        const batch = contacts.slice(i, i + BATCH_SIZE);
-        batch.forEach((c) => {
-          if (recentEmailsFetchedRef.current.has(c.id)) return;
-          // Mark immediately so we don't double-fetch if contacts re-renders mid-flight.
-          recentEmailsFetchedRef.current.add(c.id);
-          void fetchRecentEmails(c.id);
+    void (async () => {
+      await new Promise((r) => setTimeout(r, 80));
+      try {
+        const res = await fetch("/api/contacts/recent-emails-bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
         });
-        if (i + BATCH_SIZE < contacts.length) await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => ({}));
+        const byId = data.byId && typeof data.byId === "object" ? (data.byId as Record<string, unknown>) : {};
+        setRecentEmails((prev) => {
+          const next = { ...prev };
+          for (const id of ids) {
+            const row = byId[id];
+            if (Array.isArray(row)) next[id] = row as Array<{ id: string; subject: string; sentAt: string }>;
+          }
+          return next;
+        });
+      } catch {
+        /* ignore */
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    run();
-    return () => { cancelled = true; };
-  }, [contacts, fetchRecentEmails]);
+  }, [contacts]);
 
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
@@ -398,6 +401,8 @@ export default function ContactsPage() {
       setForm(emptyForm);
       fetchContacts();
       refreshFavorites();
+      void refreshLabelOptions();
+      void refreshSupplierLabelGaps();
       setNeedsGoogleSync(true);
     } catch (err) {
       console.error(err);
@@ -432,6 +437,8 @@ export default function ContactsPage() {
       setForm(emptyForm);
       fetchContacts();
       refreshFavorites();
+      void refreshLabelOptions();
+      void refreshSupplierLabelGaps();
       setNeedsGoogleSync(true);
     } catch (err) {
       console.error(err);
@@ -447,6 +454,8 @@ export default function ContactsPage() {
       setDeleteContact(null);
       fetchContacts();
       refreshFavorites();
+      void refreshLabelOptions();
+      void refreshSupplierLabelGaps();
       setNeedsGoogleSync(false);
     } catch (err) {
       console.error(err);
@@ -498,6 +507,8 @@ export default function ContactsPage() {
       if (data.error) throw new Error(data.error);
       fetchContacts();
       refreshFavorites();
+      void refreshLabelOptions();
+      void refreshSupplierLabelGaps();
       const extra = [
         data.skipped ? `${data.skipped} updated / already linked` : "",
         data.skippedNonBusiness ? `${data.skippedNonBusiness} skipped (non-business)` : "",
@@ -552,6 +563,8 @@ export default function ContactsPage() {
       setSyncPreviewOpen(false);
       fetchContacts();
       refreshFavorites();
+      void refreshLabelOptions();
+      void refreshSupplierLabelGaps();
       setNeedsGoogleSync(false);
       const failureCount = Array.isArray(data.failures) ? data.failures.length : 0;
       if (failureCount > 0) {

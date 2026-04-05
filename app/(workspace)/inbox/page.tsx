@@ -15,6 +15,7 @@ import {
   Paperclip,
   Plus,
   PenLine,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,6 +77,7 @@ function getPrimaryFolder(labelIds: string[] = [], labelMap: Map<string, string>
   return userLabels[0] || "Other";
 }
 
+const INBOX_SEARCH_STORAGE_KEY = "energia-inbox-email-search-v1";
 const PINNED_KEY = "energia-pinned-emails";
 const FOLDERS_WIDTH_KEY = "energia-folders-width";
 const LIST_WIDTH_KEY = "energia-list-width";
@@ -210,6 +212,28 @@ export default function InboxPage() {
 
   useEffect(() => {
     fetchLabels();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem(INBOX_SEARCH_STORAGE_KEY);
+      if (!raw) return;
+      const j = JSON.parse(raw) as {
+        query?: string;
+        results?: EmailMessage[] | null;
+        lastQuery?: string;
+        tab?: "inbox" | "search" | "unread";
+      };
+      if (typeof j.query === "string") setSearchQuery(j.query);
+      if (Array.isArray(j.results)) {
+        setSearchResults(j.results);
+        if (typeof j.lastQuery === "string") setLastSearchQuery(j.lastQuery);
+        if (j.tab === "search") setActiveTab("search");
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -615,7 +639,7 @@ export default function InboxPage() {
   const [unreadFolderOpen, setUnreadFolderOpen] = useState<Record<string, boolean>>({});
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-3 w-full comms-inbox min-w-0">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3 w-full comms-inbox min-w-0 overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Emails</h1>
         <Button type="button" className="shrink-0" asChild>
@@ -625,7 +649,7 @@ export default function InboxPage() {
           </Link>
         </Button>
       </div>
-      <div className="flex flex-1 min-h-0 gap-0 w-full min-w-0">
+      <div className="flex flex-1 min-h-0 gap-0 w-full min-w-0 overflow-hidden">
       <MoveToFolderDialog
         open={!!assignFolderEmailId || !!bulkMoveIds?.length}
         onOpenChange={(open) => {
@@ -927,103 +951,140 @@ export default function InboxPage() {
               })()}
             </div>
           </div>
-          {/* Search */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search all folders..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              />
-            </div>
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={searchPageSize}
-              onChange={(e) => setSearchPageSize(Number(e.target.value))}
-              title="Results per search"
-            >
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={0}>All</option>
-            </select>
-            <Button variant="secondary" size="sm" onClick={handleSearch} disabled={searching}>
-              {searching ? "Searching..." : "Search"}
-            </Button>
-            {activeTab === "search" && (searchResults || searchQuery) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSearchResults(null);
-                  setLastSearchQuery("");
-                  setActiveTab("inbox");
-                  setSelectedEmail(null);
-                  setSelectedIds(new Set());
-                }}
-              >
-                Clear
-              </Button>
-            )}
-            {activeTab === "search" && searchByFolder.length > 0 && (
-              <>
-                <Button variant="ghost" size="sm" onClick={expandAllSearchFolders}>
-                  Expand all
-                </Button>
-                <Button variant="ghost" size="sm" onClick={collapseAllSearchFolders}>
-                  Collapse all
-                </Button>
-              </>
-            )}
-          </div>
-          {activeTab === "inbox" && (
+          {/* Date filter (inbox) + search — one row */}
+          <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-2 items-end">
-              <div className="flex flex-col gap-1 max-w-xs">
-                <label htmlFor="inbox-filter-date" className="text-xs text-muted-foreground">
-                  Received on or after
-                </label>
+              {activeTab === "inbox" ? (
+                <div className="flex flex-col gap-1 shrink-0">
+                  <label htmlFor="inbox-filter-date" className="text-xs text-muted-foreground">
+                    Received on or after
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="inbox-filter-date"
+                      type="date"
+                      className={`h-9 w-44 ${filterDate ? "pr-8" : ""}`}
+                      value={filterDate}
+                      onChange={(e) => setFilterDate(e.target.value)}
+                      title="Gmail after:YYYY/MM/DD — messages on or after this date."
+                    />
+                    {filterDate ? (
+                      <button
+                        type="button"
+                        className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Clear date filter"
+                        onClick={() => setFilterDate("")}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  id="inbox-filter-date"
-                  type="date"
-                  className="w-40"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  title="Adds a Gmail search filter: messages received on or after this calendar date (server time zone)."
+                  placeholder="Search all folders..."
+                  className={`h-9 pl-9 ${searchQuery.trim() ? "pr-9" : ""}`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Narrows the folder list using Gmail&apos;s{" "}
-                  <code className="rounded bg-muted px-1">after:YYYY/MM/DD</code> operator—only messages on
-                  or after the date you pick are returned.
-                </p>
+                {searchQuery.trim() ? (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 z-[1] -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Clear search text"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={filterStarred}
-                  onChange={(e) => setFilterStarred(e.target.checked)}
-                />
-                Starred only
-              </label>
-              {(filterDate || filterStarred) && (
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={searchPageSize}
+                onChange={(e) => setSearchPageSize(Number(e.target.value))}
+                title="Results per search"
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={0}>All</option>
+              </select>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-9"
+                onClick={handleSearch}
+                disabled={searching}
+              >
+                {searching ? "Searching..." : "Search"}
+              </Button>
+              {activeTab === "search" && (searchResults || searchQuery) && (
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-9"
                   onClick={() => {
-                    setFilterDate("");
-                    setFilterStarred(false);
+                    setSearchQuery("");
+                    setSearchResults(null);
+                    setLastSearchQuery("");
+                    setActiveTab("inbox");
+                    setSelectedEmail(null);
+                    setSelectedIds(new Set());
+                    try {
+                      sessionStorage.removeItem(INBOX_SEARCH_STORAGE_KEY);
+                    } catch {
+                      /* ignore */
+                    }
                   }}
                 >
-                  Clear filters
+                  Clear
                 </Button>
               )}
+              {activeTab === "search" && searchByFolder.length > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" className="h-9" onClick={expandAllSearchFolders}>
+                    Expand all
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-9" onClick={collapseAllSearchFolders}>
+                    Collapse all
+                  </Button>
+                </>
+              )}
             </div>
-          )}
+            {activeTab === "inbox" && (
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={filterStarred}
+                    onChange={(e) => setFilterStarred(e.target.checked)}
+                  />
+                  Starred only
+                </label>
+                {(filterDate || filterStarred) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setFilterDate("");
+                      setFilterStarred(false);
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+                <span>
+                  Date uses Gmail <code className="rounded bg-muted px-1">after:</code>; search runs across all folders.
+                </span>
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-auto p-0">
+        <CardContent className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-0">
           {labelsLoading ? (
             <p className="py-8 text-center text-muted-foreground">Connecting to Gmail...</p>
           ) : error ? (
