@@ -15,6 +15,7 @@ import {
   Star,
   Pencil,
   CalendarDays,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { formatGoogleTasksSyncMessage } from "@/lib/google-tasks-sync-message";
+import { persistTasksOrder, reorderIdList } from "@/lib/tasks-reorder";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -77,7 +80,7 @@ const REPEAT_OPTIONS = [
   { value: "YEARLY", label: "Yearly" },
 ];
 
-type SortMode = "date" | "deadline" | "starred" | "title";
+type SortMode = "manual" | "date" | "deadline" | "starred" | "title";
 
 function taskHasScheduleDate(t: TaskRow): boolean {
   return !!(t.dueDate || t.dueAt);
@@ -103,8 +106,22 @@ function toDatetimeLocalValue(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+function taskRowMatchesQuery(t: TaskRow, q: string): boolean {
+  const s = q.trim().toLowerCase();
+  if (!s) return true;
+  if (t.title.toLowerCase().includes(s)) return true;
+  return (t.description ?? "").toLowerCase().includes(s);
+}
+
 function sortTasks(tasks: TaskRow[], mode: SortMode): TaskRow[] {
   const t = [...tasks];
+  if (mode === "manual") {
+    return t.sort(
+      (a, b) =>
+        (a.listSortOrder ?? 0) - (b.listSortOrder ?? 0) ||
+        a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+    );
+  }
   if (mode === "title") {
     return t.sort((a, b) => a.title.localeCompare(b.title));
   }
@@ -130,13 +147,15 @@ export function TasksApp() {
   const [lists, setLists] = useState<TaskListRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>("date");
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
   const [loading, setLoading] = useState(true);
   const [expandedDone, setExpandedDone] = useState(false);
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [graceCompletingIds, setGraceCompletingIds] = useState<string[]>([]);
   const graceTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [listNameQuery, setListNameQuery] = useState("");
+  const [taskQuery, setTaskQuery] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createListIdOverride, setCreateListIdOverride] = useState<string | null>(null);
@@ -261,18 +280,50 @@ export function TasksApp() {
   const openTasks = useMemo(
     () =>
       sortTasks(
-        tasks.filter((t) => t.status !== "COMPLETED" || graceSet.has(t.id)),
+        tasks.filter(
+          (t) =>
+            (t.status !== "COMPLETED" || graceSet.has(t.id)) && taskRowMatchesQuery(t, taskQuery)
+        ),
         sortMode
       ),
-    [tasks, sortMode, graceSet]
+    [tasks, sortMode, graceSet, taskQuery]
   );
   const doneTasks = useMemo(
     () =>
       sortTasks(
-        tasks.filter((t) => t.status === "COMPLETED" && !graceSet.has(t.id)),
+        tasks.filter(
+          (t) =>
+            t.status === "COMPLETED" &&
+            !graceSet.has(t.id) &&
+            taskRowMatchesQuery(t, taskQuery)
+        ),
         sortMode
       ),
-    [tasks, sortMode, graceSet]
+    [tasks, sortMode, graceSet, taskQuery]
+  );
+
+  const filteredLists = useMemo(() => {
+    const q = listNameQuery.trim().toLowerCase();
+    if (!q) return lists;
+    return lists.filter((l) => l.name.toLowerCase().includes(q));
+  }, [lists, listNameQuery]);
+
+  const onTaskRowDrop = useCallback(
+    async (e: React.DragEvent, targetTask: TaskRow) => {
+      e.preventDefault();
+      if (sortMode !== "manual") return;
+      const draggedId = e.dataTransfer.getData("text/task-id");
+      if (!draggedId || draggedId === targetTask.id) return;
+      const ids = sortTasks(
+        tasks.filter((t) => t.status !== "COMPLETED" || graceSet.has(t.id)),
+        "manual"
+      ).map((t) => t.id);
+      const next = reorderIdList(ids, draggedId, targetTask.id);
+      if (!next) return;
+      const ok = await persistTasksOrder(next);
+      if (ok && selectedId) await loadTasks(selectedId);
+    },
+    [sortMode, tasks, graceSet, selectedId, loadTasks]
   );
 
   const onDragStart = (e: React.DragEvent, listId: string) => {
@@ -433,10 +484,7 @@ export function TasksApp() {
           `Imported: ${data.tasksUpserted ?? 0} tasks across ${data.listsSynced ?? 0} lists.`
         );
       } else {
-        const pe = (data.pushErrors as string[] | undefined)?.filter(Boolean) ?? [];
-        setGoogleMsg(
-          `Synced: pulled ${data.pulled?.tasksUpserted ?? 0} tasks, pushed ${data.pushed ?? 0} to Google.${pe.length ? ` Warnings: ${pe.slice(0, 2).join("; ")}` : ""}`
-        );
+        setGoogleMsg(formatGoogleTasksSyncMessage(data));
       }
       await loadLists();
       if (selectedId) await loadTasks(selectedId);
@@ -481,8 +529,18 @@ export function TasksApp() {
         >
           New list
         </Button>
+        <div className="relative mb-3">
+          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#80868b]" />
+          <Input
+            value={listNameQuery}
+            onChange={(e) => setListNameQuery(e.target.value)}
+            placeholder="Search lists…"
+            className="h-9 pl-8 text-sm border-[#dadce0]"
+            aria-label="Search task lists"
+          />
+        </div>
         <ul className="space-y-1">
-          {lists.map((list) => (
+          {filteredLists.map((list) => (
             <li
               key={list.id}
               draggable
@@ -562,12 +620,23 @@ export function TasksApp() {
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
               <h2 className="text-2xl font-normal text-[#202124]">{selectedList.name}</h2>
-              <div className="flex flex-wrap gap-2 print:hidden">
+              <div className="flex flex-wrap items-center gap-2 print:hidden">
+                <div className="relative w-full min-w-[180px] sm:w-48">
+                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#80868b]" />
+                  <Input
+                    value={taskQuery}
+                    onChange={(e) => setTaskQuery(e.target.value)}
+                    placeholder="Search tasks…"
+                    className="h-9 pl-8 text-sm"
+                    aria-label="Search tasks in this list"
+                  />
+                </div>
                 <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
                   <SelectTrigger className="w-[160px] h-9">
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="manual">Sort: Manual (drag)</SelectItem>
                     <SelectItem value="date">Sort: Date</SelectItem>
                     <SelectItem value="deadline">Sort: Deadline</SelectItem>
                     <SelectItem value="starred">Sort: Starred</SelectItem>
@@ -640,14 +709,47 @@ export function TasksApp() {
                 </Button>
               </div>
             </div>
+            {sortMode === "manual" && (
+              <p className="mb-4 text-xs text-[#5f6368] print:hidden">
+                {taskQuery.trim()
+                  ? "Clear the task search box to drag and reorder."
+                  : "Drag order is saved for this list. Use the grip beside each open task."}
+              </p>
+            )}
 
             <ul className="space-y-0">
-              {openTasks.map((task) => (
+              {openTasks.map((task) => {
+                const canDragReorder = sortMode === "manual" && !taskQuery.trim();
+                return (
                 <li
                   key={task.id}
                   id={`task-row-${task.id}`}
                   className="flex items-start gap-3 border-b border-[#f1f3f4] py-3 px-1 hover:bg-[#f8f9fa]"
+                  onDragOver={
+                    canDragReorder
+                      ? (e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                        }
+                      : undefined
+                  }
+                  onDrop={canDragReorder ? (e) => void onTaskRowDrop(e, task) : undefined}
                 >
+                  {canDragReorder ? (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Drag to reorder task"
+                      draggable
+                      className="mt-0.5 shrink-0 cursor-grab text-[#9aa0a6] hover:text-[#5f6368] active:cursor-grabbing print:hidden"
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/task-id", task.id);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                    >
+                      <GripVertical className="h-5 w-5" />
+                    </span>
+                  ) : null}
                   <button
                     type="button"
                     role="checkbox"
@@ -711,7 +813,8 @@ export function TasksApp() {
                     </Button>
                   </div>
                 </li>
-              ))}
+              );
+              })}
             </ul>
 
             <button

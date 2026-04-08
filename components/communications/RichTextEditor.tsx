@@ -11,6 +11,8 @@ type Props = {
   onChangeHtml: (html: string) => void;
   disabled?: boolean;
   onAttachFiles?: (files: File[]) => void;
+  /** When `nonce` changes, inserts HTML/text at the caret via `insertHTML` (for placeholders, etc.). */
+  insertSnippet?: { nonce: number; html: string } | null;
 };
 
 function safeHtml(html: string): string {
@@ -24,8 +26,11 @@ export function RichTextEditor({
   onChangeHtml,
   disabled = false,
   onAttachFiles,
+  insertSnippet = null,
 }: Props) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const onChangeHtmlRef = useRef(onChangeHtml);
+  onChangeHtmlRef.current = onChangeHtml;
 
   const fontOptions = useMemo(
     () => [
@@ -47,6 +52,21 @@ export function RichTextEditor({
     if (!editorRef.current) return;
     editorRef.current.innerHTML = safeHtml(initialHtml);
   }, [resetKey]);
+
+  useEffect(() => {
+    const nonce = insertSnippet?.nonce;
+    const html = insertSnippet?.html;
+    if (nonce == null || disabled || html == null) return;
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    try {
+      document.execCommand("insertHTML", false, html);
+    } catch {
+      /* ignore */
+    }
+    onChangeHtmlRef.current(el.innerHTML ?? "");
+  }, [insertSnippet?.nonce, insertSnippet?.html, disabled]);
 
   const apply = (command: string, value?: string) => {
     if (disabled) return;

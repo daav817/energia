@@ -8,7 +8,12 @@ export async function POST() {
     const pushed = await pushLocalTasksToGoogle();
     return NextResponse.json({
       ok: true,
-      pulled,
+      /** @deprecated use pulledTasksNew + pulledTasksUpdated */
+      pulled: pulled.tasksUpserted,
+      pulledTasks: pulled.tasksUpserted,
+      pulledTasksNew: pulled.tasksImportedNew,
+      pulledTasksUpdated: pulled.tasksUpdated,
+      pulledLists: pulled.listsSynced,
       pushed: pushed.pushed,
       pushErrors: pushed.errors,
     });

@@ -64,10 +64,6 @@ export async function PATCH(
       return NextResponse.json(contract);
     }
 
-    // Notes are stored on Customer (single note shared with Customers page and all contracts for that customer).
-    const notesPayload = body.notes;
-    const shouldUpdateCustomerNotes = notesPayload !== undefined;
-
     const data: Record<string, unknown> = {};
     const fields = [
       "customerId",
@@ -86,6 +82,7 @@ export async function PATCH(
       "signedDate",
       "totalMeters",
       "signedContractDriveUrl",
+      "renewalReminderSentAt",
     ] as const;
 
     for (const field of fields) {
@@ -95,7 +92,12 @@ export async function PATCH(
         data[field] = val || null;
       } else if (field === "pricePerUnit" || field === "annualUsage" || field === "avgMonthlyUsage" || field === "brokerMargin") {
         data[field] = val != null ? new Prisma.Decimal(Number(val)) : null;
-      } else if (field === "startDate" || field === "expirationDate" || field === "signedDate") {
+      } else if (
+        field === "startDate" ||
+        field === "expirationDate" ||
+        field === "signedDate" ||
+        field === "renewalReminderSentAt"
+      ) {
         data[field] = val ? new Date(val) : null;
       } else if (field === "termMonths" || field === "totalMeters") {
         data[field] = val != null ? Number(val) : null;
@@ -104,24 +106,19 @@ export async function PATCH(
       }
     }
 
+    if (body.notes !== undefined) {
+      const v = body.notes;
+      data.notes = v == null || v === "" ? null : String(v);
+    }
+    if (body.needsContractDetail !== undefined) {
+      data.needsContractDetail = Boolean(body.needsContractDetail);
+    }
+
     if (Object.keys(data).length > 0) {
       await prisma.contract.update({
         where: { id },
         data,
       });
-    }
-
-    if (shouldUpdateCustomerNotes) {
-      const row = await prisma.contract.findUnique({
-        where: { id },
-        select: { customerId: true },
-      });
-      if (row) {
-        await prisma.customer.update({
-          where: { id: row.customerId },
-          data: { notes: notesPayload == null || notesPayload === "" ? null : String(notesPayload) },
-        });
-      }
     }
 
     const contract = await prisma.contract.findUnique({

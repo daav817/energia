@@ -151,6 +151,12 @@ model Contract {
   notes            String?    @db.Text
   /// Google Drive (or similar) link to the executed/signed customer contract PDF/PNG.
   signedContractDriveUrl String? @map("signed_contract_drive_url") @db.Text
+  /// Set when a renewal reminder is sent from Energia (e.g. Send renewal email).
+  renewalReminderSentAt  DateTime? @map("renewal_reminder_sent_at")
+  /// When set, this contract was created automatically when an RFP was archived (id is opaque reference only).
+  sourceRfpRequestId     String?   @map("source_rfp_request_id")
+  /// True for RFP-sourced stubs until the broker enters executed terms (rate, supplier, dates) from the counter-signed agreement.
+  needsContractDetail    Boolean   @default(false) @map("needs_contract_detail")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
@@ -161,8 +167,27 @@ model Contract {
   documents         Document[]
   rfpQuotes         RfpQuote[]
   calendarEvents    CalendarEvent[]
+  accounts          ContractAccount[]
 
   @@map("contracts")
+}
+
+/// Utility / billing accounts tied to a contract (renewal emails, customer communications).
+model ContractAccount {
+  id               String   @id @default(cuid())
+  contractId       String   @map("contract_id")
+  accountId        String   @map("account_id")
+  serviceAddress   String?  @map("service_address") @db.Text
+  annualUsage      Decimal? @map("annual_usage") @db.Decimal(14, 2)
+  avgMonthlyUsage  Decimal? @map("avg_monthly_usage") @db.Decimal(14, 2)
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_accounts")
 }
 
 model CommissionPayment {
@@ -390,6 +415,8 @@ model RfpRequest {
   parentRfpId      String?    @map("parent_rfp_id")
   /// 0 = original supplier send, 1 = first refresh/re-issue, etc.
   refreshSequence  Int        @default(0) @map("refresh_sequence")
+  /// When set, hidden from default Recent RFPs lists (history / closed deals).
+  archivedAt       DateTime?  @map("archived_at")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 

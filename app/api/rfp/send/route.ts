@@ -7,6 +7,20 @@ import { flattenDeliverableSupplierContacts } from "@/lib/supplier-rfp-contacts"
 type SendMode = "preview" | "test" | "send";
 type Attachment = { filename: string; content: Buffer; mimeType: string };
 
+function rfpGreetingFirstNameFromContact(row: { firstName: string | null; name: string } | null): string {
+  if (!row) return "";
+  const fn = (row.firstName ?? "").trim();
+  if (fn) return fn;
+  const display = (row.name ?? "").trim();
+  if (!display) return "";
+  if (display.includes(",")) {
+    const parts = display.split(",").map((s) => s.trim());
+    const after = parts[1];
+    if (after) return (after.split(/\s+/)[0] ?? after).trim();
+  }
+  return (display.split(/\s+/)[0] ?? display).trim();
+}
+
 function enrollmentDetailsFromBody(body: Record<string, unknown>): Prisma.InputJsonValue | undefined {
   const raw = body.enrollmentDetails;
   if (raw == null || raw === "") return undefined;
@@ -29,11 +43,18 @@ export async function POST(request: NextRequest) {
     const payload = await buildRfpPayload(body, attachments);
 
     if (mode === "preview") {
+      const ccRow = await prisma.contact.findUnique({
+        where: { id: payload.customerContact.id },
+        select: { firstName: true, name: true },
+      });
+      const customerGreet = rfpGreetingFirstNameFromContact(ccRow);
+      const sampleSupplier = payload.supplierRecipients[0]?.supplierName ?? "there";
+      const greetForPlaceholder = customerGreet || sampleSupplier;
       return NextResponse.json({
         success: true,
         subject: payload.subject,
-        text: payload.emailText,
-        html: payload.emailHtml,
+        text: payload.emailText.replace(/\{\{supplierContactName\}\}/g, greetForPlaceholder),
+        html: personalizeEmailHtml(payload.emailHtml, customerGreet, sampleSupplier),
         recipientPreview: payload.supplierRecipients.map((recipient) => ({
           supplierName: recipient.supplierName,
           contactName: recipient.contactName,
@@ -288,34 +309,15 @@ function buildRfpEmailBody(opts: {
       : "—";
   /** Spreadsheet link / attachment replaces the in-email usage table. */
   const externalUsageOnly = Boolean(opts.usageSummaryUrl || opts.usageSummaryAttachmentName);
-  const usageReference = externalUsageOnly
-    ? [
-        opts.usageSummaryUrl ? `<a href="${escapeHtml(opts.usageSummaryUrl)}">Open usage summary</a>` : "",
-        opts.usageSummaryAttachmentName
-          ? `Attached file: ${escapeHtml(opts.usageSummaryAttachmentName)}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("<br /><br />")
-    : [
-        opts.usageSummaryUrl ? `<a href="${escapeHtml(opts.usageSummaryUrl)}">Open usage summary</a>` : "",
-        opts.usageSummaryAttachmentName
-          ? `Attached file: ${escapeHtml(opts.usageSummaryAttachmentName)}`
-          : "",
-        usageSummaryLines.join("<br /><br />"),
-      ]
-        .filter(Boolean)
-        .join("<br /><br />");
 
   const rows = [
     ["Energy Type", formatEnergyType(opts.energyType)],
     ["Local Distribution Center", opts.ldcUtility || "—"],
-    ["Customer Name", `${opts.customer.name}${opts.customer.company ? ` (${opts.customer.company})` : ""}`],
+    ["Customer Name", opts.customer.name],
     ["Contract Length Requested", opts.requestedTerms.map(formatRequestedTerm).join(", ")],
     ["Contract Starting Month/Year", contractStart || "—"],
     ["Broker Margin", `${marginText} (please include this into the quoted price)`],
     ["Customer’s Energy Type Bills for pricing", billReference],
-    ["Usage Summary", usageReference],
   ];
 
   const utilityAccountsTableHtml =
@@ -393,12 +395,11 @@ function buildRfpEmailBody(opts: {
     "Pricing Terms and Customer Information:",
     `Energy Type: ${formatEnergyType(opts.energyType)}`,
     `Local Distribution Center: ${opts.ldcUtility || "—"}`,
-    `Customer Name: ${opts.customer.name}${opts.customer.company ? ` (${opts.customer.company})` : ""}`,
+    `Customer Name: ${opts.customer.name}`,
     `Contract Length Requested: ${opts.requestedTerms.map(formatRequestedTerm).join(", ")}`,
     `Contract Starting Month/Year: ${contractStart || "—"}`,
     `Broker Margin: ${marginText}`,
     `Customer Bills: ${opts.billDocumentUrl || (opts.billAttachmentName ? `Attached file: ${opts.billAttachmentName}` : "—")}`,
-    `Usage Summary Link: ${opts.usageSummaryUrl || (opts.usageSummaryAttachmentName ? `Attached file: ${opts.usageSummaryAttachmentName}` : "—")}`,
   ];
   if (!externalUsageOnly) {
     textLines.push(
@@ -539,7 +540,7 @@ function previewCustomerFromContact(row: {
   };
 }
 
-async function buildRfpPayload(body: Record<string, unknown>, attachments: Attachment[] = []) {
+export async function buildRfpPayload(body: Record<string, unknown>, attachments: Attachment[] = []) {
   let customerId = String(body.customerId || "").trim();
   const customerContactId = String(body.customerContactId || "").trim();
   const energyType = String(body.energyType || "").trim();
@@ -608,7 +609,7 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
   const billDriveFileId = nonEmptyString(body.billDriveFileId);
   const summaryDriveFileId = nonEmptyString(body.summaryDriveFileId);
   const usageSummaryAttachmentName = nonEmptyString(body.summaryAttachmentName);
-  if (accountLines.length > 1 && !usageSummaryUrl && !usageSummaryAttachmentName) {
+  if (accountLines.length > 1) {
     const everyLineComplete = accountLines.every((line) => {
       const accountNumber = String(line.accountNumber ?? "").trim();
       const annualUsage = Number(line.annualUsage);
@@ -617,7 +618,7 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
     });
     if (!everyLineComplete) {
       throw new Error(
-        "Multiple accounts: add a usage summary link or file, or enter account number and annual and average monthly usage on every account line."
+        "Multiple accounts: enter account number, annual usage, and average monthly usage on every account line."
       );
     }
   }
@@ -713,7 +714,9 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
     throw new Error("Enter a broker margin and unit");
   }
 
-  const subject = `${customer.name} | ${formatEnergyType(energyType)} | Quote`;
+  const baseSubject = `${customer.name} | ${formatEnergyType(energyType)} | Quote`;
+  const subjectPrefix = nonEmptyString(body.rfpSubjectPrefix);
+  const subject = subjectPrefix ? `${subjectPrefix} — ${baseSubject}` : baseSubject;
   const emailContent = buildRfpEmailBody({
     customer,
     customerContact,
@@ -762,7 +765,7 @@ async function buildRfpPayload(body: Record<string, unknown>, attachments: Attac
   };
 }
 
-async function sendMimeEmail(
+export async function sendMimeEmail(
   gmail: Awaited<ReturnType<typeof getGmailClient>>,
   opts: { to: string[]; subject: string; text: string; html?: string; attachments?: Attachment[] }
 ) {
@@ -827,7 +830,7 @@ async function ensureDriveFilesAccessible(
   }
 }
 
-function personalizeEmailHtml(html: string, supplierContactName: string, supplierName: string) {
+export function personalizeEmailHtml(html: string, supplierContactName: string, supplierName: string) {
   return html.replace(/\{\{supplierContactName\}\}/g, escapeHtml(supplierContactName || supplierName || "there"));
 }
 
@@ -960,4 +963,105 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/** Map DB `requestedTerms` JSON back to `/send` body fields. */
+function dbRequestedTermsToForm(rt: unknown): { requestedTerms: string[]; customTermMonths: string } {
+  const parts: string[] = [];
+  const customs: number[] = [];
+  if (Array.isArray(rt)) {
+    for (const e of rt) {
+      const o = e as { kind?: string; months?: number };
+      if (o?.kind === "nymex") parts.push("NYMEX");
+      else if (o?.kind === "months" && typeof o.months === "number") {
+        const m = o.months;
+        if (m === 12 || m === 24 || m === 36) parts.push(String(m));
+        else customs.push(m);
+      }
+    }
+  }
+  if (parts.length === 0) parts.push("12", "24", "36");
+  customs.sort((a, b) => a - b);
+  return {
+    requestedTerms: parts,
+    customTermMonths: customs.join(", "),
+  };
+}
+
+/**
+ * Resend the same supplier RFP email (Drive links in body) with subject prefix "RFP Refresh".
+ * Does not create a new `RfpRequest` row; increments `refreshSequence`.
+ */
+export async function resendStoredRfpSupplierEmails(rfpId: string): Promise<{ sentTo: number }> {
+  const row = await prisma.rfpRequest.findUnique({
+    where: { id: rfpId },
+    include: {
+      suppliers: { select: { id: true, name: true } },
+      accountLines: { orderBy: { sortOrder: "asc" } },
+    },
+  });
+  if (!row) throw new Error("RFP not found");
+  if (row.status === "draft" || !row.sentAt) {
+    throw new Error("Only submitted RFPs can be refreshed to suppliers");
+  }
+  if (!row.customerContactId) throw new Error("RFP has no customer contact");
+
+  const selections =
+    row.supplierContactSelections &&
+    typeof row.supplierContactSelections === "object" &&
+    !Array.isArray(row.supplierContactSelections)
+      ? (row.supplierContactSelections as Record<string, string>)
+      : {};
+  const supplierIds = row.suppliers.map((s) => s.id);
+  const supplierContactIds = supplierIds.map((sid) => selections[sid] || "");
+  const { requestedTerms: rtParts, customTermMonths } = dbRequestedTermsToForm(row.requestedTerms);
+  const quoteDue = row.quoteDueDate ? row.quoteDueDate.toISOString().slice(0, 10) : "";
+
+  const body: Record<string, unknown> = {
+    customerId: row.customerId ?? "",
+    customerContactId: row.customerContactId,
+    energyType: row.energyType,
+    supplierIds,
+    supplierContactIds,
+    accountLines: row.accountLines.map((al) => ({
+      accountNumber: al.accountNumber,
+      serviceAddress: al.serviceAddress ?? "",
+      annualUsage: Number(al.annualUsage),
+      avgMonthlyUsage: Number(al.avgMonthlyUsage),
+    })),
+    requestedTerms: rtParts,
+    customTermMonths,
+    quoteDueDate: quoteDue,
+    contractStartMonth: row.contractStartMonth ?? undefined,
+    contractStartYear: row.contractStartYear ?? undefined,
+    googleDriveFolderUrl: row.googleDriveFolderUrl ?? "",
+    summarySpreadsheetUrl: row.summarySpreadsheetUrl ?? "",
+    ldcUtility: row.ldcUtility ?? "",
+    brokerMargin: row.brokerMargin != null ? String(row.brokerMargin) : "",
+    brokerMarginUnit: row.brokerMarginUnit ?? "MCF",
+    notes: row.notes ?? "",
+    enrollmentDetails: row.enrollmentDetails ?? undefined,
+    rfpSubjectPrefix: "RFP Refresh",
+  };
+
+  const payload = await buildRfpPayload(body, []);
+  const gmail = await getGmailClient();
+  await ensureDriveFilesAccessible(
+    payload,
+    payload.supplierRecipients.map((r) => r.email)
+  );
+  for (const recipient of payload.supplierRecipients) {
+    await sendMimeEmail(gmail, {
+      to: [recipient.email],
+      subject: payload.subject,
+      text: payload.emailText,
+      html: personalizeEmailHtml(payload.emailHtml, recipient.contactName, recipient.supplierName),
+      attachments: payload.attachments,
+    });
+  }
+  await prisma.rfpRequest.update({
+    where: { id: rfpId },
+    data: { refreshSequence: { increment: 1 } },
+  });
+  return { sentTo: payload.supplierRecipients.length };
 }

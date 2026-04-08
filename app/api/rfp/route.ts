@@ -10,6 +10,17 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
     if (status.trim()) where.status = status.trim();
     if (energyType.trim()) where.energyType = energyType.trim();
+    const includeArchived = new URL(request.url).searchParams.get("includeArchived") === "1";
+    const archivedOnly = new URL(request.url).searchParams.get("archivedOnly") === "1";
+    if (archivedOnly) {
+      where.archivedAt = { not: null };
+    } else if (!includeArchived) {
+      where.archivedAt = null;
+    }
+    const customerIdFilter = new URL(request.url).searchParams.get("customerId")?.trim();
+    if (customerIdFilter) {
+      where.customerId = customerIdFilter;
+    }
 
     const requests = await prisma.rfpRequest.findMany({
       where,
@@ -25,7 +36,7 @@ export async function GET(request: NextRequest) {
           orderBy: [{ termMonths: "asc" }, { rate: "asc" }],
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
     });
 
     return NextResponse.json(requests);

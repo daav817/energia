@@ -67,6 +67,11 @@ export type Prospect = Prisma.ProspectModel
  */
 export type Contract = Prisma.ContractModel
 /**
+ * Model ContractAccount
+ * Utility / billing accounts tied to a contract (renewal emails, customer communications).
+ */
+export type ContractAccount = Prisma.ContractAccountModel
+/**
  * Model CommissionPayment
  * 
  */

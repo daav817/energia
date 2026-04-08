@@ -17,6 +17,7 @@ import {
   X,
   StickyNote,
   Loader2,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +51,8 @@ type ContactPhone = { id?: string; phone: string; type?: string };
 type ContactAddress = { id?: string; street?: string; city?: string; state?: string; zip?: string; type?: string };
 type SignificantDate = { id?: string; label: string; date: string };
 type RelatedPerson = { id?: string; name: string; relation?: string };
+
+type ComposeTarget = { recipients: Array<{ email: string; name?: string }> };
 
 type Contact = {
   id: string;
@@ -211,7 +214,7 @@ export default function ContactsPage() {
   const [notesQuickContact, setNotesQuickContact] = useState<Contact | null>(null);
   const [notesQuickText, setNotesQuickText] = useState("");
   const [notesQuickSaving, setNotesQuickSaving] = useState(false);
-  const [composeTo, setComposeTo] = useState<{ email: string; name?: string } | null>(null);
+  const [composeTarget, setComposeTarget] = useState<ComposeTarget | null>(null);
   const [supplierLabelGaps, setSupplierLabelGaps] = useState<SupplierLabelGap[]>([]);
 
   const googleContactsBusy = importing || syncPreviewLoading || syncing;
@@ -492,12 +495,20 @@ export default function ContactsPage() {
   };
 
   const toggleSelectAll = () => {
+    if (contacts.length === 0) return;
     if (selectedIds.size >= contacts.length) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(contacts.map((c) => c.id)));
     }
   };
+
+  const selectAllDisplayed = () => {
+    if (contacts.length === 0) return;
+    setSelectedIds(new Set(contacts.map((c) => c.id)));
+  };
+
+  const deselectAllContacts = () => setSelectedIds(new Set());
 
   const handleImportGoogle = async () => {
     setImporting(true);
@@ -628,6 +639,27 @@ export default function ContactsPage() {
   };
 
   const primaryEmail = (c: Contact) => c.emails?.[0]?.email ?? c.email ?? "";
+
+  const openComposeSingle = (c: Contact) => {
+    const email = primaryEmail(c).trim();
+    if (!email) {
+      window.alert("This contact has no email address.");
+      return;
+    }
+    setComposeTarget({ recipients: [{ email, name: c.name }] });
+  };
+
+  const openComposeSelected = () => {
+    const rec = contacts
+      .filter((c) => selectedIds.has(c.id))
+      .map((c) => ({ email: primaryEmail(c).trim(), name: c.name }))
+      .filter((r) => r.email.length > 0);
+    if (rec.length === 0) {
+      window.alert("None of the selected contacts have an email address.");
+      return;
+    }
+    setComposeTarget({ recipients: rec });
+  };
 
   const listEmailsForContact = (c: Contact): string[] => {
     const fromMulti = (c.emails ?? []).map((e) => e.email?.trim()).filter(Boolean) as string[];
@@ -800,7 +832,7 @@ export default function ContactsPage() {
                     key={em + "-" + idx}
                     type="button"
                     className="text-left text-primary hover:underline text-sm font-normal p-0 h-auto bg-transparent border-0 cursor-pointer"
-                    onClick={() => setComposeTo({ email: em, name: c.name })}
+                    onClick={() => setComposeTarget({ recipients: [{ email: em, name: c.name }] })}
                   >
                     {em}
                   </button>
@@ -877,6 +909,16 @@ export default function ContactsPage() {
         return (
           <td key={colId} className="py-2 px-2">
             <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => openComposeSingle(c)}
+                disabled={!primaryEmail(c).trim()}
+                title={primaryEmail(c).trim() ? "Send email to this contact" : "No email address"}
+              >
+                <Mail className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openSchedule(c)} title="Schedule event">
                 <Calendar className="h-4 w-4" />
               </Button>
@@ -940,7 +982,7 @@ export default function ContactsPage() {
         </div>
 
         <div className="px-2 pb-3 pt-2">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full">
             <Select value={labelFilter} onValueChange={setLabelFilter}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by label" />
@@ -977,6 +1019,7 @@ export default function ContactsPage() {
                 </button>
               )}
             </div>
+            <div className="flex-1 min-w-[8px]" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" title="Settings">
@@ -1004,14 +1047,30 @@ export default function ContactsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             {selectedIds.size > 0 && (
-              <Button
-                variant="outline"
-                className="text-destructive"
-                onClick={() => setDeleteSelectedConfirm(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete selected ({selectedIds.size})
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => openComposeSelected()}
+                  title="Send one email to all selected contacts (To: list)"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email selected ({selectedIds.size})
+                </Button>
+                <div className="flex-1 min-w-[8px]" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive shrink-0 ml-auto"
+                  onClick={() => setDeleteSelectedConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete selected ({selectedIds.size})
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -1044,7 +1103,7 @@ export default function ContactsPage() {
                       type="button"
                       className="text-primary hover:underline text-xs max-w-[200px] truncate text-left"
                       title={primaryEmail(c)}
-                      onClick={() => setComposeTo({ email: primaryEmail(c), name: c.name })}
+                      onClick={() => openComposeSingle(c)}
                     >
                       {primaryEmail(c)}
                     </button>
@@ -1069,16 +1128,27 @@ export default function ContactsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 px-2 w-10">
-                      <input
-                        type="checkbox"
-                        checked={contacts.length > 0 && selectedIds.size >= contacts.length}
-                        ref={(el) => {
-                          if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < contacts.length;
-                        }}
-                        onChange={toggleSelectAll}
-                        className="rounded"
-                      />
+                    <th className="text-left py-2 px-2 w-[4.5rem] align-top">
+                      <div className="flex flex-col items-start gap-1">
+                        <input
+                          type="checkbox"
+                          checked={contacts.length > 0 && selectedIds.size >= contacts.length}
+                          ref={(el) => {
+                            if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < contacts.length;
+                          }}
+                          onChange={toggleSelectAll}
+                          className="rounded"
+                          title="Select or clear all rows in this list"
+                        />
+                        <div className="flex flex-col gap-0 text-[10px] leading-tight text-muted-foreground">
+                          <button type="button" className="hover:text-foreground underline text-left" onClick={selectAllDisplayed}>
+                            All
+                          </button>
+                          <button type="button" className="hover:text-foreground underline text-left" onClick={deselectAllContacts}>
+                            None
+                          </button>
+                        </div>
+                      </div>
                     </th>
                     <th className="text-left py-2 px-2 w-10"></th>
                     {TABLE_COLUMN_ORDER.map((colId) => renderColumnHeader(colId))}
@@ -1439,17 +1509,17 @@ export default function ContactsPage() {
         </div>
       ) : null}
 
-      <ComposeModal to={composeTo} onClose={() => setComposeTo(null)} onSent={() => setComposeTo(null)} />
+      <ComposeModal target={composeTarget} onClose={() => setComposeTarget(null)} onSent={() => setComposeTarget(null)} />
     </div>
   );
 }
 
 function ComposeModal({
-  to,
+  target,
   onClose,
   onSent,
 }: {
-  to: { email: string; name?: string } | null;
+  target: ComposeTarget | null;
   onClose: () => void;
   onSent: () => void;
 }) {
@@ -1457,24 +1527,33 @@ function ComposeModal({
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
 
+  const recipientsKey = target?.recipients?.map((r) => r.email).join("\n") ?? "";
+
   useEffect(() => {
-    if (to) {
+    if (target) {
       setSubject("");
       setBody("");
       setSending(false);
     }
-  }, [to?.email]);
+  }, [recipientsKey]);
 
-  if (!to) return null;
+  if (!target?.recipients?.length) return null;
+
+  const toList = target.recipients.map((r) => r.email.trim()).filter(Boolean);
+  const toDisplay = target.recipients
+    .filter((r) => r.email.trim())
+    .map((r) => (r.name ? `${r.name} <${r.email}>` : r.email))
+    .join(", ");
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
+    if (toList.length === 0) return;
     setSending(true);
     try {
       const res = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: [to.email], subject: subject || "(no subject)", body }),
+        body: JSON.stringify({ to: toList, subject: subject || "(no subject)", body }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -1487,15 +1566,19 @@ function ComposeModal({
   };
 
   return (
-    <Dialog open={!!to} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Compose Email</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSend} className="space-y-4 py-4">
           <div className="grid gap-2">
-            <Label>To</Label>
-            <Input value={to.name ? `${to.name} <${to.email}>` : to.email} readOnly className="bg-muted" />
+            <Label>To {toList.length > 1 ? `(${toList.length})` : null}</Label>
+            <textarea
+              readOnly
+              className="min-h-[72px] max-h-[180px] w-full rounded-md border border-input bg-muted px-3 py-2 text-sm resize-y"
+              value={toDisplay}
+            />
           </div>
           <div className="grid gap-2">
             <Label>Subject</Label>

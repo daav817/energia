@@ -263,7 +263,7 @@ export function DayAgendaDialog({
               {licenses.length > 0 && (
                 <div>
                   <p className="font-semibold text-violet-800 dark:text-violet-200 mb-2">
-                    License expirations
+                    License Certification and Yearly Renewal Fees
                   </p>
                   <ul className="space-y-1 text-muted-foreground">
                     {licenses.map((l) => (

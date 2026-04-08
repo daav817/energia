@@ -56,6 +56,7 @@ export const ModelName = {
   SupplierContact: 'SupplierContact',
   Prospect: 'Prospect',
   Contract: 'Contract',
+  ContractAccount: 'ContractAccount',
   CommissionPayment: 'CommissionPayment',
   TaskList: 'TaskList',
   Task: 'Task',
@@ -188,11 +189,29 @@ export const ContractScalarFieldEnum = {
   status: 'status',
   notes: 'notes',
   signedContractDriveUrl: 'signedContractDriveUrl',
+  renewalReminderSentAt: 'renewalReminderSentAt',
+  sourceRfpRequestId: 'sourceRfpRequestId',
+  needsContractDetail: 'needsContractDetail',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type ContractScalarFieldEnum = (typeof ContractScalarFieldEnum)[keyof typeof ContractScalarFieldEnum]
+
+
+export const ContractAccountScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  accountId: 'accountId',
+  serviceAddress: 'serviceAddress',
+  annualUsage: 'annualUsage',
+  avgMonthlyUsage: 'avgMonthlyUsage',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractAccountScalarFieldEnum = (typeof ContractAccountScalarFieldEnum)[keyof typeof ContractAccountScalarFieldEnum]
 
 
 export const CommissionPaymentScalarFieldEnum = {
@@ -332,6 +351,7 @@ export const RfpRequestScalarFieldEnum = {
   enrollmentDetails: 'enrollmentDetails',
   parentRfpId: 'parentRfpId',
   refreshSequence: 'refreshSequence',
+  archivedAt: 'archivedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

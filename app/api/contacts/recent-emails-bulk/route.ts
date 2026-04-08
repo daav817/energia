@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type Row = { id: string; subject: string; sentAt: string; direction?: string };
@@ -7,7 +8,7 @@ type Row = { id: string; subject: string; sentAt: string; direction?: string };
  * POST /api/contacts/recent-emails-bulk
  * Body: { ids: string[] }
  * Returns: { byId: Record<string, Row[]> } — up to 3 recent emails per contact from local DB only.
- * Avoids N per-contact Prisma round-trips when rendering the Contacts table.
+ * Address matching is case-insensitive so rows match stored Gmail/local addresses reliably.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,46 +28,53 @@ export async function POST(request: NextRequest) {
     const emailsByContact = new Map<string, Set<string>>();
     for (const c of contacts) {
       const set = new Set<string>();
-      for (const e of c.emails) set.add(e.email.toLowerCase());
-      if (c.email) set.add(c.email.toLowerCase());
+      for (const e of c.emails) set.add(e.email.toLowerCase().trim());
+      if (c.email) set.add(c.email.toLowerCase().trim());
       emailsByContact.set(c.id, set);
     }
 
     const globalAddrs = new Set<string>();
-    for (const s of emailsByContact.values()) for (const a of s) globalAddrs.add(a);
+    for (const s of emailsByContact.values()) for (const a of s) {
+      if (a) globalAddrs.add(a);
+    }
     if (globalAddrs.size === 0) {
       const byId: Record<string, Row[]> = {};
       for (const id of ids) byId[id] = [];
       return NextResponse.json({ byId });
     }
 
-    const addrList = [...globalAddrs];
+    const addrs = [...globalAddrs];
     const take = Math.min(4000, Math.max(400, ids.length * 25));
 
-    const dbEmails = await prisma.email.findMany({
-      where: {
-        OR: [{ fromAddress: { in: addrList } }, { toAddresses: { hasSome: addrList } }],
-      },
-      orderBy: { sentAt: "desc" },
-      take,
-      select: {
-        id: true,
-        messageId: true,
-        subject: true,
-        sentAt: true,
-        direction: true,
-        fromAddress: true,
-        toAddresses: true,
-      },
-    });
+    const dbRows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        message_id: string | null;
+        subject: string | null;
+        sent_at: Date;
+        direction: string;
+        from_address: string;
+        to_addresses: string[];
+      }>
+    >(Prisma.sql`
+      SELECT id, message_id, subject, sent_at, direction::text, from_address, to_addresses
+      FROM emails
+      WHERE LOWER(TRIM(from_address)) IN (${Prisma.join(addrs)})
+         OR EXISTS (
+           SELECT 1 FROM unnest(to_addresses) AS u(addr)
+           WHERE LOWER(TRIM(addr)) IN (${Prisma.join(addrs)})
+         )
+      ORDER BY sent_at DESC
+      LIMIT ${take}
+    `);
 
-    const matchesContact = (contactId: string, row: (typeof dbEmails)[number]): boolean => {
-      const addrs = emailsByContact.get(contactId);
-      if (!addrs || addrs.size === 0) return false;
-      const from = row.fromAddress?.toLowerCase();
-      if (from && addrs.has(from)) return true;
-      for (const to of row.toAddresses) {
-        if (addrs.has(to.toLowerCase())) return true;
+    const matchesContact = (contactId: string, row: (typeof dbRows)[number]): boolean => {
+      const want = emailsByContact.get(contactId);
+      if (!want || want.size === 0) return false;
+      const from = row.from_address?.toLowerCase().trim();
+      if (from && want.has(from)) return true;
+      for (const to of row.to_addresses || []) {
+        if (want.has(to.toLowerCase().trim())) return true;
       }
       return false;
     };
@@ -74,12 +82,13 @@ export async function POST(request: NextRequest) {
     const byId: Record<string, Row[]> = {};
     for (const id of ids) {
       const picked: Row[] = [];
-      for (const e of dbEmails) {
+      for (const e of dbRows) {
         if (!matchesContact(id, e)) continue;
+        const gmailId = e.message_id?.trim();
         picked.push({
-          id: e.messageId || e.id,
+          id: gmailId && gmailId.length > 0 ? gmailId : e.id,
           subject: e.subject || "(no subject)",
-          sentAt: e.sentAt.toISOString(),
+          sentAt: e.sent_at.toISOString(),
           direction: e.direction ?? undefined,
         });
         if (picked.length >= 3) break;

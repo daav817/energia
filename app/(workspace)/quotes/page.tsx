@@ -56,7 +56,7 @@ type RfpRequestSummary = {
   brokerMarginUnit: string | null;
   ldcUtility: string | null;
   requestedTerms: Array<{ kind: "months"; months: number } | { kind: "nymex" }> | null;
-  customer: { id: string; name: string; company: string | null };
+  customer: { id: string; name: string; company: string | null } | null;
   customerContact?: { id: string; name: string; email: string | null; phone: string | null } | null;
   quoteSummaryContactIds?: string[];
   quoteSummarySentAt?: string | null;
@@ -153,8 +153,13 @@ export default function RfpQuotesPage() {
       )
     );
 
+    const custId = selectedRequest.customer?.id;
+    if (!custId) {
+      setCustomerContacts([]);
+      return;
+    }
     void (async () => {
-      const res = await fetch(`/api/customers/${selectedRequest.customer.id}?contacts=1`);
+      const res = await fetch(`/api/customers/${encodeURIComponent(custId)}?contacts=1`);
       const data = await res.json();
       const rows = Array.isArray(data?.contacts) ? (data.contacts as CustomerContactRow[]) : [];
       setCustomerContacts(rows);
@@ -351,7 +356,7 @@ export default function RfpQuotesPage() {
               <SelectContent>
                 {rfpRequests.map((request) => (
                   <SelectItem key={request.id} value={request.id}>
-                    {`${request.customer.name} · ${
+                    {`${request.customer?.name ?? "Unknown customer"} · ${
                       request.energyType === "ELECTRIC" ? "Electric" : "Gas"
                     }`}
                   </SelectItem>
@@ -369,8 +374,8 @@ export default function RfpQuotesPage() {
                 <Badge variant="outline">{selectedRequest.status}</Badge>
               </div>
               <p className="font-medium">
-                {selectedRequest.customer.name}
-                {selectedRequest.customer.company ? ` (${selectedRequest.customer.company})` : ""}
+                {selectedRequest.customer?.name ?? "Unknown customer"}
+                {selectedRequest.customer?.company ? ` (${selectedRequest.customer.company})` : ""}
               </p>
               <p className="text-sm text-muted-foreground">
                 Utility: {selectedRequest.ldcUtility || "—"} · Quote due:{" "}
@@ -657,7 +662,7 @@ export default function RfpQuotesPage() {
                 <SelectContent>
                   {rfpRequests.map((request) => (
                     <SelectItem key={request.id} value={request.id}>
-                      {`${request.customer.name} · ${
+                      {`${request.customer?.name ?? "Unknown customer"} · ${
                         request.energyType === "ELECTRIC" ? "Electric" : "Gas"
                       }`}
                     </SelectItem>

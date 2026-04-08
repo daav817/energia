@@ -10,7 +10,11 @@ import {
   ChevronUp,
   ChevronsLeft,
   ChevronsRight,
+  GripVertical,
+  Loader2,
   Search,
+  Star,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -27,6 +31,9 @@ import { Input } from "@/components/ui/input";
 import { DayAgendaDialog } from "@/components/schedule/day-agenda-dialog";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog";
+import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
+import { formatGoogleTasksSyncMessage } from "@/lib/google-tasks-sync-message";
+import { persistTasksOrder, reorderIdList } from "@/lib/tasks-reorder";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -34,6 +41,7 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const DASH_CAL_STORAGE_KEY = "energia-dashboard-cal";
 const DASH_EMAIL_SEARCH_STORAGE_KEY = "energia-dash-email-search-v1";
 const DASH_TASK_ACC_STORAGE_KEY = "energia-dash-task-acc-v1";
+const DASH_TASK_COMPLETE_DELAY_MS = 2000;
 const DASH_EMAIL_DAY_COLLAPSED_KEY = "energia-dash-email-day-collapsed-v1";
 
 const SCHEDULE_NEON_DOT = {
@@ -172,6 +180,18 @@ function parseApiDateOnlyKey(s: string): string {
   return localDateKey(new Date(s));
 }
 
+function emailSenderSortKey(from: string): string {
+  const m = /<([^>]+)>/.exec(from);
+  if (m) return m[1].trim().toLowerCase();
+  return from.trim().toLowerCase();
+}
+
+function emailSenderDisplayLabel(from: string): string {
+  const m = /^(.+?)\s*<[^>]+>\s*$/.exec(from.trim());
+  if (m) return m[1].replace(/^"|"$/g, "").trim();
+  return from.trim() || "Unknown sender";
+}
+
 function eventDayKey(e: { startAt: string; allDay: boolean }): string {
   if (e.allDay) {
     const m = /^(\d{4}-\d{2}-\d{2})/.exec(e.startAt);
@@ -199,7 +219,9 @@ type CalendarEvent = {
 type TaskDto = {
   id: string;
   title: string;
+  description?: string | null;
   status: string;
+  starred?: boolean;
   dueDate: string | null;
   dueAt: string | null;
   taskListId: string | null;
@@ -211,6 +233,13 @@ function taskDayKey(t: TaskDto): string | null {
   const raw = t.dueAt || t.dueDate;
   if (!raw) return null;
   return parseApiDateOnlyKey(String(raw));
+}
+
+function dashTaskMatchesQuery(t: TaskDto, q: string): boolean {
+  const s = q.trim().toLowerCase();
+  if (!s) return true;
+  if (t.title.toLowerCase().includes(s)) return true;
+  return (t.description ?? "").toLowerCase().includes(s);
 }
 
 type EmailMsg = { id: string; subject: string; from: string; snippet: string; date: string };
@@ -233,7 +262,34 @@ type ContractRow = {
   energyType?: string | null;
   customer?: { name: string } | null;
   supplier?: { name: string } | null;
+  /** Set when merged from GET contracts?mergeRecentExpiredDays */
+  isRecentExpired?: boolean;
 };
+
+function contractExpirationDateOnly(c: ContractRow): Date | null {
+  const k = parseApiDateOnlyKey(String(c.expirationDate));
+  if (!k) return null;
+  return new Date(k + "T12:00:00");
+}
+
+/** Expiration date is before today (local). */
+function isContractExpired(c: ContractRow): boolean {
+  const exp = contractExpirationDateOnly(c);
+  if (!exp) return false;
+  const today = startOfLocalDay(new Date());
+  return exp < today;
+}
+
+/** Expired in the previous calendar month (not necessarily within last 30 days). */
+function isPreviousCalendarMonthExpiredContract(c: ContractRow): boolean {
+  const exp = contractExpirationDateOnly(c);
+  if (!exp) return false;
+  const today = startOfLocalDay(new Date());
+  if (exp >= today) return false;
+  const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const prevEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+  return exp >= prev && exp <= prevEnd;
+}
 
 type LicenseRow = {
   id: string;
@@ -313,9 +369,27 @@ export default function DashboardPage() {
   const [contractModalId, setContractModalId] = useState<string | null>(null);
   const [wideLayout, setWideLayout] = useState(true);
   const [taskSyncing, setTaskSyncing] = useState(false);
+  const [showPrevMonthExpiredContracts, setShowPrevMonthExpiredContracts] = useState(false);
+  const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
+  const [emailSenderCollapsed, setEmailSenderCollapsed] = useState<Record<string, boolean>>({});
   const [dashTaskCreateOpen, setDashTaskCreateOpen] = useState(false);
   const [dashTaskCreateListId, setDashTaskCreateListId] = useState<string>("");
+  const [dashTaskSearch, setDashTaskSearch] = useState("");
+  const [dashTaskDetail, setDashTaskDetail] = useState<TaskDto | null>(null);
+  /** Immediate "done" styling; API runs after DASH_TASK_COMPLETE_DELAY_MS. */
+  const [taskCompletingVisualIds, setTaskCompletingVisualIds] = useState<Record<string, boolean>>({});
+  const taskCompletingGuardRef = useRef<Set<string>>(new Set());
   const taskAccHydratedRef = useRef(false);
+
+  const dashboardTaskSections = useMemo(() => {
+    const sections: { id: string; name: string }[] = taskLists.map((l) => ({ id: l.id, name: l.name }));
+    const nOpen = (tasksByList["__none__"] ?? []).length;
+    const nDone = (completedTasksByList["__none__"] ?? []).length;
+    if (nOpen + nDone > 0) {
+      sections.push({ id: "__none__", name: "Unlisted tasks" });
+    }
+    return sections;
+  }, [taskLists, tasksByList, completedTasksByList]);
   const skipEmailDayPersistRef = useRef(true);
 
   useEffect(() => {
@@ -345,7 +419,7 @@ export default function DashboardPage() {
   }, [emailDayCollapsed]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || taskLists.length === 0 || taskAccHydratedRef.current) return;
+    if (typeof window === "undefined" || dashboardTaskSections.length === 0 || taskAccHydratedRef.current) return;
     taskAccHydratedRef.current = true;
     try {
       const raw = localStorage.getItem(DASH_TASK_ACC_STORAGE_KEY);
@@ -354,7 +428,7 @@ export default function DashboardPage() {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
       setOpenAcc((prev) => {
         const next = { ...prev };
-        for (const l of taskLists) {
+        for (const l of dashboardTaskSections) {
           if (Object.prototype.hasOwnProperty.call(parsed, l.id)) next[l.id] = parsed[l.id];
         }
         return next;
@@ -362,20 +436,20 @@ export default function DashboardPage() {
     } catch {
       /* ignore */
     }
-  }, [taskLists]);
+  }, [dashboardTaskSections]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || taskLists.length === 0) return;
+    if (typeof window === "undefined" || dashboardTaskSections.length === 0) return;
     try {
       const subset: Record<string, boolean> = {};
-      for (const l of taskLists) {
+      for (const l of dashboardTaskSections) {
         if (Object.prototype.hasOwnProperty.call(openAcc, l.id)) subset[l.id] = openAcc[l.id];
       }
       localStorage.setItem(DASH_TASK_ACC_STORAGE_KEY, JSON.stringify(subset));
     } catch {
       /* ignore */
     }
-  }, [openAcc, taskLists]);
+  }, [openAcc, dashboardTaskSections]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -478,7 +552,7 @@ export default function DashboardPage() {
         fetch(`/api/calendar/overview?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`),
         fetch("/api/task-lists"),
         fetch("/api/tasks?includeCompleted=true"),
-        fetch("/api/contracts?tab=active&sort=expirationDate&order=asc"),
+        fetch("/api/contracts?tab=active&sort=expirationDate&order=asc&mergeRecentExpiredDays=30"),
         fetch("/api/licenses"),
         fetch("/api/rfp"),
       ]);
@@ -526,7 +600,13 @@ export default function DashboardPage() {
 
       if (cRes.ok) {
         const j = await cRes.json();
-        setContracts(Array.isArray(j) ? j : []);
+        const rows = Array.isArray(j) ? j : [];
+        setContracts(
+          rows.map((r) => ({
+            ...(r as ContractRow),
+            isRecentExpired: (r as { isRecentExpired?: boolean }).isRecentExpired === true,
+          }))
+        );
       } else setContracts([]);
 
       if (lRes.ok) {
@@ -711,33 +791,42 @@ export default function DashboardPage() {
 
   const contractsGroupedByMonthYearFiltered = useMemo(() => {
     const q = contractExpSearch.trim().toLowerCase();
-    if (!q) return contractsGroupedByMonthYear;
     const tokens = q.split(/\s+/).filter(Boolean);
+    const hidePrevMonth = !showPrevMonthExpiredContracts && !q;
+
     return contractsGroupedByMonthYear
       .map(([ym, group]) => {
-        const items = group.items.filter((c) => {
-          const exp = parseApiDateOnlyKey(String(c.expirationDate));
-          const expD = exp
-            ? new Date(exp + "T12:00:00").toLocaleDateString().toLowerCase()
-            : "";
-          const hay = [
-            c.customer?.name,
-            c.supplier?.name,
-            (c.energyType ?? "").replaceAll("_", " "),
-            exp,
-            expD,
-            group.label,
-            ym,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return tokens.every((t) => hay.includes(t));
-        });
+        let items = group.items;
+        if (hidePrevMonth) {
+          items = items.filter((c) => !isPreviousCalendarMonthExpiredContract(c));
+        }
+        if (tokens.length) {
+          items = items.filter((c) => {
+            const exp = parseApiDateOnlyKey(String(c.expirationDate));
+            const expD = exp
+              ? new Date(exp + "T12:00:00").toLocaleDateString().toLowerCase()
+              : "";
+            const hay = [
+              c.customer?.name,
+              c.supplier?.name,
+              (c.energyType ?? "").replaceAll("_", " "),
+              exp,
+              expD,
+              c.isRecentExpired ? "recent expired" : "",
+              isContractExpired(c) ? "expired" : "",
+              group.label,
+              ym,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+            return tokens.every((t) => hay.includes(t));
+          });
+        }
         return [ym, { ...group, items }] as const;
       })
       .filter(([, g]) => g.items.length > 0);
-  }, [contractsGroupedByMonthYear, contractExpSearch]);
+  }, [contractsGroupedByMonthYear, contractExpSearch, showPrevMonthExpiredContracts]);
 
   const licensesGroupedByMonthYear = useMemo(() => {
     const sorted = [...licensesForSchedule].sort(
@@ -814,15 +903,52 @@ export default function DashboardPage() {
     return e;
   }, [dashWeekStart]);
 
-  const toggleDashboardTask = async (task: TaskDto) => {
-    const next = task.status === "COMPLETED" ? "PENDING" : "COMPLETED";
-    const res = await fetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    if (res.ok) load();
-  };
+  const toggleDashboardTask = useCallback(
+    (task: TaskDto) => {
+      if (task.status === "COMPLETED") {
+        void (async () => {
+          const res = await fetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "PENDING" }),
+          });
+          if (res.ok) void load();
+        })();
+        return;
+      }
+
+      if (taskCompletingGuardRef.current.has(task.id)) return;
+      taskCompletingGuardRef.current.add(task.id);
+      setTaskCompletingVisualIds((s) => ({ ...s, [task.id]: true }));
+
+      window.setTimeout(() => {
+        void (async () => {
+          try {
+            const res = await fetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "COMPLETED" }),
+            });
+            taskCompletingGuardRef.current.delete(task.id);
+            setTaskCompletingVisualIds((s) => {
+              const next = { ...s };
+              delete next[task.id];
+              return next;
+            });
+            if (res.ok) await load();
+          } catch {
+            taskCompletingGuardRef.current.delete(task.id);
+            setTaskCompletingVisualIds((s) => {
+              const next = { ...s };
+              delete next[task.id];
+              return next;
+            });
+          }
+        })();
+      }, DASH_TASK_COMPLETE_DELAY_MS);
+    },
+    [load]
+  );
 
   const dashMonthLabel = useMemo(
     () =>
@@ -867,6 +993,21 @@ export default function DashboardPage() {
       return kb.localeCompare(ka);
     });
   }, [listSource]);
+
+  /** Inbox + Today only: group by sender for dense inboxes. */
+  const emailsGroupedBySenderToday = useMemo(() => {
+    if (emailScopeDays !== 1 || dashEmailTab !== "inbox") return null;
+    const sorted = [...listSource].sort(
+      (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)
+    );
+    const map = new Map<string, EmailMsg[]>();
+    for (const m of sorted) {
+      const k = emailSenderSortKey(m.from);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(m);
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [listSource, emailScopeDays, dashEmailTab]);
 
   const showEmailDaySeparators =
     (dashEmailTab === "inbox" && emailScopeDays > 1) ||
@@ -926,11 +1067,7 @@ export default function DashboardPage() {
         return;
       }
       await load();
-      window.alert(
-        typeof data.pulled === "number" || typeof data.pushed === "number"
-          ? `Synced tasks (pulled ${data.pulled ?? "—"}, pushed ${data.pushed ?? "—"}).`
-          : "Google Tasks sync completed."
-      );
+      window.alert(formatGoogleTasksSyncMessage(data));
     } catch {
       window.alert("Could not run Google Tasks sync.");
     } finally {
@@ -969,6 +1106,23 @@ export default function DashboardPage() {
         }),
       ]);
       await load();
+    },
+    [tasksByList, load]
+  );
+
+  const handleDashboardTaskDrop = useCallback(
+    async (listId: string, draggedId: string, targetId: string) => {
+      const raw = tasksByList[listId] ?? [];
+      const items = [...raw].sort(
+        (a, b) =>
+          (a.listSortOrder ?? 0) - (b.listSortOrder ?? 0) ||
+          a.title.localeCompare(b.title)
+      );
+      const ids = items.map((t) => t.id);
+      const next = reorderIdList(ids, draggedId, targetId);
+      if (!next) return;
+      const ok = await persistTasksOrder(next);
+      if (ok) await load();
     },
     [tasksByList, load]
   );
@@ -1041,7 +1195,16 @@ export default function DashboardPage() {
                       className="h-7 px-2 text-[10px]"
                       onClick={() => setEmailScopeDays(d)}
                     >
-                      {d === 1 ? "Today" : `${d} days`}
+                      {d === 1 ? (
+                        <>
+                          Today
+                          {dashEmailTab === "inbox" && emailScopeDays === 1 ? (
+                            <span className="ml-1 tabular-nums opacity-90">({listSource.length})</span>
+                          ) : null}
+                        </>
+                      ) : (
+                        `${d} days`
+                      )}
                     </Button>
                   ))}
                 </div>
@@ -1068,6 +1231,31 @@ export default function DashboardPage() {
                       }
                     >
                       Collapse all days
+                    </Button>
+                  </div>
+                ) : dashEmailTab === "inbox" && emailScopeDays === 1 && emailsGroupedBySenderToday ? (
+                  <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => setEmailSenderCollapsed({})}
+                    >
+                      Expand all senders
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() =>
+                        setEmailSenderCollapsed(
+                          Object.fromEntries(emailsGroupedBySenderToday.map(([k]) => [k, true]))
+                        )
+                      }
+                    >
+                      Collapse all senders
                     </Button>
                   </div>
                 ) : null}
@@ -1134,6 +1322,61 @@ export default function DashboardPage() {
                     ? "No results in this date window. Widen the day range or clear filters."
                     : "No messages in this date range."}
                 </p>
+              ) : emailsGroupedBySenderToday ? (
+                <div className="space-y-2 py-1">
+                  <p className="px-2 text-[10px] text-muted-foreground">
+                    {listSource.length} message{listSource.length === 1 ? "" : "s"} today · grouped by sender
+                  </p>
+                  {emailsGroupedBySenderToday.map(([senderKey, msgs]) => {
+                    const collapsed = !!emailSenderCollapsed[senderKey];
+                    const label = emailSenderDisplayLabel(msgs[0]?.from ?? senderKey);
+                    return (
+                      <div key={senderKey} className="space-y-0">
+                        <button
+                          type="button"
+                          className={cn(
+                            "sticky top-0 z-[1] -mx-1 mb-1 flex w-full items-center gap-2 border-l-4 border-sky-500 bg-muted/95 px-2 py-1.5 text-left text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm",
+                            "border-y border-r border-border/50 rounded-r-md hover:bg-muted transition-colors"
+                          )}
+                          onClick={() =>
+                            setEmailSenderCollapsed((s) => ({ ...s, [senderKey]: !collapsed }))
+                          }
+                          aria-expanded={!collapsed}
+                        >
+                          {collapsed ? (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="min-w-0 truncate font-medium">{label}</span>
+                          <span className="h-px flex-1 bg-border/80" aria-hidden />
+                          <span className="text-[10px] font-normal text-muted-foreground tabular-nums">
+                            {msgs.length}
+                          </span>
+                        </button>
+                        {!collapsed ? (
+                          <ul className="space-y-0 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
+                            {msgs.map((m) => (
+                              <li key={m.id}>
+                                <button
+                                  type="button"
+                                  className="block w-full px-2 py-1.5 text-left hover:bg-muted/80 bg-background/50"
+                                  title={m.subject}
+                                  onClick={() => setEmailModalId(m.id)}
+                                >
+                                  <p className="text-xs font-medium truncate">
+                                    {m.subject || "(No subject)"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : showEmailDaySeparators ? (
                 <div className="space-y-2 py-1">
                   {emailsGroupedByDay.map(([dayKey, msgs]) => {
@@ -1664,28 +1907,47 @@ export default function DashboardPage() {
             >
               <Panel defaultSize={55} minSize={22} className="min-h-0">
                 <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-row flex-wrap items-center justify-between gap-1">
+            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <CardTitle className="text-sm font-semibold">Tasks</CardTitle>
+              <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:max-w-[min(100%,24rem)]">
+                <div className="relative w-full">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={dashTaskSearch}
+                    onChange={(e) => setDashTaskSearch(e.target.value)}
+                    placeholder="Search tasks…"
+                    className="h-8 pl-8 text-xs"
+                    aria-label="Search tasks"
+                  />
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-1">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 text-[10px] px-2"
+                  className="h-7 text-[10px] px-2 gap-1"
                   disabled={taskSyncing}
                   onClick={() => void runGoogleTasksSync()}
                 >
-                  {taskSyncing ? "…" : "Sync"}
+                  {taskSyncing ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
+                      Syncing…
+                    </>
+                  ) : (
+                    "Sync"
+                  )}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="h-7 text-[10px] px-2"
-                  disabled={taskLists.length === 0}
+                  disabled={dashboardTaskSections.length === 0}
                   onClick={() => {
                     const next: Record<string, boolean> = {};
-                    for (const l of taskLists) next[l.id] = true;
+                    for (const l of dashboardTaskSections) next[l.id] = true;
                     setOpenAcc(next);
                   }}
                 >
@@ -1696,7 +1958,7 @@ export default function DashboardPage() {
                   variant="outline"
                   size="sm"
                   className="h-7 text-[10px] px-2"
-                  disabled={taskLists.length === 0}
+                  disabled={dashboardTaskSections.length === 0}
                   onClick={() => setOpenAcc({})}
                 >
                   Collapse all
@@ -1707,12 +1969,13 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1 space-y-1">
-              {taskLists.length === 0 ? (
+              {dashboardTaskSections.length === 0 ? (
                 <p className="text-xs text-muted-foreground px-2">No lists.</p>
               ) : (
-                taskLists.map((list) => {
+                dashboardTaskSections.map((list) => {
                   const open = openAcc[list.id] ?? false;
-                  const items = tasksByList[list.id] ?? [];
+                  const itemsRaw = tasksByList[list.id] ?? [];
+                  const items = itemsRaw.filter((t) => dashTaskMatchesQuery(t, dashTaskSearch));
                   const sortedItems = [...items].sort(
                     (a, b) =>
                       (a.listSortOrder ?? 0) - (b.listSortOrder ?? 0) ||
@@ -1733,80 +1996,153 @@ export default function DashboardPage() {
                           )}
                           <span className="truncate">{list.name}</span>
                           <span className="text-muted-foreground text-[10px] shrink-0">
-                            ({items.length}
+                            ({itemsRaw.length}
                             {(completedTasksByList[list.id]?.length ?? 0) > 0
                               ? ` · ${completedTasksByList[list.id]?.length} done`
                               : ""}
                             )
                           </span>
                         </button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[10px] shrink-0"
-                          onClick={() => {
-                            setDashTaskCreateListId(list.id);
-                            setDashTaskCreateOpen(true);
-                          }}
-                        >
-                          New task
-                        </Button>
+                        {list.id !== "__none__" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px] shrink-0"
+                            onClick={() => {
+                              setDashTaskCreateListId(list.id);
+                              setDashTaskCreateOpen(true);
+                            }}
+                          >
+                            New task
+                          </Button>
+                        ) : null}
                       </div>
                       {open && (
                         <div className="border-t border-border/40 px-2 py-1 space-y-2">
                           <ul className="space-y-1">
                             {items.length === 0 ? (
-                              <li className="text-[10px] text-muted-foreground">No open tasks</li>
+                              <li className="text-[10px] text-muted-foreground">
+                                {itemsRaw.length === 0 ? "No open tasks" : "No tasks match search"}
+                              </li>
                             ) : (
-                              sortedItems.slice(0, 12).map((t, ti) => (
-                                <li key={t.id} className="flex items-start gap-1 text-[11px] group">
+                              sortedItems.slice(0, 12).map((t, ti) => {
+                                const completingVisual = !!taskCompletingVisualIds[t.id];
+                                const showDoneStyle = t.status === "COMPLETED" || completingVisual;
+                                return (
+                                <li
+                                  key={t.id}
+                                  className="flex items-start gap-1 text-[11px] group"
+                                  onDragOver={(e) => {
+                                    if (dashTaskSearch.trim() || completingVisual) return;
+                                    e.preventDefault();
+                                    e.dataTransfer.dropEffect = "move";
+                                  }}
+                                  onDrop={(e) => {
+                                    if (dashTaskSearch.trim() || completingVisual) return;
+                                    e.preventDefault();
+                                    const draggedId = e.dataTransfer.getData("text/task-id");
+                                    if (draggedId && draggedId !== t.id) {
+                                      void handleDashboardTaskDrop(list.id, draggedId, t.id);
+                                    }
+                                  }}
+                                >
+                                  {!dashTaskSearch.trim() ? (
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      aria-label="Drag to reorder task"
+                                      draggable={!completingVisual}
+                                      className={cn(
+                                        "mt-0.5 shrink-0 text-muted-foreground hover:text-foreground",
+                                        completingVisual
+                                          ? "cursor-not-allowed opacity-40"
+                                          : "cursor-grab active:cursor-grabbing"
+                                      )}
+                                      onDragStart={(e) => {
+                                        if (completingVisual) {
+                                          e.preventDefault();
+                                          return;
+                                        }
+                                        e.dataTransfer.setData("text/task-id", t.id);
+                                        e.dataTransfer.effectAllowed = "move";
+                                      }}
+                                    >
+                                      <GripVertical className="h-3.5 w-3.5" />
+                                    </span>
+                                  ) : (
+                                    <span className="mt-0.5 w-3.5 shrink-0" aria-hidden />
+                                  )}
                                   <button
                                     type="button"
                                     className={cn(
-                                      "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-muted-foreground",
-                                      t.status === "COMPLETED" && "bg-primary border-primary"
+                                      "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-muted-foreground transition-colors",
+                                      showDoneStyle && "bg-primary border-primary"
                                     )}
                                     aria-label="Toggle done"
+                                    disabled={completingVisual}
                                     onClick={() => toggleDashboardTask(t)}
                                   />
+                                  {t.starred ? (
+                                    <Star
+                                      className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400"
+                                      aria-label="Starred"
+                                    />
+                                  ) : (
+                                    <span className="mt-0.5 w-3.5 shrink-0" aria-hidden />
+                                  )}
                                   <span
                                     className={cn(
-                                      "min-w-0 flex-1",
-                                      t.status === "COMPLETED" && "line-through opacity-70"
+                                      "min-w-0 flex-1 transition-opacity",
+                                      showDoneStyle && "line-through opacity-70"
                                     )}
                                   >
                                     {t.title}
                                   </span>
-                                  <span className="flex shrink-0 flex-col gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                      type="button"
-                                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-                                      aria-label="Move up"
-                                      disabled={ti === 0}
-                                      onClick={() => void moveTaskPriority(list.id, t.id, "up")}
-                                    >
-                                      <ChevronUp className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-                                      aria-label="Move down"
-                                      disabled={ti >= sortedItems.length - 1}
-                                      onClick={() => void moveTaskPriority(list.id, t.id, "down")}
-                                    >
-                                      <ChevronDown className="h-3 w-3" />
-                                    </button>
-                                  </span>
+                                  <button
+                                    type="button"
+                                    className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground opacity-70 hover:bg-muted hover:text-foreground hover:opacity-100"
+                                    title="Task details"
+                                    aria-label="View task details"
+                                    onClick={() => setDashTaskDetail(t)}
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </button>
+                                  {!dashTaskSearch.trim() ? (
+                                    <span className="flex shrink-0 flex-col gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                                        aria-label="Move up"
+                                        disabled={ti === 0 || completingVisual}
+                                        onClick={() => void moveTaskPriority(list.id, t.id, "up")}
+                                      >
+                                        <ChevronUp className="h-3 w-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                                        aria-label="Move down"
+                                        disabled={ti >= sortedItems.length - 1 || completingVisual}
+                                        onClick={() => void moveTaskPriority(list.id, t.id, "down")}
+                                      >
+                                        <ChevronDown className="h-3 w-3" />
+                                      </button>
+                                    </span>
+                                  ) : null}
                                 </li>
-                              ))
+                                );
+                              })
                             )}
                           </ul>
                           {(completedTasksByList[list.id]?.length ?? 0) > 0 && (
                             <div className="pt-1 border-t border-border/30">
                               <p className="text-[10px] font-medium text-muted-foreground mb-1">Completed</p>
                               <ul className="space-y-1">
-                                {(completedTasksByList[list.id] ?? []).slice(0, 8).map((t) => (
+                                {(completedTasksByList[list.id] ?? [])
+                                  .filter((t) => dashTaskMatchesQuery(t, dashTaskSearch))
+                                  .slice(0, 8)
+                                  .map((t) => (
                                   <li key={t.id} className="flex items-start gap-2 text-[11px]">
                                     <button
                                       type="button"
@@ -1882,8 +2218,13 @@ export default function DashboardPage() {
           </Panel>
           <PanelResizeHandle className={resizeHandleClass} />
           <Panel defaultSize={wideLayout ? 26 : 32} minSize={14} className="min-h-0">
-            <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
-              <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border-border/50 shadow-sm rounded-xl">
+            <PanelGroup
+              direction="vertical"
+              autoSaveId="energia-dashboard-contracts-licenses"
+              className="flex h-full min-h-0 flex-col gap-2"
+            >
+              <Panel defaultSize={58} minSize={22} className="min-h-0">
+              <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/50 shadow-sm rounded-xl">
             <CardHeader className="shrink-0 pb-2 border-b border-border/40 space-y-3">
               <div className="flex flex-row items-start justify-between gap-2">
                 <div>
@@ -1907,6 +2248,22 @@ export default function DashboardPage() {
                   aria-label="Filter contract expirations"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant={showPrevMonthExpiredContracts ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setShowPrevMonthExpiredContracts((v) => !v)}
+                >
+                  {showPrevMonthExpiredContracts ? "Hide" : "Show"} prior-month expired
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  Recently lapsed in the last 30 days are included for search; they appear with an expired style.
+                </span>
+              </div>
+
+
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3 space-y-6 text-sm">
               {contractsGroupedByMonthYear.length === 0 ? (
@@ -1923,14 +2280,27 @@ export default function DashboardPage() {
                       {group.items.map((c) => {
                         const exp = parseApiDateOnlyKey(String(c.expirationDate));
                         const expD = exp ? new Date(exp + "T12:00:00") : null;
+                        const expired = isContractExpired(c) || c.isRecentExpired;
                         return (
                           <li
                             key={c.id}
-                            className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 transition-colors hover:bg-muted/35 space-y-2"
+                            className={cn(
+                              "rounded-lg border px-3 py-2 transition-colors hover:bg-muted/35 space-y-2",
+                              expired
+                                ? "border-dashed border-amber-700/50 bg-amber-50/60 dark:border-amber-500/40 dark:bg-amber-950/25"
+                                : "border-border/40 bg-muted/20"
+                            )}
                           >
-                            <p className="font-medium leading-snug text-sm">
-                              {c.customer?.name ?? "Customer"} → {c.supplier?.name ?? "Supplier"}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium leading-snug text-sm flex-1 min-w-0">
+                                {c.customer?.name ?? "Customer"} → {c.supplier?.name ?? "Supplier"}
+                              </p>
+                              {expired ? (
+                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                                  Expired
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="text-muted-foreground text-xs">
                               {(c.energyType ?? "").replaceAll("_", " ")} ·{" "}
                               {expD ? expD.toLocaleDateString() : "—"}
@@ -1947,6 +2317,15 @@ export default function DashboardPage() {
                                 }}
                               >
                                 Show on calendar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => setRenewalEmailContractId(c.id)}
+                              >
+                                Send email
                               </Button>
                               <Button
                                 variant="default"
@@ -1970,11 +2349,13 @@ export default function DashboardPage() {
               )}
             </CardContent>
               </Card>
-
-              <Card className="flex min-h-[120px] shrink-0 flex-col overflow-hidden border-violet-200/60 dark:border-violet-900/40 border-border/50 shadow-sm rounded-xl max-h-[40%]">
+              </Panel>
+              <PanelResizeHandle className={resizeHandleClass} />
+              <Panel defaultSize={42} minSize={18} className="min-h-0">
+              <Card className="flex h-full min-h-0 flex-col overflow-hidden border-violet-200/60 dark:border-violet-900/40 border-border/50 shadow-sm rounded-xl">
             <CardHeader className="pb-2 border-b border-border/40 shrink-0">
               <h3 className="text-base font-semibold leading-none text-violet-900 dark:text-violet-100">
-                License expirations
+                License Certification and Yearly Renewal Fees
               </h3>
               <CardDescription className="text-[11px]">
                 All licenses, grouped by expiration. Also shown on the calendar (violet).
@@ -2025,7 +2406,8 @@ export default function DashboardPage() {
               )}
             </CardContent>
               </Card>
-            </div>
+              </Panel>
+            </PanelGroup>
           </Panel>
         </PanelGroup>
 
@@ -2035,6 +2417,14 @@ export default function DashboardPage() {
           onOpenChange={(o) => {
             setContractModalOpen(o);
             if (!o) setContractModalId(null);
+          }}
+        />
+
+        <ContractRenewalEmailDialog
+          contractId={renewalEmailContractId}
+          open={renewalEmailContractId != null}
+          onOpenChange={(o) => {
+            if (!o) setRenewalEmailContractId(null);
           }}
         />
 
@@ -2132,6 +2522,40 @@ export default function DashboardPage() {
           onCreated={() => void load()}
         />
 
+        <Dialog open={dashTaskDetail != null} onOpenChange={(o) => !o && setDashTaskDetail(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="pr-8 text-left leading-snug">{dashTaskDetail?.title ?? "Task"}</DialogTitle>
+            </DialogHeader>
+            {dashTaskDetail ? (
+              <div className="space-y-3 text-sm">
+                {dashTaskDetail.description ? (
+                  <p className="whitespace-pre-wrap text-muted-foreground">{dashTaskDetail.description}</p>
+                ) : (
+                  <p className="text-muted-foreground">No description.</p>
+                )}
+                {(dashTaskDetail.dueDate || dashTaskDetail.dueAt) && (
+                  <p className="text-xs text-muted-foreground">
+                    Due:{" "}
+                    {dashTaskDetail.dueAt
+                      ? new Date(dashTaskDetail.dueAt).toLocaleString()
+                      : dashTaskDetail.dueDate
+                        ? new Date(dashTaskDetail.dueDate).toLocaleDateString()
+                        : ""}
+                  </p>
+                )}
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link
+                    href={`/tasks?taskId=${encodeURIComponent(dashTaskDetail.id)}${dashTaskDetail.taskListId ? `&listId=${encodeURIComponent(dashTaskDetail.taskListId)}` : ""}`}
+                  >
+                    Open on Tasks page
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={emailModalId != null} onOpenChange={(o) => !o && setEmailModalId(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] h-[min(90vh,820px)] flex flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
             <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-3 text-left">
@@ -2146,7 +2570,33 @@ export default function DashboardPage() {
                 />
               ) : null}
             </div>
-            <DialogFooter className="shrink-0 border-t border-border/50 px-6 py-4 sm:justify-end">
+            <DialogFooter className="shrink-0 flex-wrap border-t border-border/50 px-6 py-4 gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!emailModalId}
+                onClick={() => {
+                  const id = emailModalId;
+                  if (!id) return;
+                  setEmailModalId(null);
+                  router.push(`/compose?reply=${encodeURIComponent(id)}`);
+                }}
+              >
+                Reply
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!emailModalId}
+                onClick={() => {
+                  const id = emailModalId;
+                  if (!id) return;
+                  setEmailModalId(null);
+                  router.push(`/compose?forward=${encodeURIComponent(id)}`);
+                }}
+              >
+                Forward
+              </Button>
               <Button variant="outline" asChild>
                 <Link
                   href={emailModalId ? `/inbox/email/${encodeURIComponent(emailModalId)}` : "/inbox"}

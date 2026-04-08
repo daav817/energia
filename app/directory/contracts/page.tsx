@@ -15,6 +15,7 @@ import {
   Download,
   Trash2,
   Mail,
+  ClipboardList,
   Pencil,
   StickyNote,
   Search,
@@ -39,6 +40,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
+import { ContractAccountsModal } from "@/components/contracts/contract-accounts-modal";
+import { PrimaryCustomerContactDialog } from "@/components/contracts/primary-customer-contact-dialog";
 import {
   Select,
   SelectContent,
@@ -48,12 +52,14 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { displayMainContactForContract, getPrimaryContactPromptKind } from "@/lib/contract-main-contact";
 import {
   stripEnergySuffix,
   normalizeCompanyKey,
   isCustomerCandidateContact,
 } from "@/lib/customers-overview";
 import { cn } from "@/lib/utils";
+import { annualGasUsageToMcf } from "@/lib/energy-usage";
 import { ContactLabelsField } from "@/components/contact-labels-field";
 import { ComposeEmailModal } from "@/components/compose-email-modal";
 import Link from "next/link";
@@ -111,6 +117,8 @@ type Contract = {
   mainContact: Contact | null;
   documents: Document[];
   notes?: string | null;
+  needsContractDetail?: boolean;
+  sourceRfpRequestId?: string | null;
 };
 
 /** Default form when adding a new contract (shared state must be reset when opening Add Contract). */
@@ -134,11 +142,9 @@ const EMPTY_CONTRACT_FORM = {
   signedContractDriveUrl: "",
 };
 
-/** Single note per customer (stored on Customer); legacy per-contract notes still shown until migrated. */
-function sharedCustomerNotes(c: Contract): string {
-  const fromCustomer = c.customer?.notes;
-  if (fromCustomer != null && String(fromCustomer).trim() !== "") return String(fromCustomer);
-  return (c.notes ?? "") || "";
+/** Customer notes for this contract row only (stored on Contract.notes). */
+function contractRowNotes(c: Contract): string {
+  return (c.notes ?? "").trim() ? String(c.notes) : "";
 }
 
 function escapeCsvCell(val: unknown): string {
@@ -202,7 +208,7 @@ function buildContractsBackupCsv(contracts: Contract[]): string {
       company,
       c.supplier?.name || "",
       c.mainContact?.name || "",
-      sharedCustomerNotes(c),
+      contractRowNotes(c),
       energyTypeExportLabel(c.energyType),
       c.priceUnit || "",
       dateOnlyForCsv(c.startDate),
@@ -263,7 +269,7 @@ const COLUMN_LABELS: Record<string, string> = {
   signedDate: "Date Signed",
   totalMeters: "Total Meters",
   document: "Contract Doc",
-  notes: "Customer notes",
+  notes: "Contract notes",
   actions: "Actions",
 };
 
@@ -309,6 +315,32 @@ function calcEstTotalValue(c: Contract): number {
   const usage = annual > 0 ? annual : avgMonthly * 12;
   const months = c.termMonths || 12;
   return margin * (usage / 12) * months;
+}
+
+function resolvedAnnualUsageRaw(c: Contract): number {
+  const annual = toNum(c.annualUsage);
+  if (annual > 0) return annual;
+  return toNum(c.avgMonthlyUsage) * 12;
+}
+
+/** Footer total for Annual Usage column: electric in kWh; gas normalized to MCF per usage type. */
+function formatAnnualUsageFooter(contracts: Contract[], energyFilter: "all" | "electric" | "gas"): string {
+  let kwh = 0;
+  let mcf = 0;
+  for (const c of contracts) {
+    const usage = resolvedAnnualUsageRaw(c);
+    if (usage <= 0) continue;
+    if (c.energyType === "ELECTRIC") kwh += usage;
+    else mcf += annualGasUsageToMcf(usage, c.priceUnit);
+  }
+  if (energyFilter === "electric") {
+    return `${kwh.toLocaleString(undefined, { maximumFractionDigits: 0 })} kWh`;
+  }
+  if (energyFilter === "gas") {
+    return `${mcf.toLocaleString(undefined, { maximumFractionDigits: 0 })} MCF`;
+  }
+  if (kwh <= 0 && mcf <= 0) return "—";
+  return `${kwh.toLocaleString(undefined, { maximumFractionDigits: 0 })} kWh · ${mcf.toLocaleString(undefined, { maximumFractionDigits: 0 })} MCF`;
 }
 
 function formatCurrency(n: number): string {
@@ -408,6 +440,9 @@ export default function ContractsPage() {
   const [moveToEndedConfirmOpen, setMoveToEndedConfirmOpen] = useState(false);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
   const [editContract, setEditContract] = useState<Contract | null>(null);
+  const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
+  const [accountsModalContract, setAccountsModalContract] = useState<Contract | null>(null);
+  const [primarySetupContract, setPrimarySetupContract] = useState<Contract | null>(null);
   const [notesContract, setNotesContract] = useState<Contract | null>(null);
   const [notesText, setNotesText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -448,6 +483,7 @@ export default function ContractsPage() {
       if (data.error) throw new Error(data.error);
       setContracts(Array.isArray(data) ? data.filter((c: Contract, i: number, a: Contract[]) => a.findIndex((x) => x.id === c.id) === i) : []);
     } catch (err) {
+      console.error("fetchContracts failed", err);
       setContracts([]);
     } finally {
       setLoading(false);
@@ -785,13 +821,13 @@ export default function ContractsPage() {
 
   const openNotesDialog = (c: Contract) => {
     setNotesContract(c);
-    setNotesText(sharedCustomerNotes(c));
+    setNotesText(contractRowNotes(c));
   };
 
   const saveNotes = async () => {
-    if (!notesContract?.customer?.id) return;
+    if (!notesContract?.id) return;
     try {
-      const res = await fetch(`/api/customers/${notesContract.customer.id}`, {
+      const res = await fetch(`/api/contracts/${notesContract.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: notesText || null }),
@@ -826,7 +862,7 @@ export default function ContractsPage() {
       customerUtility: c.customerUtility || "",
       signedDate: c.signedDate ? new Date(c.signedDate).toISOString().slice(0, 10) : "",
       totalMeters: c.totalMeters != null ? String(c.totalMeters) : "",
-      notes: sharedCustomerNotes(c),
+      notes: c.notes ?? "",
       signedContractDriveUrl: c.signedContractDriveUrl ?? "",
     });
   };
@@ -860,6 +896,7 @@ export default function ContractsPage() {
           totalMeters: form.totalMeters ? parseInt(form.totalMeters, 10) : null,
           notes: form.notes || null,
           signedContractDriveUrl: form.signedContractDriveUrl.trim() || null,
+          needsContractDetail: false,
         }),
       });
       const data = await res.json();
@@ -1049,7 +1086,7 @@ export default function ContractsPage() {
     const supplierName = (c.supplier?.name || "").toLowerCase();
     const mainContactName = (c.mainContact?.name || "").toLowerCase();
     const utility = (c.customerUtility || "").toLowerCase();
-    const notes = sharedCustomerNotes(c).toLowerCase();
+    const notes = contractRowNotes(c).toLowerCase();
     return company.includes(q) || supplierName.includes(q) || mainContactName.includes(q) || utility.includes(q) || notes.includes(q);
   });
   const now = new Date();
@@ -1057,6 +1094,10 @@ export default function ContractsPage() {
   const contractsForTotals = tab === "active" ? filteredContracts.filter((c) => !isExpired(c)) : filteredContracts;
   const totalEstIncomePerYear = contractsForTotals.reduce((sum, c) => sum + calcEstIncomePerYear(c), 0);
   const totalEstTotalValue = contractsForTotals.reduce((sum, c) => sum + calcEstTotalValue(c), 0);
+  const totalAnnualUsageFooter = useMemo(
+    () => formatAnnualUsageFooter(contractsForTotals, energyFilter),
+    [contractsForTotals, energyFilter]
+  );
 
   const electricCount = contracts.filter((c) => c.energyType === "ELECTRIC").length;
   const gasCount = contracts.filter((c) => c.energyType === "NATURAL_GAS").length;
@@ -1185,7 +1226,10 @@ export default function ContractsPage() {
                 </>
               )}
             </div>
-            <div className="flex gap-6 text-sm">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              <span>
+                <strong>Total annual usage:</strong> {totalAnnualUsageFooter}
+              </span>
               <span>
                 <strong>Total Est. Income/Year:</strong> {formatCurrency(totalEstIncomePerYear)}
               </span>
@@ -1197,6 +1241,7 @@ export default function ContractsPage() {
 
           <ContractsTable
             contracts={filteredContracts}
+            contactDirectory={Array.isArray(contacts) ? contacts : []}
             loading={loading}
             sortCol={sortCol}
             sortOrder={sortOrder}
@@ -1212,9 +1257,13 @@ export default function ContractsPage() {
             onOpenSupplier={openSupplierModal}
             onLinkDocument={setLinkDocContract}
             onEdit={openEdit}
+            onSendRenewalEmail={(c) => setRenewalEmailContractId(c.id)}
+            onOpenContractAccounts={(c) => setAccountsModalContract(c)}
+            onOpenPrimaryContactSetup={(c) => setPrimarySetupContract(c)}
             onNotes={openNotesDialog}
             totalEstIncomePerYear={totalEstIncomePerYear}
             totalEstTotalValue={totalEstTotalValue}
+            totalAnnualUsageFooter={totalAnnualUsageFooter}
             showArchive
             onRestore={undefined}
             tableClassName="flex-1 min-h-0 ended-grid"
@@ -1237,7 +1286,10 @@ export default function ContractsPage() {
                 </Button>
               </>
             )}
-            <div className="flex gap-6 text-sm ml-auto">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm ml-auto">
+              <span>
+                <strong>Total annual usage:</strong> {totalAnnualUsageFooter}
+              </span>
               <span>
                 <strong>Total Est. Income/Year:</strong> {formatCurrency(totalEstIncomePerYear)}
               </span>
@@ -1249,6 +1301,7 @@ export default function ContractsPage() {
 
           <ContractsTable
             contracts={filteredContracts}
+            contactDirectory={Array.isArray(contacts) ? contacts : []}
             loading={loading}
             sortCol={sortCol}
             sortOrder={sortOrder}
@@ -1264,9 +1317,13 @@ export default function ContractsPage() {
             onOpenSupplier={openSupplierModal}
             onLinkDocument={setLinkDocContract}
             onEdit={undefined}
+            onSendRenewalEmail={(c) => setRenewalEmailContractId(c.id)}
+            onOpenContractAccounts={(c) => setAccountsModalContract(c)}
+            onOpenPrimaryContactSetup={(c) => setPrimarySetupContract(c)}
             onNotes={openNotesDialog}
             totalEstIncomePerYear={totalEstIncomePerYear}
             totalEstTotalValue={totalEstTotalValue}
+            totalAnnualUsageFooter={totalAnnualUsageFooter}
             showArchive={false}
             onRestore={handleRestoreToActive}
             tableClassName="flex-1 min-h-0"
@@ -1307,6 +1364,43 @@ export default function ContractsPage() {
         refetchSuppliers={refetchSuppliers}
         refetchContacts={refetchContacts}
         utilitySuggestions={utilitySuggestions}
+      />
+
+      <ContractRenewalEmailDialog
+        open={renewalEmailContractId != null}
+        onOpenChange={(o) => !o && setRenewalEmailContractId(null)}
+        contractId={renewalEmailContractId}
+      />
+
+      <ContractAccountsModal
+        open={accountsModalContract != null}
+        onOpenChange={(o) => !o && setAccountsModalContract(null)}
+        contractId={accountsModalContract?.id ?? null}
+        subtitle={
+          accountsModalContract
+            ? `${accountsModalContract.customer?.company || accountsModalContract.customer?.name || "Customer"} · ${accountsModalContract.supplier?.name || "Supplier"}`
+            : undefined
+        }
+      />
+
+      <PrimaryCustomerContactDialog
+        open={primarySetupContract != null}
+        onOpenChange={(o) => !o && setPrimarySetupContract(null)}
+        contract={
+          primarySetupContract
+            ? {
+                id: primarySetupContract.id,
+                customerId: primarySetupContract.customerId,
+                mainContactId: primarySetupContract.mainContactId,
+                customer: primarySetupContract.customer,
+              }
+            : null
+        }
+        directory={Array.isArray(contacts) ? contacts : []}
+        onUpdated={() => {
+          refetchContacts();
+          void fetchContracts();
+        }}
       />
 
       <ContactDetailModal
@@ -1363,7 +1457,7 @@ export default function ContractsPage() {
                   notesContract?.customer?.company?.trim() ||
                   notesContract?.customer?.name?.trim() ||
                   "";
-                return company ? `Customer notes — ${company}` : "Customer notes";
+                return company ? `Contract notes — ${company}` : "Contract notes";
               })()}
             </DialogTitle>
           </DialogHeader>
@@ -1372,7 +1466,7 @@ export default function ContractsPage() {
               className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={notesText}
               onChange={(e) => setNotesText(e.target.value)}
-              placeholder="One note per customer — same as the Customers page. Applies to all contracts for this company."
+              placeholder="Notes for this contract row only (not shared across other contracts for the same company)."
             />
           </div>
           <DialogFooter>
@@ -1596,6 +1690,7 @@ function ManageColumnsDialog({
 
 function ContractsTable({
   contracts,
+  contactDirectory,
   loading,
   sortCol,
   sortOrder,
@@ -1611,14 +1706,19 @@ function ContractsTable({
   onOpenSupplier,
   onLinkDocument,
   onEdit,
+  onSendRenewalEmail,
+  onOpenContractAccounts,
+  onOpenPrimaryContactSetup,
   onNotes,
   totalEstIncomePerYear,
   totalEstTotalValue,
+  totalAnnualUsageFooter,
   showArchive,
   onRestore,
   tableClassName,
 }: {
   contracts: Contract[];
+  contactDirectory: Contact[];
   loading: boolean;
   sortCol: string;
   sortOrder: "asc" | "desc";
@@ -1634,9 +1734,13 @@ function ContractsTable({
   onOpenSupplier: (supplier: Contract["supplier"]) => void;
   onLinkDocument: (contract: Contract) => void;
   onEdit?: (c: Contract) => void;
+  onSendRenewalEmail?: (c: Contract) => void;
+  onOpenContractAccounts?: (c: Contract) => void;
+  onOpenPrimaryContactSetup?: (c: Contract) => void;
   onNotes: (c: Contract) => void;
   totalEstIncomePerYear: number;
   totalEstTotalValue: number;
+  totalAnnualUsageFooter: string;
   showArchive: boolean;
   onRestore?: (id: string) => void;
   tableClassName?: string;
@@ -1680,13 +1784,13 @@ function ContractsTable({
                       className="rounded"
                     />
                   </TableHead>
-                  <TableHead className="sticky left-[2.5rem] z-20 w-10 min-w-[2.5rem] bg-background border-r shadow-[1px_0_0_0_hsl(var(--border))]" />
+                  <TableHead className="sticky left-[2.5rem] z-20 w-[8rem] min-w-[8rem] bg-background border-r shadow-[1px_0_0_0_hsl(var(--border))]" />
                   {visibleCols.map((colId, colIndex) => (
                     <TableHead
                       key={colId}
                       className={`whitespace-nowrap text-center border-r ${showLightGrid ? "border-slate-300/80 dark:border-slate-500/70" : ""} ${
                         colIndex === 0
-                          ? "sticky left-[5rem] z-20 min-w-[120px] bg-background shadow-[1px_0_0_0_hsl(var(--border))]"
+                          ? "sticky left-[10.5rem] z-20 min-w-[120px] bg-background shadow-[1px_0_0_0_hsl(var(--border))]"
                           : ""
                       }`}
                     >
@@ -1707,18 +1811,29 @@ function ContractsTable({
               <TableBody>
                 {contracts.map((c) => {
                   const expired = isExpired(c);
+                  const needsDetail = !!c.needsContractDetail;
                   const company = c.customer?.company || c.customer?.name || "—";
                   const estIncome = calcEstIncomePerYear(c);
                   const estTotal = calcEstTotalValue(c);
                   const doc = c.documents?.find((d) => d.type === "CONTRACT") || c.documents?.[0];
+                  const stickyRowBg = expired
+                    ? "bg-slate-200 dark:bg-slate-700"
+                    : needsDetail
+                      ? "bg-amber-50/90 dark:bg-amber-950/30"
+                      : "bg-background";
+                  const rowHighlight = expired
+                    ? `bg-slate-200 dark:bg-slate-700 text-muted-foreground${needsDetail ? " border-l-4 border-l-amber-500" : ""}`
+                    : needsDetail
+                      ? "bg-amber-50/90 dark:bg-amber-950/30 ring-1 ring-inset ring-amber-200/80 dark:ring-amber-800/50"
+                      : "";
 
                   return (
                     <TableRow
                       id={`contract-row-${c.id}`}
                       key={c.id}
-                      className={`${expired ? "bg-slate-200 dark:bg-slate-700 text-muted-foreground" : ""} ${showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : ""}`}
+                      className={`${rowHighlight} ${showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : ""}`}
                     >
-                      <TableCell className={`sticky left-0 z-10 w-10 min-w-[2.5rem] border-r ${expired ? "bg-slate-200 dark:bg-slate-700" : "bg-background"} shadow-[1px_0_0_0_hsl(var(--border))]`}>
+                      <TableCell className={`sticky left-0 z-10 w-10 min-w-[2.5rem] border-r ${stickyRowBg} shadow-[1px_0_0_0_hsl(var(--border))]`}>
                         <input
                           type="checkbox"
                           checked={selectedIds.has(c.id)}
@@ -1726,40 +1841,84 @@ function ContractsTable({
                           className="rounded"
                         />
                       </TableCell>
-                      <TableCell className={`sticky left-[2.5rem] z-10 w-10 min-w-[2.5rem] border-r ${expired ? "bg-slate-200 dark:bg-slate-700" : "bg-background"} shadow-[1px_0_0_0_hsl(var(--border))]`}>
-                        {onEdit && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(c)} title="Edit contract">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
+                      <TableCell className={`sticky left-[2.5rem] z-10 w-[8rem] min-w-[8rem] border-r ${stickyRowBg} shadow-[1px_0_0_0_hsl(var(--border))]`}>
+                        <div className="flex items-center justify-center gap-0">
+                          {onEdit && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onEdit(c)} title="Edit contract">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {onSendRenewalEmail && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => onSendRenewalEmail(c)}
+                              title="Send renewal email"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {onOpenContractAccounts && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => onOpenContractAccounts(c)}
+                              title="Utility accounts for this contract"
+                            >
+                              <ClipboardList className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       {visibleCols.map((colId, colIndex) => (
                         <TableCell
                           key={colId}
                           className={`whitespace-nowrap border-r ${showLightGrid ? "border-slate-300/80 dark:border-slate-500/70" : ""} ${
                             colIndex === 0
-                              ? `text-left sticky left-[5rem] z-10 min-w-[120px] ${
-                                  expired ? "bg-slate-200 dark:bg-slate-700" : "bg-background"
-                                } shadow-[1px_0_0_0_hsl(var(--border))]`
+                              ? `text-left sticky left-[10.5rem] z-10 min-w-[120px] ${stickyRowBg} shadow-[1px_0_0_0_hsl(var(--border))]`
                               : "text-center"
                           }`}
                         >
                           {colId === "company" && <span className="font-medium">{company}</span>}
                           {colId === "startDate" && formatDate(c.startDate)}
                           {colId === "endDate" && formatDate(c.expirationDate)}
-                          {colId === "mainContact" && (
-                            c.mainContact ? (
-                              <button
-                                type="button"
-                                className="text-primary hover:underline"
-                                onClick={() => onOpenContact(c.mainContact!.id)}
-                              >
-                                {c.mainContact.name}
-                              </button>
-                            ) : (
-                              "—"
-                            )
-                          )}
+                          {colId === "mainContact" && (() => {
+                            const disp = displayMainContactForContract(c, contactDirectory);
+                            const promptKind = getPrimaryContactPromptKind(c, contactDirectory);
+                            const showPrimaryLink =
+                              onOpenPrimaryContactSetup &&
+                              (promptKind === "missing_primary" || promptKind === "no_customer_contacts");
+                            return (
+                              <div className="flex flex-col items-center gap-1">
+                                {disp && disp.id ? (
+                                  <button
+                                    type="button"
+                                    className="text-primary hover:underline"
+                                    onClick={() => onOpenContact(disp.id!)}
+                                  >
+                                    {disp.name}
+                                  </button>
+                                ) : disp ? (
+                                  <span>{disp.name}</span>
+                                ) : (
+                                  <span>—</span>
+                                )}
+                                {showPrimaryLink ? (
+                                  <button
+                                    type="button"
+                                    className="max-w-[10rem] text-[11px] leading-tight text-amber-800 underline dark:text-amber-200"
+                                    onClick={() => onOpenPrimaryContactSetup(c)}
+                                  >
+                                    {promptKind === "no_customer_contacts"
+                                      ? "Add primary contact…"
+                                      : "Set primary label…"}
+                                  </button>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
                           {colId === "supplier" && (
                             <button
                               type="button"
@@ -1810,10 +1969,10 @@ function ContractsTable({
                               size="icon"
                               className="relative h-8 w-8"
                               onClick={() => onNotes(c)}
-                              title={sharedCustomerNotes(c) ? "View/edit customer notes" : "Add customer note"}
+                              title={contractRowNotes(c) ? "View/edit contract notes" : "Add contract note"}
                             >
                               <StickyNote className="h-4 w-4" />
-                              {sharedCustomerNotes(c) && (
+                              {contractRowNotes(c) && (
                                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-background animate-pulse" title="Has note" />
                               )}
                             </Button>
@@ -1825,16 +1984,19 @@ function ContractsTable({
                 })}
                 <TableRow className={`bg-muted/30 font-medium ${showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : ""}`}>
                   <TableCell className="sticky left-0 z-10 w-10 min-w-[2.5rem] bg-muted/30 border-r shadow-[1px_0_0_0_hsl(var(--border))]" />
-                  <TableCell className="sticky left-[2.5rem] z-10 w-10 min-w-[2.5rem] bg-muted/30 border-r shadow-[1px_0_0_0_hsl(var(--border))]" />
+                  <TableCell className="sticky left-[2.5rem] z-10 w-[8rem] min-w-[8rem] bg-muted/30 border-r shadow-[1px_0_0_0_hsl(var(--border))]" />
                   {visibleCols.map((colId, colIndex) => (
                     <TableCell
                       key={colId}
                       className={
                         colIndex === 0
-                          ? `sticky left-[5rem] z-10 min-w-[120px] bg-muted/30 border-r ${showLightGrid ? "border-slate-300/80 dark:border-slate-500/70" : ""} shadow-[1px_0_0_0_hsl(var(--border))] text-left`
+                          ? `sticky left-[10.5rem] z-10 min-w-[120px] bg-muted/30 border-r ${showLightGrid ? "border-slate-300/80 dark:border-slate-500/70" : ""} shadow-[1px_0_0_0_hsl(var(--border))] text-left`
                           : `text-center border-r ${showLightGrid ? "border-slate-300/80 dark:border-slate-500/70" : ""}`
                       }
                     >
+                      {colId === "annualUsage" && (
+                        <span className="text-xs font-semibold tabular-nums">{totalAnnualUsageFooter}</span>
+                      )}
                       {colId === "estIncomePerYear" && formatCurrency(totalEstIncomePerYear)}
                       {colId === "estTotalValue" && formatCurrency(totalEstTotalValue)}
                       {colId === "company" && "Total"}
@@ -3195,8 +3357,8 @@ function AddContractDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Customer notes</Label>
-            <p className="text-xs text-muted-foreground -mt-1">Shared with the Customers page — one note for this company across all contracts.</p>
+            <Label>Contract notes</Label>
+            <p className="text-xs text-muted-foreground -mt-1">Stored on this contract only; other rows for the same company keep their own notes.</p>
             <textarea
               className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={form.notes}

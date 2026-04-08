@@ -47,6 +47,8 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DayAgendaDialog } from "@/components/schedule/day-agenda-dialog";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
+import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 
 type CalendarEventDto = {
@@ -251,7 +253,36 @@ type ContractRow = {
   customer?: { name: string };
   supplier?: { name: string };
   energyType?: string;
+  isRecentExpired?: boolean;
 };
+
+function startOfLocalDaySchedule(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function contractExpirationDateSchedule(c: ContractRow): Date | null {
+  const k = parseApiDateOnlyKey(c.expirationDate);
+  if (!k) return null;
+  return new Date(k + "T12:00:00");
+}
+
+function isContractExpiredSchedule(c: ContractRow): boolean {
+  const exp = contractExpirationDateSchedule(c);
+  if (!exp) return false;
+  return exp < startOfLocalDaySchedule(new Date());
+}
+
+function isPreviousCalendarMonthExpiredSchedule(c: ContractRow): boolean {
+  const exp = contractExpirationDateSchedule(c);
+  if (!exp) return false;
+  const today = startOfLocalDaySchedule(new Date());
+  if (exp >= today) return false;
+  const prevEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+  const prevStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  return exp >= prevStart && exp <= prevEnd;
+}
 
 type LicenseRow = {
   id: string;
@@ -311,6 +342,8 @@ export default function SchedulePage() {
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [yearDetailMonth, setYearDetailMonth] = useState<number | null>(null);
   const [contractExpSearch, setContractExpSearch] = useState("");
+  const [showPrevMonthExpiredContracts, setShowPrevMonthExpiredContracts] = useState(false);
+  const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
   const [gotoDateInput, setGotoDateInput] = useState("");
   const [yearHighlightedMonth, setYearHighlightedMonth] = useState<number | null>(null);
   const [scheduleSearch, setScheduleSearch] = useState("");
@@ -526,7 +559,7 @@ export default function SchedulePage() {
     try {
       const [ovRes, cRes, lRes, coRes, tlRes] = await Promise.all([
         fetch(`/api/calendar/overview?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
-        fetch("/api/contracts?tab=active"),
+        fetch("/api/contracts?tab=active&sort=expirationDate&order=asc&mergeRecentExpiredDays=30"),
         fetch("/api/licenses"),
         fetch("/api/contacts?labelFilter=customer"),
         fetch("/api/task-lists"),
@@ -538,8 +571,14 @@ export default function SchedulePage() {
       const tlData = tlRes.ok ? await tlRes.json() : [];
       setEvents(Array.isArray(ov.events) ? ov.events : []);
       setScheduledTasks(Array.isArray(ov.tasks) ? ov.tasks : []);
-      setContracts(Array.isArray(cData) ? cData : []);
-      setContractOptions(Array.isArray(cData) ? cData : []);
+      const cRows = Array.isArray(cData)
+        ? cData.map((r) => ({
+            ...(r as ContractRow),
+            isRecentExpired: (r as { isRecentExpired?: boolean }).isRecentExpired === true,
+          }))
+        : [];
+      setContracts(cRows);
+      setContractOptions(cRows);
       setLicenses(Array.isArray(lData) ? lData : []);
       setContacts(Array.isArray(coJson.contacts) ? coJson.contacts : []);
       setTaskLists(Array.isArray(tlData) ? tlData.map((x: { id: string; name: string }) => ({ id: x.id, name: x.name })) : []);
@@ -672,33 +711,41 @@ export default function SchedulePage() {
 
   const contractsGroupedByMonthYearFiltered = useMemo(() => {
     const q = contractExpSearch.trim().toLowerCase();
-    if (!q) return contractsGroupedByMonthYear;
     const tokens = q.split(/\s+/).filter(Boolean);
+    const hidePrevMonth = !showPrevMonthExpiredContracts && !q;
     return contractsGroupedByMonthYear
       .map(([ym, group]) => {
-        const items = group.items.filter((c) => {
-          const exp = parseApiDateOnlyKey(c.expirationDate);
-          const expD = exp
-            ? new Date(exp + "T12:00:00").toLocaleDateString().toLowerCase()
-            : "";
-          const hay = [
-            c.customer?.name,
-            c.supplier?.name,
-            (c.energyType ?? "").replaceAll("_", " "),
-            exp,
-            expD,
-            group.label,
-            ym,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return tokens.every((t) => hay.includes(t));
-        });
+        let items = group.items;
+        if (hidePrevMonth) {
+          items = items.filter((c) => !isPreviousCalendarMonthExpiredSchedule(c));
+        }
+        if (tokens.length) {
+          items = items.filter((c) => {
+            const exp = parseApiDateOnlyKey(c.expirationDate);
+            const expD = exp
+              ? new Date(exp + "T12:00:00").toLocaleDateString().toLowerCase()
+              : "";
+            const hay = [
+              c.customer?.name,
+              c.supplier?.name,
+              (c.energyType ?? "").replaceAll("_", " "),
+              exp,
+              expD,
+              c.isRecentExpired ? "recent expired" : "",
+              isContractExpiredSchedule(c) ? "expired" : "",
+              group.label,
+              ym,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+            return tokens.every((t) => hay.includes(t));
+          });
+        }
         return [ym, { ...group, items }] as const;
       })
       .filter(([, g]) => g.items.length > 0);
-  }, [contractsGroupedByMonthYear, contractExpSearch]);
+  }, [contractsGroupedByMonthYear, contractExpSearch, showPrevMonthExpiredContracts]);
 
   const licensesGroupedByMonthYear = useMemo(() => {
     const sorted = [...licensesForSchedule].sort(
@@ -1078,10 +1125,18 @@ export default function SchedulePage() {
     }
   };
 
+  const scheduleResizeHandleClass =
+    "relative w-1.5 mx-0.5 rounded-sm bg-border/80 hover:bg-primary/40 data-[panel-group-direction=vertical]:h-1.5 data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:my-0.5 data-[panel-group-direction=vertical]:mx-0 outline-none";
+
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden p-4">
-      <div className="grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[1fr_minmax(280px,340px)] lg:items-stretch">
-        <Card className="border-border/50 shadow-md rounded-2xl bg-card/80 backdrop-blur-sm lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+      <PanelGroup
+        direction="horizontal"
+        autoSaveId="energia-schedule-main-split"
+        className="min-h-0 flex-1 w-full gap-0"
+      >
+        <Panel defaultSize={62} minSize={32} className="min-h-0 min-w-0 flex flex-col">
+          <Card className="border-border/50 shadow-md rounded-2xl bg-card/80 backdrop-blur-sm flex h-full min-h-0 flex-col overflow-hidden">
           <CardHeader className="shrink-0 space-y-3 border-b border-border/40 bg-muted/20 pb-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-3">
               <div className="flex shrink-0 items-center gap-2 text-primary md:hidden" aria-hidden>
@@ -1620,9 +1675,16 @@ export default function SchedulePage() {
             )}
           </CardContent>
         </Card>
-
-        <div className="flex min-h-0 flex-col gap-5 overflow-hidden lg:h-full lg:min-h-0">
-          <Card className="border-border/50 shadow-sm rounded-xl flex max-h-[min(70vh,520px)] flex-col overflow-hidden lg:max-h-none lg:min-h-0 lg:flex-1">
+        </Panel>
+        <PanelResizeHandle className={scheduleResizeHandleClass} />
+        <Panel defaultSize={38} minSize={22} className="min-h-0 min-w-0 flex flex-col">
+          <PanelGroup
+            direction="vertical"
+            autoSaveId="energia-schedule-right-stack"
+            className="flex min-h-0 flex-1 flex-col gap-0 w-full"
+          >
+            <Panel defaultSize={58} minSize={24} className="min-h-0 flex flex-col">
+              <Card className="border-border/50 shadow-sm rounded-xl flex h-full min-h-0 flex-col overflow-hidden">
             <CardHeader className="shrink-0 pb-2 border-b border-border/40 space-y-3">
               <div>
                 <h3 className="text-base font-semibold leading-none">Contract expirations</h3>
@@ -1638,6 +1700,20 @@ export default function SchedulePage() {
                   onChange={(e) => setContractExpSearch(e.target.value)}
                   aria-label="Filter contract expirations"
                 />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant={showPrevMonthExpiredContracts ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setShowPrevMonthExpiredContracts((v) => !v)}
+                >
+                  {showPrevMonthExpiredContracts ? "Hide" : "Show"} prior-month expired
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  Last 30 days of expired contracts included for search; marked as expired in the list.
+                </span>
               </div>
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-4 space-y-6 text-sm">
@@ -1655,14 +1731,27 @@ export default function SchedulePage() {
                       {group.items.map((c) => {
                         const exp = parseApiDateOnlyKey(c.expirationDate);
                         const expD = exp ? new Date(exp + "T12:00:00") : null;
+                        const expired = isContractExpiredSchedule(c) || c.isRecentExpired;
                         return (
                           <li
                             key={c.id}
-                            className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 transition-colors hover:bg-muted/35 space-y-2"
+                            className={cn(
+                              "rounded-lg border px-3 py-2 transition-colors hover:bg-muted/35 space-y-2",
+                              expired
+                                ? "border-dashed border-amber-700/50 bg-amber-50/60 dark:border-amber-500/40 dark:bg-amber-950/25"
+                                : "border-border/40 bg-muted/20"
+                            )}
                           >
-                            <p className="font-medium leading-snug">
-                              {c.customer?.name ?? "Customer"} → {c.supplier?.name ?? "Supplier"}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium leading-snug flex-1 min-w-0">
+                                {c.customer?.name ?? "Customer"} → {c.supplier?.name ?? "Supplier"}
+                              </p>
+                              {expired ? (
+                                <span className="text-[10px] font-semibold uppercase text-amber-900 dark:text-amber-200">
+                                  Expired
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="text-muted-foreground text-xs">
                               {(c.energyType ?? "").replaceAll("_", " ")} ·{" "}
                               {expD ? expD.toLocaleDateString() : "—"}
@@ -1679,6 +1768,15 @@ export default function SchedulePage() {
                                 }}
                               >
                                 Show on calendar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => setRenewalEmailContractId(c.id)}
+                              >
+                                Send email
                               </Button>
                               <Button
                                 variant="default"
@@ -1702,11 +1800,13 @@ export default function SchedulePage() {
               )}
             </CardContent>
           </Card>
-
-          <Card className="border-border/50 shadow-sm rounded-xl max-h-[min(50vh,420px)] shrink-0 flex flex-col overflow-hidden border-violet-200/60 dark:border-violet-900/40">
+            </Panel>
+            <PanelResizeHandle className={scheduleResizeHandleClass} />
+            <Panel defaultSize={42} minSize={20} className="min-h-0 flex flex-col">
+              <Card className="border-border/50 shadow-sm rounded-xl flex h-full min-h-0 flex-col overflow-hidden border-violet-200/60 dark:border-violet-900/40">
             <CardHeader className="pb-2 border-b border-border/40">
               <h3 className="text-base font-semibold leading-none text-violet-900 dark:text-violet-100">
-                License expirations
+                License Certification and Yearly Renewal Fees
               </h3>
               <CardDescription>All licenses, grouped by expiration. Also shown on the calendar (violet).</CardDescription>
             </CardHeader>
@@ -1753,8 +1853,10 @@ export default function SchedulePage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+            </Panel>
+          </PanelGroup>
+        </Panel>
+      </PanelGroup>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -2011,6 +2113,14 @@ export default function SchedulePage() {
         onOpenChange={(o) => {
           setContractModalOpen(o);
           if (!o) setContractModalId(null);
+        }}
+      />
+
+      <ContractRenewalEmailDialog
+        contractId={renewalEmailContractId}
+        open={renewalEmailContractId != null}
+        onOpenChange={(o) => {
+          if (!o) setRenewalEmailContractId(null);
         }}
       />
 

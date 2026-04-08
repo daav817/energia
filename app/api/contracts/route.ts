@@ -57,11 +57,37 @@ export async function GET(request: NextRequest) {
           ? { supplier: { name: order } }
           : ({ [validSort]: order } as Record<string, "asc" | "desc">);
 
-    const contracts = await prisma.contract.findMany({
+    let contracts = await prisma.contract.findMany({
       where,
       orderBy,
       include: contractInclude,
     });
+
+    const mergeDaysRaw = searchParams.get("mergeRecentExpiredDays");
+    const mergeDays = mergeDaysRaw ? Math.min(365, Math.max(0, parseInt(mergeDaysRaw, 10) || 0)) : 0;
+    if (tab === "active" && mergeDays > 0) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const windowStart = new Date(todayStart);
+      windowStart.setDate(windowStart.getDate() - mergeDays);
+
+      const recentExpired = await prisma.contract.findMany({
+        where: {
+          expirationDate: {
+            gte: windowStart,
+            lt: todayStart,
+          },
+        },
+        orderBy,
+        include: contractInclude,
+      });
+
+      const seen = new Set(contracts.map((c) => c.id));
+      const flagged = recentExpired
+        .filter((c) => !seen.has(c.id))
+        .map((c) => ({ ...c, isRecentExpired: true as const }));
+      contracts = [...contracts, ...flagged];
+    }
 
     return NextResponse.json(contracts);
   } catch (error) {
@@ -124,18 +150,11 @@ export async function POST(request: NextRequest) {
           signedContractDriveUrl != null && String(signedContractDriveUrl).trim() !== ""
             ? String(signedContractDriveUrl).trim()
             : null,
-        notes: null,
+        notes: notes != null && String(notes).trim() !== "" ? String(notes).trim() : null,
         status: "active",
       },
       include: contractInclude,
     });
-
-    if (notes != null && String(notes).trim() !== "") {
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: { notes: String(notes) },
-      });
-    }
 
     const withCustomer = await prisma.contract.findUnique({
       where: { id: contract.id },

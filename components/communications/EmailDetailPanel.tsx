@@ -784,7 +784,7 @@ export function EmailDetailPanel({
           </Tooltip>
         </div>
       </CardHeader>
-      <div className="flex flex-wrap gap-2 px-4 pb-2">
+      <div className="shrink-0 flex flex-wrap gap-2 px-4 pb-2">
         <Tooltip content="Reply to this email">
           <Button variant="outline" size="sm" onClick={() => onReply(email)}>
             <Reply className="h-4 w-4 mr-1" />

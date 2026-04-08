@@ -6,6 +6,7 @@ import { Bell, X, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
+import { DashboardToolbarSettings } from "@/components/dashboard/dashboard-toolbar-settings";
 
 const STORAGE_HIDDEN = "energia-reminders-bar-hidden";
 const STORAGE_EXPANDED = "energia-reminders-bar-expanded";
@@ -101,7 +102,17 @@ export function GlobalRemindersBar() {
     });
   };
 
-  if (!data) return null;
+  const settingsControl = (
+    <div className="flex h-9 shrink-0 items-center rounded-md border border-border/60 bg-card px-0.5 shadow-sm">
+      <DashboardToolbarSettings />
+    </div>
+  );
+
+  if (!data) {
+    return (
+      <div className="fixed top-2 right-2 z-[60] flex items-center gap-1">{settingsControl}</div>
+    );
+  }
 
   const total =
     (data.events?.length ?? 0) +
@@ -151,18 +162,21 @@ export function GlobalRemindersBar() {
   if (barHidden) {
     return (
       <>
-        <button
-          type="button"
-          className={cn(
-            "fixed top-2 right-2 z-[60] flex h-9 w-9 items-center justify-center rounded-full",
-            "border border-amber-300 bg-amber-50 text-amber-950 shadow-md",
-            "hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-50 dark:hover:bg-amber-900"
-          )}
-          onClick={showBar}
-          aria-label="Show reminders bar"
-        >
-          <Bell className="h-4 w-4" />
-        </button>
+        <div className="fixed top-2 right-2 z-[60] flex items-center gap-1">
+          {settingsControl}
+          <button
+            type="button"
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+              "border border-amber-300 bg-amber-50 text-amber-950 shadow-md",
+              "hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-50 dark:hover:bg-amber-900"
+            )}
+            onClick={showBar}
+            aria-label="Show reminders bar"
+          >
+            <Bell className="h-4 w-4" />
+          </button>
+        </div>
         {contractModal}
       </>
     );
@@ -214,6 +228,9 @@ export function GlobalRemindersBar() {
           >
             Schedule <ChevronRight className="h-3 w-3" />
           </Link>
+          <div className="shrink-0 rounded-md border border-amber-300/80 bg-amber-100/60 px-0.5 dark:border-amber-800/80 dark:bg-amber-900/40">
+            <DashboardToolbarSettings />
+          </div>
           <Button
             variant="ghost"
             size="icon"

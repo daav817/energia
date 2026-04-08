@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   Calculator,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  Loader2,
   Mail,
   RefreshCw,
   RotateCcw,
@@ -17,10 +19,12 @@ import {
   Table2,
   Upload,
   Trash2,
+  Archive,
   UserPlus,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +57,9 @@ import {
   pickDefaultSupplierContactId,
 } from "@/lib/supplier-rfp-contacts";
 import { normalizeCompanyKey } from "@/lib/customers-overview";
+import { cn } from "@/lib/utils";
+import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
+import { useUnsavedNavigationBlock } from "@/components/unsaved-navigation-guard";
 
 type EnergyType = "ELECTRIC" | "NATURAL_GAS";
 type EnergyChoice = "" | EnergyType;
@@ -99,7 +106,7 @@ type AccountLine = {
   avgMonthlyUsage: string;
 };
 
-type DrivePickerKind = "bill" | "summary" | "reference";
+type DrivePickerKind = "bill" | "summary";
 
 type DriveFileOption = {
   id: string;
@@ -142,6 +149,7 @@ type RecentRfp = {
   parentRfpId?: string | null;
   refreshSequence?: number;
   quoteSummarySentAt?: string | null;
+  archivedAt?: string | null;
   customer: { name: string; company: string | null } | null;
   customerContact?: {
     id: string;
@@ -152,6 +160,29 @@ type RecentRfp = {
   suppliers: Array<{ id: string; name: string }>;
   accountLines: Array<{ accountNumber: string; annualUsage: string; avgMonthlyUsage: string }>;
 };
+
+type CustomerContractRow = {
+  id: string;
+  energyType: string;
+  expirationDate: string;
+  isRecentExpired?: boolean;
+  customer: { id: string; name: string; company: string | null };
+  supplier: { name: string };
+};
+
+function contractExpirationKey(iso: string): string | null {
+  const s = String(iso).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
+function isPastContractExpiration(iso: string): boolean {
+  const k = contractExpirationKey(iso);
+  if (!k) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exp = new Date(`${k}T12:00:00`);
+  return exp < today;
+}
 
 function rfpListCustomerTitle(rfp: RecentRfp): string {
   const company = (
@@ -301,6 +332,66 @@ function mapDbTermsToCustomMonthsString(rt: unknown): string {
   return [...new Set(nums)].sort((a, b) => a - b).join(", ");
 }
 
+type RfpFormFingerprintInput = {
+  customerCompanyId: string;
+  customerContactId: string;
+  energyType: EnergyChoice;
+  selectedSupplierIds: string[];
+  selectedSupplierContactIds: Record<string, string>;
+  requestedTerms: RequestedTerm[];
+  customTermMonths: string;
+  contractStartValue: string;
+  quoteDueDate: string;
+  googleDriveFolderUrl: string;
+  summarySpreadsheetUrl: string;
+  ldcUtility: string;
+  brokerMargin: string;
+  brokerMarginUnit: PriceUnit;
+  notes: string;
+  accountLines: AccountLine[];
+  enrollment: RfpEnrollmentForm;
+  selectedBillDriveFileId: string;
+  selectedSummaryDriveFileId: string;
+  reissueParentRfpId: string | null;
+};
+
+function computeRfpFingerprint(input: RfpFormFingerprintInput): string {
+  const supplierIds = [...input.selectedSupplierIds].sort();
+  const contactIdsSorted = Object.keys(input.selectedSupplierContactIds).sort();
+  const contactPick: Record<string, string> = {};
+  for (const k of contactIdsSorted) {
+    contactPick[k] = input.selectedSupplierContactIds[k] ?? "";
+  }
+  const accounts = input.accountLines.map((line) => ({
+    accountNumber: line.accountNumber.trim(),
+    serviceAddress: (line.serviceAddress ?? "").trim(),
+    annualUsage: line.annualUsage.trim(),
+    avgMonthlyUsage: line.avgMonthlyUsage.trim(),
+  }));
+  return JSON.stringify({
+    customerCompanyId: input.customerCompanyId,
+    customerContactId: input.customerContactId,
+    energyType: input.energyType,
+    supplierIds,
+    supplierContactIds: contactPick,
+    requestedTerms: [...input.requestedTerms].sort(),
+    customTermMonths: input.customTermMonths.trim(),
+    contractStartValue: input.contractStartValue,
+    quoteDueDate: input.quoteDueDate,
+    googleDriveFolderUrl: input.googleDriveFolderUrl.trim(),
+    summarySpreadsheetUrl: input.summarySpreadsheetUrl.trim(),
+    ldcUtility: input.ldcUtility.trim(),
+    brokerMargin: input.brokerMargin.trim(),
+    brokerMarginUnit: input.brokerMarginUnit,
+    notes: input.notes.trim(),
+    accounts,
+    enrollment: input.enrollment,
+    selectedBillDriveFileId: input.selectedBillDriveFileId,
+    selectedSummaryDriveFileId: input.selectedSummaryDriveFileId,
+    reissueParentRfpId: input.reissueParentRfpId,
+  });
+}
+
 type LoadedRfpCustomerPayload = {
   customerId?: string | null;
   customerContactId?: string | null;
@@ -339,6 +430,101 @@ type LoadedRfpApiResponse = LoadedRfpCustomerPayload & {
   id?: string;
   suppliers?: Array<{ id: string }>;
 };
+
+function fingerprintFromLoadedRfp(data: LoadedRfpApiResponse, customerCompanyRowId: string): string {
+  const contactId =
+    data.customerContactId && String(data.customerContactId).trim()
+      ? String(data.customerContactId).trim()
+      : "";
+  const supIds = Array.isArray(data.suppliers) ? data.suppliers.map((s: { id: string }) => s.id) : [];
+  const selectionsRaw = data.supplierContactSelections;
+  const selections: Record<string, string> =
+    selectionsRaw && typeof selectionsRaw === "object" && !Array.isArray(selectionsRaw)
+      ? (selectionsRaw as Record<string, string>)
+      : {};
+  let enrollment: RfpEnrollmentForm = { ...EMPTY_RFP_ENROLLMENT };
+  if (
+    data.enrollmentDetails &&
+    typeof data.enrollmentDetails === "object" &&
+    !Array.isArray(data.enrollmentDetails)
+  ) {
+    const ed = data.enrollmentDetails as Record<string, string>;
+    enrollment = {
+      ...EMPTY_RFP_ENROLLMENT,
+      currentContractEndDate: ed.currentContractEndDate ?? "",
+      utilityCycleId: ed.utilityCycleId ?? "",
+      currentSupplier: ed.currentSupplier ?? "",
+      sdiAccountNumber: ed.sdiAccountNumber ?? "",
+      lastMeterReadDate: ed.lastMeterReadDate ?? "",
+      nextScheduledReadDate: ed.nextScheduledReadDate ?? "",
+      transitionType: ed.transitionType ?? "",
+    };
+  }
+  const emptyLine: AccountLine = {
+    id: "",
+    accountNumber: "",
+    serviceAddress: "",
+    annualUsage: "",
+    avgMonthlyUsage: "",
+  };
+  const lines =
+    Array.isArray(data.accountLines) && data.accountLines.length > 0
+      ? data.accountLines.map(
+          (line: {
+            accountNumber: string;
+            serviceAddress?: string | null;
+            annualUsage: unknown;
+            avgMonthlyUsage: unknown;
+          }) => ({
+            id: "loaded",
+            accountNumber: line.accountNumber ?? "",
+            serviceAddress: line.serviceAddress ?? "",
+            annualUsage: String(line.annualUsage ?? ""),
+            avgMonthlyUsage: String(line.avgMonthlyUsage ?? ""),
+          })
+        )
+      : [emptyLine];
+  const et: EnergyChoice =
+    data.energyType === "ELECTRIC" || data.energyType === "NATURAL_GAS" ? data.energyType : "";
+  const reissue =
+    data.status === "draft"
+      ? null
+      : data.id && String(data.id).trim()
+        ? String(data.id).trim()
+        : null;
+
+  return computeRfpFingerprint({
+    customerCompanyId: customerCompanyRowId,
+    customerContactId: contactId,
+    energyType: et,
+    selectedSupplierIds: supIds,
+    selectedSupplierContactIds: selections,
+    requestedTerms: mapDbTermsToRequestedTerms(data.requestedTerms),
+    customTermMonths: mapDbTermsToCustomMonthsString(data.requestedTerms),
+    contractStartValue:
+      data.contractStartYear && data.contractStartMonth
+        ? `${String(data.contractStartYear).padStart(4, "0")}-${String(data.contractStartMonth).padStart(2, "0")}`
+        : "",
+    quoteDueDate: data.quoteDueDate ? String(data.quoteDueDate).slice(0, 10) : "",
+    googleDriveFolderUrl: data.googleDriveFolderUrl || "",
+    summarySpreadsheetUrl: data.summarySpreadsheetUrl || "",
+    ldcUtility: data.ldcUtility || "",
+    brokerMargin: data.brokerMargin != null ? String(data.brokerMargin) : "",
+    brokerMarginUnit:
+      data.brokerMarginUnit === "KWH" ||
+      data.brokerMarginUnit === "MCF" ||
+      data.brokerMarginUnit === "CCF" ||
+      data.brokerMarginUnit === "DTH"
+        ? data.brokerMarginUnit
+        : "MCF",
+    notes: data.notes || "",
+    accountLines: lines,
+    enrollment,
+    selectedBillDriveFileId: "",
+    selectedSummaryDriveFileId: "",
+    reissueParentRfpId: reissue,
+  });
+}
 
 function normalizeCustomerCompaniesPayload(raw: unknown): CustomerCompanyOption[] {
   const arr = Array.isArray((raw as { companies?: unknown })?.companies)
@@ -386,10 +572,18 @@ function resolveSavedRfpCompanyRow(
 }
 
 export default function RfpGeneratorPage() {
+  const router = useRouter();
   const [customerCompanies, setCustomerCompanies] = useState<CustomerCompanyOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [recentRfqs, setRecentRfqs] = useState<RecentRfp[]>([]);
+  const [archivedRfqs, setArchivedRfqs] = useState<RecentRfp[]>([]);
   const [loading, setLoading] = useState(true);
+  const [baselineFingerprint, setBaselineFingerprint] = useState<string | null>(null);
+  const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
+  const [customerContractsReminder, setCustomerContractsReminder] = useState<CustomerContractRow[]>([]);
+  const [customerContractsReminderLoading, setCustomerContractsReminderLoading] = useState(false);
+  const [refreshSupplierModalRfp, setRefreshSupplierModalRfp] = useState<RecentRfp | null>(null);
+  const [refreshSupplierSending, setRefreshSupplierSending] = useState(false);
 
   const [customerCompanyId, setCustomerCompanyId] = useState("");
   const [customerCompanySearch, setCustomerCompanySearch] = useState("");
@@ -810,6 +1004,114 @@ export default function RfpGeneratorPage() {
   const draftRfqs = useMemo(() => recentRfqs.filter((r) => r.status === "draft"), [recentRfqs]);
   const submittedRfqs = useMemo(() => recentRfqs.filter((r) => r.status !== "draft"), [recentRfqs]);
 
+  const rfpFormFingerprint = useMemo(
+    () =>
+      computeRfpFingerprint({
+        customerCompanyId,
+        customerContactId,
+        energyType,
+        selectedSupplierIds,
+        selectedSupplierContactIds,
+        requestedTerms,
+        customTermMonths,
+        contractStartValue,
+        quoteDueDate,
+        googleDriveFolderUrl,
+        summarySpreadsheetUrl,
+        ldcUtility,
+        brokerMargin,
+        brokerMarginUnit,
+        notes,
+        accountLines,
+        enrollment,
+        selectedBillDriveFileId,
+        selectedSummaryDriveFileId,
+        reissueParentRfpId,
+      }),
+    [
+      customerCompanyId,
+      customerContactId,
+      energyType,
+      selectedSupplierIds,
+      selectedSupplierContactIds,
+      requestedTerms,
+      customTermMonths,
+      contractStartValue,
+      quoteDueDate,
+      googleDriveFolderUrl,
+      summarySpreadsheetUrl,
+      ldcUtility,
+      brokerMargin,
+      brokerMarginUnit,
+      notes,
+      accountLines,
+      enrollment,
+      selectedBillDriveFileId,
+      selectedSummaryDriveFileId,
+      reissueParentRfpId,
+    ]
+  );
+
+  const isRfpDirty =
+    baselineFingerprint !== null && rfpFormFingerprint !== baselineFingerprint;
+
+  const rfpFormFingerprintRef = useRef(rfpFormFingerprint);
+  rfpFormFingerprintRef.current = rfpFormFingerprint;
+
+  useEffect(() => {
+    if (loading || baselineFingerprint !== null) return;
+    setBaselineFingerprint(rfpFormFingerprint);
+  }, [loading, baselineFingerprint, rfpFormFingerprint]);
+
+  useEffect(() => {
+    const warn = isRfpDirty;
+    if (!warn) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isRfpDirty]);
+
+  const confirmLeaveRfp = useCallback(() => {
+    clearLocalWipAndResetForm();
+  }, []);
+
+  useUnsavedNavigationBlock(
+    isRfpDirty,
+    "You have unsaved changes on this RFP. Leave without saving?",
+    confirmLeaveRfp
+  );
+
+  useEffect(() => {
+    const cid = resolvedCustomerIdForValidation?.trim();
+    if (!cid) {
+      setCustomerContractsReminder([]);
+      return;
+    }
+    let cancelled = false;
+    setCustomerContractsReminderLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch(
+          "/api/contracts?tab=active&mergeRecentExpiredDays=30&sort=expirationDate&order=asc"
+        );
+        const data = await res.json();
+        const list = (Array.isArray(data) ? data : []) as CustomerContractRow[];
+        const mine = list.filter((c) => c.customer?.id === cid);
+        if (!cancelled) setCustomerContractsReminder(mine);
+      } catch {
+        if (!cancelled) setCustomerContractsReminder([]);
+      } finally {
+        if (!cancelled) setCustomerContractsReminderLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedCustomerIdForValidation]);
+
   const contractStartMonth = contractStartValue ? Number.parseInt(contractStartValue.split("-")[1] || "", 10) : null;
   const contractStartYear = contractStartValue ? Number.parseInt(contractStartValue.split("-")[0] || "", 10) : null;
   const sortedDriveFiles = useMemo(() => {
@@ -864,20 +1166,14 @@ export default function RfpGeneratorPage() {
     return parts.length ? parts.join(", ") : "";
   }, [requestedTerms, customTermMonths]);
 
-  const hasExternalUsageSummary = Boolean(
-    summarySpreadsheetUrl.trim() || localSummaryFile
-  );
-  /** At least one account line has usage suitable for the email table (multi-account checklist). */
-  const hasAccountUsageDataForMultiChecklist = accountLines.some(
-    (line) =>
-      line.accountNumber.trim() &&
-      line.annualUsage.trim() &&
-      line.avgMonthlyUsage.trim()
-  );
   const usageSummaryWhenMultiChecklistOk =
-    accountLines.length === 1 ||
-    hasExternalUsageSummary ||
-    hasAccountUsageDataForMultiChecklist;
+    accountLines.length <= 1 ||
+    accountLines.every(
+      (line) =>
+        line.accountNumber.trim() &&
+        line.annualUsage.trim() &&
+        line.avgMonthlyUsage.trim()
+    );
 
   function dismissResultError() {
     setResult((current) => {
@@ -890,15 +1186,17 @@ export default function RfpGeneratorPage() {
   async function loadPageData() {
     setLoading(true);
     try {
-      const [customersRes, suppliersRes, rfpRes] = await Promise.all([
+      const [customersRes, suppliersRes, rfpRes, archivedRes] = await Promise.all([
         fetch("/api/contacts/customer-companies"),
         fetch("/api/suppliers?contacts=1&filter=all"),
         fetch("/api/rfp"),
+        fetch("/api/rfp?archivedOnly=1"),
       ]);
-      const [customersData, suppliersData, rfpData] = await Promise.all([
+      const [customersData, suppliersData, rfpData, archivedData] = await Promise.all([
         customersRes.json(),
         suppliersRes.json(),
         rfpRes.json(),
+        archivedRes.json().catch(() => []),
       ]);
 
       const companyOptions = (Array.isArray(customersData?.companies) ? customersData.companies : []).filter(
@@ -910,6 +1208,7 @@ export default function RfpGeneratorPage() {
       setCustomerCompanies(companyOptions);
       setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
       setRecentRfqs(Array.isArray(rfpData) ? rfpData.slice(0, 40) : []);
+      setArchivedRfqs(Array.isArray(archivedData) ? archivedData.slice(0, 60) : []);
       return companyOptions as CustomerCompanyOption[];
     } finally {
       setLoading(false);
@@ -1092,6 +1391,38 @@ export default function RfpGeneratorPage() {
     setResult(null);
     setRfpTestEmailOk(false);
     setTestEmailFoundId(null);
+    setBaselineFingerprint(
+      computeRfpFingerprint({
+        customerCompanyId: "",
+        customerContactId: "",
+        energyType: "",
+        selectedSupplierIds: [],
+        selectedSupplierContactIds: {},
+        requestedTerms: ["12", "24", "36"],
+        customTermMonths: "",
+        contractStartValue: "",
+        quoteDueDate: "",
+        googleDriveFolderUrl: "",
+        summarySpreadsheetUrl: "",
+        ldcUtility: "",
+        brokerMargin: "",
+        brokerMarginUnit: "MCF",
+        notes: "",
+        accountLines: [
+          {
+            id: "",
+            accountNumber: "",
+            serviceAddress: "",
+            annualUsage: "",
+            avgMonthlyUsage: "",
+          },
+        ],
+        enrollment: { ...EMPTY_RFP_ENROLLMENT },
+        selectedBillDriveFileId: "",
+        selectedSummaryDriveFileId: "",
+        reissueParentRfpId: null,
+      })
+    );
   }
 
   async function saveDraftToServer() {
@@ -1142,6 +1473,30 @@ export default function RfpGeneratorPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save draft");
       setActiveDraftId(data.id);
+      setBaselineFingerprint(
+        computeRfpFingerprint({
+          customerCompanyId,
+          customerContactId,
+          energyType,
+          selectedSupplierIds,
+          selectedSupplierContactIds,
+          requestedTerms,
+          customTermMonths,
+          contractStartValue,
+          quoteDueDate,
+          googleDriveFolderUrl,
+          summarySpreadsheetUrl,
+          ldcUtility,
+          brokerMargin,
+          brokerMarginUnit,
+          notes,
+          accountLines,
+          enrollment,
+          selectedBillDriveFileId,
+          selectedSummaryDriveFileId,
+          reissueParentRfpId,
+        })
+      );
       await loadPageData();
       setDraftNotice("RFP saved. Open it anytime under Recent RFPs → Unsubmitted.");
       window.setTimeout(() => setDraftNotice(null), 6000);
@@ -1280,6 +1635,8 @@ export default function RfpGeneratorPage() {
         setActiveDraftId(null);
         setReissueParentRfpId(typeof data.id === "string" ? data.id : null);
       }
+      const loadedCompanyRowId = companyRow?.id ?? "";
+      setBaselineFingerprint(fingerprintFromLoadedRfp(data, loadedCompanyRowId));
     } catch (error) {
       suppressContactCompanySyncRef.current = false;
       setResult({ error: error instanceof Error ? error.message : "Failed to load RFP" });
@@ -1411,8 +1768,11 @@ export default function RfpGeneratorPage() {
       setResult({ success: true, sentTo: data.sentTo });
       skipNextWipPersist.current = true;
       localStorage.removeItem(RFP_WIP_STORAGE_KEY);
-      setActiveDraftId(null);
-      setReissueParentRfpId(null);
+      flushSync(() => {
+        setActiveDraftId(null);
+        setReissueParentRfpId(null);
+      });
+      setBaselineFingerprint(rfpFormFingerprintRef.current);
       await loadPageData();
     } catch (error) {
       setResult({ error: error instanceof Error ? error.message : "Failed to send RFP" });
@@ -1508,12 +1868,6 @@ export default function RfpGeneratorPage() {
     if (file.isFolder) {
       setDrivePickerQuery("");
       void loadDriveFiles(drivePickerKind, { query: "", folderId: file.id });
-      return;
-    }
-    if (drivePickerKind === "reference") {
-      if (file.webViewLink && typeof window !== "undefined") {
-        window.open(file.webViewLink, "_blank", "noopener,noreferrer");
-      }
       return;
     }
     if (drivePickerKind === "bill") {
@@ -1661,36 +2015,23 @@ export default function RfpGeneratorPage() {
       <div className="sticky top-0 z-40 -mx-1 border-b border-border/80 bg-background/95 px-2 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:px-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="shrink-0 text-lg font-bold tracking-tight sm:text-xl">RFP workspace</h1>
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setResetConfirmOpen(true)}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
               Reset
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant={isRfpDirty ? "default" : "outline"}
               size="sm"
               disabled={savingDraft}
               onClick={() => void saveDraftToServer()}
+              className={cn(isRfpDirty && "shadow-sm ring-2 ring-primary/30")}
             >
               {savingDraft ? "Saving…" : "Save RFP"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setAttachContactCustomerId(null);
-                setCustomerDraft({
-                  ...emptyCustomerDraft,
-                  contactLabel: defaultCustomerContactLabels(energyType),
-                });
-                setCustomerDialogOpen(true);
-              }}
-            >
-              <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-              Add customer
-            </Button>
+          </div>
+          <div className="flex min-w-0 w-full flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto sm:flex-1">
             <Button type="button" variant="outline" size="sm" onClick={handlePreview} disabled={previewLoading}>
               <Mail className="mr-1.5 h-3.5 w-3.5" />
               {previewLoading ? "Preview…" : "Preview email"}
@@ -1756,7 +2097,26 @@ export default function RfpGeneratorPage() {
                 </div>
                 <div className="grid min-w-0 gap-4 md:grid-cols-2">
                   <div className="grid min-w-0 gap-2">
-                    <Label>Customer Company *</Label>
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <Label className="shrink-0">Customer Company *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setAttachContactCustomerId(null);
+                          setCustomerDraft({
+                            ...emptyCustomerDraft,
+                            contactLabel: defaultCustomerContactLabels(energyType),
+                          });
+                          setCustomerDialogOpen(true);
+                        }}
+                      >
+                        <UserPlus className="mr-1 h-3.5 w-3.5" />
+                        Add customer
+                      </Button>
+                    </div>
                     <div className="relative">
                       <Input
                         ref={customerCompanyInputRef}
@@ -1860,6 +2220,69 @@ export default function RfpGeneratorPage() {
                   </Button>
                 </div>
               )}
+
+              {resolvedCustomerIdForValidation ? (
+                <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold">Customer contract expirations</p>
+                    <p className="text-xs text-muted-foreground">
+                      Active and recently lapsed agreements for this customer (includes the last 30 days). Renewal
+                      emails can pull account lines from saved RFP history.
+                    </p>
+                  </div>
+                  {customerContractsReminderLoading ? (
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                      Loading contracts…
+                    </p>
+                  ) : customerContractsReminder.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No matching contracts for this customer.</p>
+                  ) : (
+                    <ul className="max-h-64 space-y-2 overflow-y-auto pr-0.5">
+                      {customerContractsReminder.map((c) => {
+                        const expK = contractExpirationKey(c.expirationDate);
+                        const expD = expK ? new Date(`${expK}T12:00:00`) : null;
+                        const expired = isPastContractExpiration(c.expirationDate) || Boolean(c.isRecentExpired);
+                        return (
+                          <li
+                            key={c.id}
+                            className={cn(
+                              "space-y-2 rounded-md border px-3 py-2 text-sm",
+                              expired
+                                ? "border-dashed border-amber-700/50 bg-amber-50/60 dark:border-amber-500/40 dark:bg-amber-950/25"
+                                : "border-border/40 bg-background"
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="min-w-0 flex-1 font-medium">
+                                {c.customer?.name ?? "Customer"} → {c.supplier?.name ?? "Supplier"}
+                              </span>
+                              {expired ? (
+                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                                  Expired
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {(c.energyType ?? "").replaceAll("_", " ")} ·{" "}
+                              {expD ? expD.toLocaleDateString() : "—"}
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="h-8 text-xs"
+                              onClick={() => setRenewalEmailContractId(c.id)}
+                            >
+                              Send email
+                            </Button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
 
               <div className="grid gap-4 md:grid-cols-1">
                 <div className="grid gap-2">
@@ -2327,72 +2750,10 @@ export default function RfpGeneratorPage() {
                     <Table2 className="mr-2 h-4 w-4" />
                     Table for email
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => openDrivePicker("reference")}>
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    Browse Google Drive
-                  </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg border bg-muted/25 p-4 space-y-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Usage summary (optional)</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    For supplier emails you can either paste a Drive link to a usage spreadsheet (the email will show
-                    only that link for usage—no table), or leave this blank and use the account lines below—those
-                    fields build the usage table in the email.
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Usage summary link or local file</Label>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="relative min-w-[12rem] flex-1">
-                      <Input
-                        value={summarySpreadsheetUrl}
-                        onChange={(e) => {
-                          setSummarySpreadsheetUrl(e.target.value);
-                          setSelectedSummaryDriveFileId("");
-                          if (e.target.value) setLocalSummaryFile(null);
-                        }}
-                        placeholder="https://drive.google.com/... (optional)"
-                        className={summarySpreadsheetUrl ? "pr-10" : undefined}
-                      />
-                      {summarySpreadsheetUrl ? (
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          onClick={() => {
-                            setSummarySpreadsheetUrl("");
-                            setSelectedSummaryDriveFileId("");
-                          }}
-                          aria-label="Clear usage summary link"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => openDrivePicker("summary")}>
-                      <FolderOpen className="mr-2 h-4 w-4" />
-                      Browse
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!summarySpreadsheetUrl && !localSummaryFile}
-                      onClick={() => openSelectedDocument("summary")}
-                    >
-                      View
-                    </Button>
-                  </div>
-                  {localSummaryFile && (
-                    <p className="text-xs text-muted-foreground">
-                      Local file selected: {localSummaryFile.name}
-                    </p>
-                  )}
-                </div>
-              </div>
-
               {accountLines.map((line, index) => (
                 <div key={line.id} className="rounded-lg border p-4 space-y-4">
                   <div className="flex items-center justify-between gap-2">
@@ -2576,7 +2937,7 @@ export default function RfpGeneratorPage() {
                 Utility account lines completed
               </ChecklistItem>
               <ChecklistItem checked={usageSummaryWhenMultiChecklistOk}>
-                Usage summary when multiple accounts exist (link/file or account usage filled)
+                Multiple accounts: every line has account # and usage
               </ChecklistItem>
               <ChecklistItem checked={rfpTestEmailOk}>Test RFP email sent successfully</ChecklistItem>
             </CardContent>
@@ -2641,7 +3002,9 @@ export default function RfpGeneratorPage() {
                 <div>
                   <h3 className="text-sm font-semibold">Submitted</h3>
                   <p className="text-xs text-muted-foreground">
-                    Supplier emails sent. Re-issue starts a new row and counts as a refresh.
+                    Active supplier outreach. <span className="font-medium">Edit as re-issue</span> copies this RFP into
+                    the form as a new send. <span className="font-medium">Supplier email refresh</span> resends the
+                    same supplier email with an &quot;RFP Refresh&quot; subject line.
                   </p>
                 </div>
                 {submittedRfqs.length === 0 && (
@@ -2675,57 +3038,155 @@ export default function RfpGeneratorPage() {
                       Accounts: {rfp.accountLines.length} · Utility: {rfp.ldcUtility || "—"}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void loadSavedRfpIntoForm(rfp.id)}
-                    >
-                      Refresh / re-issue
-                    </Button>
-                    <Link
-                      href={`/quotes?rfpRequestId=${rfp.id}`}
-                      className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium"
-                    >
-                      Review quotes
-                    </Link>
-                    {rfp.status !== "completed" && rfp.status !== "cancelled" && (
-                      <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void loadSavedRfpIntoForm(rfp.id)}
+                      >
+                        Edit as re-issue
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setRefreshSupplierModalRfp(rfp)}
+                      >
+                        <RefreshCw className="mr-1 h-4 w-4 shrink-0" />
+                        Supplier email refresh
+                      </Button>
+                      <Link
+                        href={`/quotes?rfpRequestId=${rfp.id}`}
+                        className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium"
+                      >
+                        Review quotes
+                      </Link>
+                      {rfp.status !== "completed" && rfp.status !== "cancelled" && (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={async () => {
+                              await fetch(`/api/rfp/${rfp.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: "completed" }),
+                              });
+                              await loadPageData();
+                            }}
+                          >
+                            Close out (no contract)
+                          </Button>
+                          <Button type="button" size="sm" asChild>
+                            <Link href={`/directory/contracts?newFromRfp=${rfp.id}`}>Close out → new contract</Link>
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const res = await fetch(`/api/rfp/${rfp.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ archive: true }),
+                          });
+                          const data = (await res.json().catch(() => ({}))) as {
+                            createdContractId?: string | null;
+                            archiveSkippedContractReason?: string | null;
+                            error?: string;
+                          };
+                          await loadPageData();
+                          if (!res.ok) {
+                            window.alert(data.error || "Could not archive this RFP.");
+                            return;
+                          }
+                          if (data.createdContractId) {
+                            const go = window.confirm(
+                              "A draft contract was added to the Contracts directory (highlighted until you enter executed terms). Open it now to complete supplier, dates, and rate from the counter-signed agreement?"
+                            );
+                            if (go) {
+                              router.push(`/directory/contracts?contractId=${encodeURIComponent(data.createdContractId)}`);
+                            }
+                          } else if (data.archiveSkippedContractReason) {
+                            window.alert(data.archiveSkippedContractReason);
+                          }
+                        }}
+                      >
+                        <Archive className="mr-1 h-4 w-4 shrink-0" />
+                        Archive
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                        onClick={() =>
+                          setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
+                        }
+                      >
+                        <Trash2 className="mr-1 h-4 w-4 shrink-0" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </section>
+
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Archived</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Historical RFPs removed from the active list. Open one to review details when preparing a new contract
+                    cycle.
+                  </p>
+                </div>
+                {archivedRfqs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No archived RFPs yet.</p>
+                ) : (
+                  archivedRfqs.map((rfp) => (
+                    <div key={rfp.id} className="rounded-lg border border-dashed p-4 opacity-90">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · {rfp.status}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {rfp.quoteDueDate ? new Date(rfp.quoteDueDate).toLocaleDateString() : "No due date"}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <Button
                           type="button"
                           size="sm"
                           variant="secondary"
+                          onClick={() => void loadSavedRfpIntoForm(rfp.id)}
+                        >
+                          Open in form
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
                           onClick={async () => {
                             await fetch(`/api/rfp/${rfp.id}`, {
                               method: "PATCH",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ status: "completed" }),
+                              body: JSON.stringify({ archive: false }),
                             });
                             await loadPageData();
                           }}
                         >
-                          Close out (no contract)
+                          Unarchive
                         </Button>
-                        <Button type="button" size="sm" asChild>
-                          <Link href={`/directory/contracts?newFromRfp=${rfp.id}`}>Close out → new contract</Link>
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() =>
-                        setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
-                      }
-                    >
-                      <Trash2 className="mr-1 h-4 w-4 shrink-0" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                      </div>
+                    </div>
+                  ))
+                )}
               </section>
             </CardContent>
           </Card>
@@ -2920,23 +3381,94 @@ export default function RfpGeneratorPage() {
         }}
       />
 
+      <Dialog
+        open={refreshSupplierModalRfp != null}
+        onOpenChange={(o) => {
+          if (!o && !refreshSupplierSending) setRefreshSupplierModalRfp(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Refresh supplier pricing emails</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This resends the stored RFP email to each supplier on{" "}
+            <span className="font-medium text-foreground">
+              {refreshSupplierModalRfp ? rfpListCustomerTitle(refreshSupplierModalRfp) : ""}
+            </span>
+            . The subject line is prefixed with{" "}
+            <span className="font-medium text-foreground">RFP Refresh</span> so recipients can distinguish follow-up
+            requests when earlier quotes have expired.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRefreshSupplierModalRfp(null)}
+              disabled={refreshSupplierSending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={refreshSupplierSending || !refreshSupplierModalRfp}
+              onClick={() => {
+                const rfp = refreshSupplierModalRfp;
+                if (!rfp) return;
+                void (async () => {
+                  setRefreshSupplierSending(true);
+                  setResult(null);
+                  try {
+                    const res = await fetch(`/api/rfp/${encodeURIComponent(rfp.id)}/refresh-suppliers`, {
+                      method: "POST",
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                      throw new Error(typeof data.error === "string" ? data.error : "Refresh failed");
+                    }
+                    setRefreshSupplierModalRfp(null);
+                    await loadPageData();
+                    const n = typeof data.sentTo === "number" ? data.sentTo : null;
+                    setDraftNotice(
+                      n != null ? `Supplier refresh emails sent to ${n} recipient(s).` : "Supplier refresh completed."
+                    );
+                    window.setTimeout(() => setDraftNotice(null), 8000);
+                  } catch (e) {
+                    setResult({ error: e instanceof Error ? e.message : "Refresh failed" });
+                  } finally {
+                    setRefreshSupplierSending(false);
+                  }
+                })();
+              }}
+            >
+              {refreshSupplierSending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  Sending…
+                </>
+              ) : (
+                "Send refresh"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ContractRenewalEmailDialog
+        open={renewalEmailContractId != null}
+        onOpenChange={(o) => !o && setRenewalEmailContractId(null)}
+        contractId={renewalEmailContractId}
+      />
+
       <Dialog open={utilityTableModalOpen} onOpenChange={setUtilityTableModalOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Utility accounts (email preview)</DialogTitle>
           </DialogHeader>
-          {hasExternalUsageSummary ? (
-            <p className="text-sm text-muted-foreground">
-              A usage summary link or file is set—the supplier email uses that link for usage and does not include the
-              account table below. Add account rows if you still need numbers for margin totals on this page.
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              This table matches what suppliers see in the RFP email. Copy from here if needed.
-            </p>
-          )}
-          {!hasExternalUsageSummary ? (
-            <div className="overflow-x-auto rounded border">
+          <p className="text-sm text-muted-foreground">
+            This table matches what suppliers see in the RFP email. Copy from here if needed.
+          </p>
+          <div className="overflow-x-auto rounded border">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-left">
@@ -2958,7 +3490,6 @@ export default function RfpGeneratorPage() {
                 </tbody>
               </table>
             </div>
-          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -3078,9 +3609,7 @@ export default function RfpGeneratorPage() {
             <DialogTitle>
               {drivePickerKind === "bill"
                 ? "Select Bill PDF from Google Drive"
-                : drivePickerKind === "summary"
-                  ? "Select Usage Summary from Google Drive"
-                  : "Browse Google Drive"}
+                : "Select Usage Summary from Google Drive"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -3113,18 +3642,16 @@ export default function RfpGeneratorPage() {
               <Button type="button" variant="outline" onClick={() => void loadDriveFiles(drivePickerKind)}>
                 Search
               </Button>
-              {drivePickerKind !== "reference" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    (drivePickerKind === "bill" ? localBillInputRef : localSummaryInputRef).current?.click()
-                  }
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Local file
-                </Button>
-              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  (drivePickerKind === "bill" ? localBillInputRef : localSummaryInputRef).current?.click()
+                }
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Local file
+              </Button>
               <Select value={driveSort} onValueChange={(value) => setDriveSort(value as "name" | "modified" | "size")}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Sort by" />

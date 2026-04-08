@@ -389,6 +389,7 @@ export const ModelName = {
   SupplierContact: 'SupplierContact',
   Prospect: 'Prospect',
   Contract: 'Contract',
+  ContractAccount: 'ContractAccount',
   CommissionPayment: 'CommissionPayment',
   TaskList: 'TaskList',
   Task: 'Task',
@@ -420,7 +421,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "customer" | "supplier" | "supplierContact" | "prospect" | "contract" | "commissionPayment" | "taskList" | "task" | "document" | "calendarEvent" | "license" | "rfpRequest" | "rfpAccountLine" | "rfpQuote" | "contact" | "contactEmail" | "contactPhone" | "contactAddress" | "contactSignificantDate" | "contactRelatedPerson" | "email"
+    modelProps: "customer" | "supplier" | "supplierContact" | "prospect" | "contract" | "contractAccount" | "commissionPayment" | "taskList" | "task" | "document" | "calendarEvent" | "license" | "rfpRequest" | "rfpAccountLine" | "rfpQuote" | "contact" | "contactEmail" | "contactPhone" | "contactAddress" | "contactSignificantDate" | "contactRelatedPerson" | "email"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -791,6 +792,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ContractCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ContractCountAggregateOutputType> | number
+        }
+      }
+    }
+    ContractAccount: {
+      payload: Prisma.$ContractAccountPayload<ExtArgs>
+      fields: Prisma.ContractAccountFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ContractAccountFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ContractAccountFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>
+        }
+        findFirst: {
+          args: Prisma.ContractAccountFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ContractAccountFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>
+        }
+        findMany: {
+          args: Prisma.ContractAccountFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>[]
+        }
+        create: {
+          args: Prisma.ContractAccountCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>
+        }
+        createMany: {
+          args: Prisma.ContractAccountCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ContractAccountCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>[]
+        }
+        delete: {
+          args: Prisma.ContractAccountDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>
+        }
+        update: {
+          args: Prisma.ContractAccountUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>
+        }
+        deleteMany: {
+          args: Prisma.ContractAccountDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ContractAccountUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ContractAccountUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>[]
+        }
+        upsert: {
+          args: Prisma.ContractAccountUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractAccountPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractAccountAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractAccount>
+        }
+        groupBy: {
+          args: Prisma.ContractAccountGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractAccountGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ContractAccountCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractAccountCountAggregateOutputType> | number
         }
       }
     }
@@ -2115,11 +2190,29 @@ export const ContractScalarFieldEnum = {
   status: 'status',
   notes: 'notes',
   signedContractDriveUrl: 'signedContractDriveUrl',
+  renewalReminderSentAt: 'renewalReminderSentAt',
+  sourceRfpRequestId: 'sourceRfpRequestId',
+  needsContractDetail: 'needsContractDetail',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type ContractScalarFieldEnum = (typeof ContractScalarFieldEnum)[keyof typeof ContractScalarFieldEnum]
+
+
+export const ContractAccountScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  accountId: 'accountId',
+  serviceAddress: 'serviceAddress',
+  annualUsage: 'annualUsage',
+  avgMonthlyUsage: 'avgMonthlyUsage',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractAccountScalarFieldEnum = (typeof ContractAccountScalarFieldEnum)[keyof typeof ContractAccountScalarFieldEnum]
 
 
 export const CommissionPaymentScalarFieldEnum = {
@@ -2259,6 +2352,7 @@ export const RfpRequestScalarFieldEnum = {
   enrollmentDetails: 'enrollmentDetails',
   parentRfpId: 'parentRfpId',
   refreshSequence: 'refreshSequence',
+  archivedAt: 'archivedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -2759,6 +2853,7 @@ export type GlobalOmitConfig = {
   supplierContact?: Prisma.SupplierContactOmit
   prospect?: Prisma.ProspectOmit
   contract?: Prisma.ContractOmit
+  contractAccount?: Prisma.ContractAccountOmit
   commissionPayment?: Prisma.CommissionPaymentOmit
   taskList?: Prisma.TaskListOmit
   task?: Prisma.TaskOmit

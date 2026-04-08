@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { createContractFromArchivedRfp } from "@/lib/create-contract-from-archived-rfp";
 
 export async function GET(
   _request: NextRequest,
@@ -83,6 +84,12 @@ export async function PATCH(
       }
     }
 
+    if (body.archive === true) {
+      data.archivedAt = new Date();
+    } else if (body.archive === false) {
+      data.archivedAt = null;
+    }
+
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
@@ -104,7 +111,25 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(updated);
+    let createdContractId: string | null = null;
+    let archiveSkippedContractReason: string | null = null;
+    if (body.archive === true) {
+      if (!updated.customerId) {
+        archiveSkippedContractReason =
+          "No CRM customer is linked to this RFP, so no contract was auto-created. Link a customer and archive again, or add a contract manually.";
+      } else {
+        createdContractId = await createContractFromArchivedRfp(id);
+        if (!createdContractId) {
+          archiveSkippedContractReason = "Could not create a contract for this RFP.";
+        }
+      }
+    }
+
+    return NextResponse.json({
+      ...updated,
+      createdContractId,
+      archiveSkippedContractReason,
+    });
   } catch (error) {
     console.error("RFP request update error:", error);
     return NextResponse.json({ error: "Failed to update RFP request" }, { status: 500 });

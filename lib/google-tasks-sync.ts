@@ -27,11 +27,17 @@ function parseGoogleDue(due: string | null | undefined): {
 
 export async function pullGoogleTasksIntoDb(): Promise<{
   listsSynced: number;
+  /** New tasks created in the app (had no local row before). */
+  tasksImportedNew: number;
+  /** Existing local tasks updated from Google. */
+  tasksUpdated: number;
+  /** @deprecated use tasksImportedNew + tasksUpdated */
   tasksUpserted: number;
 }> {
   const client = await getTasksAuthorizedClient();
   let listsSynced = 0;
-  let tasksUpserted = 0;
+  let tasksImportedNew = 0;
+  let tasksUpdated = 0;
 
   const listRes = await client.tasklists.list({ maxResults: 100 });
   const googleLists = listRes.data.items ?? [];
@@ -110,6 +116,7 @@ export async function pullGoogleTasksIntoDb(): Promise<{
               taskListId: tl.id,
             },
           });
+          tasksUpdated++;
         } else {
           await prisma.task.create({
             data: {
@@ -125,14 +132,15 @@ export async function pullGoogleTasksIntoDb(): Promise<{
               googleTaskId,
             },
           });
+          tasksImportedNew++;
         }
-        tasksUpserted++;
       }
       pageToken = data.nextPageToken ?? undefined;
     } while (pageToken);
   }
 
-  return { listsSynced, tasksUpserted };
+  const tasksUpserted = tasksImportedNew + tasksUpdated;
+  return { listsSynced, tasksImportedNew, tasksUpdated, tasksUpserted };
 }
 
 export async function pushLocalTasksToGoogle(): Promise<{
