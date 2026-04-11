@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mergeContactsForSupplier } from "@/lib/supplier-rfp-contacts";
+import { materializeSuppliersFromLabeledContacts } from "@/lib/materialize-rfp-suppliers-from-contacts";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 type EnergyFilter = "electric" | "gas" | "both" | "all";
 
@@ -18,6 +21,7 @@ export async function GET(request: NextRequest) {
     const filter = (searchParams.get("filter") || "all") as EnergyFilter;
     const search = searchParams.get("search") || "";
     const withContacts = searchParams.get("contacts") === "1";
+    const materializeFromContacts = searchParams.get("materializeFromContacts") === "1";
 
     const where: Record<string, unknown> = buildWhere(filter);
     if (search) {
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const suppliers = await prisma.supplier.findMany({
+    let suppliers = await prisma.supplier.findMany({
       where,
       orderBy: { name: "asc" },
     });
@@ -36,30 +40,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(suppliers);
     }
 
-    const supplierIds = suppliers.map((s) => s.id);
-    const contactPool =
-      supplierIds.length === 0
-        ? []
-        : await prisma.contact.findMany({
-            where: {
-              OR: [
-                { supplierId: { in: supplierIds } },
-                { label: { contains: "supplier", mode: "insensitive" } },
-                { label: { contains: "vendor", mode: "insensitive" } },
-              ],
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              company: true,
-              supplierId: true,
-              label: true,
-              isPriority: true,
-              emails: { orderBy: { order: "asc" }, select: { email: true } },
-            },
-          });
+    const contactSelect = {
+      id: true,
+      name: true,
+      firstName: true,
+      email: true,
+      phone: true,
+      company: true,
+      supplierId: true,
+      label: true,
+      isPriority: true,
+      emails: { orderBy: { order: "asc" as const }, select: { email: true } },
+    };
+
+    const contactPoolWhere = {
+      OR: [
+        { supplierId: { not: null } },
+        { label: { contains: "supplier", mode: "insensitive" as const } },
+        { label: { contains: "vendor", mode: "insensitive" as const } },
+      ],
+    };
+
+    let contactPool = await prisma.contact.findMany({
+      where: contactPoolWhere,
+      select: contactSelect,
+    });
+
+    if (materializeFromContacts) {
+      await materializeSuppliersFromLabeledContacts(prisma, contactPool, suppliers);
+      suppliers = await prisma.supplier.findMany({
+        where,
+        orderBy: { name: "asc" },
+      });
+      contactPool = await prisma.contact.findMany({
+        where: contactPoolWhere,
+        select: contactSelect,
+      });
+    }
 
     const suppliersWithContacts = suppliers.map((supplier) => ({
       ...supplier,

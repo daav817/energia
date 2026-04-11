@@ -417,6 +417,10 @@ model RfpRequest {
   refreshSequence  Int        @default(0) @map("refresh_sequence")
   /// When set, hidden from default Recent RFPs lists (history / closed deals).
   archivedAt       DateTime?  @map("archived_at")
+  /// Snapshot of quote comparison picks/manual rows when archived (JSON). See `QuoteWorkspaceSnapshot` usage in app.
+  archivedQuoteWorkspace Json? @map("archived_quote_workspace")
+  /// Saved term → pick for quote comparison (keys: term months as string). See quotes workspace save/load.
+  quoteComparisonPicks Json? @map("quote_comparison_picks")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 

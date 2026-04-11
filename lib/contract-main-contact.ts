@@ -94,6 +94,29 @@ export function displayMainContactForContract(
   return resolveContractGridMainContact(contract, directory) ?? contract.mainContact ?? null;
 }
 
+/**
+ * Prefer directory row fields (e.g. firstName) when the display contact matches by id so salutations
+ * and merges use the same data as the Contacts directory.
+ */
+export function enrichContactLikeFromDirectory(
+  contact: ContactLike | null | undefined,
+  directory: ContactLike[]
+): ContactLike | null {
+  if (!contact) return null;
+  const id = contact.id?.trim();
+  if (!id) return contact;
+  const row = directory.find((d) => d.id === id);
+  if (!row) return contact;
+  return {
+    ...row,
+    ...contact,
+    id: contact.id,
+    firstName: row.firstName ?? contact.firstName ?? null,
+    lastName: row.lastName ?? contact.lastName ?? null,
+    name: (row.name || contact.name || "").trim() || contact.name,
+  };
+}
+
 /** Customer-tagged contacts for this contract’s customer (same rules as main-contact resolution). */
 export function customerContactCandidatesForContract(
   contract: ContractLikeForMainContact,

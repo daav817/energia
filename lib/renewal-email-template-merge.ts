@@ -1,4 +1,6 @@
 import type { BrokerProfile } from "@/lib/broker-profile";
+import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
+import { enrichContactLikeFromDirectory, type ContactLike } from "@/lib/contract-main-contact";
 
 export type RfpAccountLine = { accountNumber: string; serviceAddress?: string | null };
 
@@ -172,11 +174,21 @@ export function buildRenewalTemplateVariables(
   broker: BrokerProfile,
   accountLines: RfpAccountLine[],
   resolvedMainContact: RenewalContractShape["mainContact"],
-  contractAccountRows: ContractAccountTemplateRow[] = []
+  contractAccountRows: ContractAccountTemplateRow[] = [],
+  directory?: ContactLike[]
 ): Record<string, string> {
-  const end = new Date(c.expirationDate);
-  const start = new Date(c.startDate);
-  const main = resolvedMainContact ?? c.mainContact;
+  let main: RenewalContractShape["mainContact"] = resolvedMainContact ?? c.mainContact;
+  if (directory && main) {
+    const enriched = enrichContactLikeFromDirectory(main as ContactLike, directory);
+    if (enriched) {
+      main = {
+        ...main,
+        firstName: enriched.firstName ?? main.firstName ?? null,
+        lastName: enriched.lastName ?? main.lastName ?? null,
+        name: (enriched.name || main.name || "").trim() || main.name,
+      };
+    }
+  }
   const contactName = (main?.name ?? c.customer.name).trim();
   const greet = renewalGreetingFirstName(c, main);
   const mainEmail = main ? pickMainContactEmail(main) : "";
@@ -220,8 +232,8 @@ export function buildRenewalTemplateVariables(
     energyLabel: formatEnergyType(c.energyType),
     energyType: c.energyType,
     rateLabel: formatRate(c),
-    contractStartDate: start.toLocaleDateString(),
-    contractEndDate: end.toLocaleDateString(),
+    contractStartDate: formatLocaleDateFromStoredDay(c.startDate),
+    contractEndDate: formatLocaleDateFromStoredDay(c.expirationDate),
     termMonths: c.termMonths != null ? String(c.termMonths) : "",
     customerUtility: c.customerUtility ?? "",
     annualUsage: annual,

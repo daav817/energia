@@ -131,6 +131,8 @@ export type RfpRequestCountAggregateOutputType = {
   parentRfpId: number
   refreshSequence: number
   archivedAt: number
+  archivedQuoteWorkspace: number
+  quoteComparisonPicks: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -242,6 +244,8 @@ export type RfpRequestCountAggregateInputType = {
   parentRfpId?: true
   refreshSequence?: true
   archivedAt?: true
+  archivedQuoteWorkspace?: true
+  quoteComparisonPicks?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -362,6 +366,8 @@ export type RfpRequestGroupByOutputType = {
   parentRfpId: string | null
   refreshSequence: number
   archivedAt: Date | null
+  archivedQuoteWorkspace: runtime.JsonValue | null
+  quoteComparisonPicks: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: RfpRequestCountAggregateOutputType | null
@@ -418,6 +424,8 @@ export type RfpRequestWhereInput = {
   parentRfpId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   refreshSequence?: Prisma.IntFilter<"RfpRequest"> | number
   archivedAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
+  archivedQuoteWorkspace?: Prisma.JsonNullableFilter<"RfpRequest">
+  quoteComparisonPicks?: Prisma.JsonNullableFilter<"RfpRequest">
   createdAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerNullableScalarRelationFilter, Prisma.CustomerWhereInput> | null
@@ -459,6 +467,8 @@ export type RfpRequestOrderByWithRelationInput = {
   parentRfpId?: Prisma.SortOrderInput | Prisma.SortOrder
   refreshSequence?: Prisma.SortOrder
   archivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  archivedQuoteWorkspace?: Prisma.SortOrderInput | Prisma.SortOrder
+  quoteComparisonPicks?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   customer?: Prisma.CustomerOrderByWithRelationInput
@@ -503,6 +513,8 @@ export type RfpRequestWhereUniqueInput = Prisma.AtLeast<{
   parentRfpId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   refreshSequence?: Prisma.IntFilter<"RfpRequest"> | number
   archivedAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
+  archivedQuoteWorkspace?: Prisma.JsonNullableFilter<"RfpRequest">
+  quoteComparisonPicks?: Prisma.JsonNullableFilter<"RfpRequest">
   createdAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerNullableScalarRelationFilter, Prisma.CustomerWhereInput> | null
@@ -544,6 +556,8 @@ export type RfpRequestOrderByWithAggregationInput = {
   parentRfpId?: Prisma.SortOrderInput | Prisma.SortOrder
   refreshSequence?: Prisma.SortOrder
   archivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  archivedQuoteWorkspace?: Prisma.SortOrderInput | Prisma.SortOrder
+  quoteComparisonPicks?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.RfpRequestCountOrderByAggregateInput
@@ -585,6 +599,8 @@ export type RfpRequestScalarWhereWithAggregatesInput = {
   parentRfpId?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
   refreshSequence?: Prisma.IntWithAggregatesFilter<"RfpRequest"> | number
   archivedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RfpRequest"> | Date | string | null
+  archivedQuoteWorkspace?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
+  quoteComparisonPicks?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"RfpRequest"> | Date | string
 }
@@ -615,6 +631,8 @@ export type RfpRequestCreateInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -656,6 +674,8 @@ export type RfpRequestUncheckedCreateInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -691,6 +711,8 @@ export type RfpRequestUpdateInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -732,6 +754,8 @@ export type RfpRequestUncheckedUpdateInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -770,6 +794,8 @@ export type RfpRequestCreateManyInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -800,6 +826,8 @@ export type RfpRequestUpdateManyMutationInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -833,6 +861,8 @@ export type RfpRequestUncheckedUpdateManyInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -889,6 +919,8 @@ export type RfpRequestCountOrderByAggregateInput = {
   parentRfpId?: Prisma.SortOrder
   refreshSequence?: Prisma.SortOrder
   archivedAt?: Prisma.SortOrder
+  archivedQuoteWorkspace?: Prisma.SortOrder
+  quoteComparisonPicks?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -1239,6 +1271,8 @@ export type RfpRequestCreateWithoutCustomerInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
@@ -1278,6 +1312,8 @@ export type RfpRequestUncheckedCreateWithoutCustomerInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -1345,6 +1381,8 @@ export type RfpRequestScalarWhereInput = {
   parentRfpId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   refreshSequence?: Prisma.IntFilter<"RfpRequest"> | number
   archivedAt?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
+  archivedQuoteWorkspace?: Prisma.JsonNullableFilter<"RfpRequest">
+  quoteComparisonPicks?: Prisma.JsonNullableFilter<"RfpRequest">
   createdAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RfpRequest"> | Date | string
 }
@@ -1375,6 +1413,8 @@ export type RfpRequestCreateWithoutSuppliersInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -1415,6 +1455,8 @@ export type RfpRequestUncheckedCreateWithoutSuppliersInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -1470,6 +1512,8 @@ export type RfpRequestCreateWithoutCalendarEventsInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -1510,6 +1554,8 @@ export type RfpRequestUncheckedCreateWithoutCalendarEventsInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -1560,6 +1606,8 @@ export type RfpRequestUpdateWithoutCalendarEventsInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -1600,6 +1648,8 @@ export type RfpRequestUncheckedUpdateWithoutCalendarEventsInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -1634,6 +1684,8 @@ export type RfpRequestCreateWithoutChildReissuesInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -1674,6 +1726,8 @@ export type RfpRequestUncheckedCreateWithoutChildReissuesInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
@@ -1713,6 +1767,8 @@ export type RfpRequestCreateWithoutParentRfpInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -1752,6 +1808,8 @@ export type RfpRequestUncheckedCreateWithoutParentRfpInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -1808,6 +1866,8 @@ export type RfpRequestUpdateWithoutChildReissuesInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -1848,6 +1908,8 @@ export type RfpRequestUncheckedUpdateWithoutChildReissuesInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
@@ -1898,6 +1960,8 @@ export type RfpRequestCreateWithoutAccountLinesInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -1938,6 +2002,8 @@ export type RfpRequestUncheckedCreateWithoutAccountLinesInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -1988,6 +2054,8 @@ export type RfpRequestUpdateWithoutAccountLinesInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -2028,6 +2096,8 @@ export type RfpRequestUncheckedUpdateWithoutAccountLinesInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -2062,6 +2132,8 @@ export type RfpRequestCreateWithoutQuotesInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -2102,6 +2174,8 @@ export type RfpRequestUncheckedCreateWithoutQuotesInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -2152,6 +2226,8 @@ export type RfpRequestUpdateWithoutQuotesInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -2192,6 +2268,8 @@ export type RfpRequestUncheckedUpdateWithoutQuotesInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -2226,6 +2304,8 @@ export type RfpRequestCreateWithoutCustomerContactInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
@@ -2265,6 +2345,8 @@ export type RfpRequestUncheckedCreateWithoutCustomerContactInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
@@ -2328,6 +2410,8 @@ export type RfpRequestCreateManyCustomerInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2358,6 +2442,8 @@ export type RfpRequestUpdateWithoutCustomerInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
@@ -2397,6 +2483,8 @@ export type RfpRequestUncheckedUpdateWithoutCustomerInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -2434,6 +2522,8 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2464,6 +2554,8 @@ export type RfpRequestUpdateWithoutSuppliersInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -2504,6 +2596,8 @@ export type RfpRequestUncheckedUpdateWithoutSuppliersInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -2541,6 +2635,8 @@ export type RfpRequestUncheckedUpdateManyWithoutSuppliersInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2573,6 +2669,8 @@ export type RfpRequestCreateManyParentRfpInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2603,6 +2701,8 @@ export type RfpRequestUpdateWithoutParentRfpInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -2642,6 +2742,8 @@ export type RfpRequestUncheckedUpdateWithoutParentRfpInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -2679,6 +2781,8 @@ export type RfpRequestUncheckedUpdateManyWithoutParentRfpInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2711,6 +2815,8 @@ export type RfpRequestCreateManyCustomerContactInput = {
   parentRfpId?: string | null
   refreshSequence?: number
   archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2741,6 +2847,8 @@ export type RfpRequestUpdateWithoutCustomerContactInput = {
   enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
@@ -2780,6 +2888,8 @@ export type RfpRequestUncheckedUpdateWithoutCustomerContactInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
@@ -2817,6 +2927,8 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerContactInput = {
   parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
   archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2917,6 +3029,8 @@ export type RfpRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   parentRfpId?: boolean
   refreshSequence?: boolean
   archivedAt?: boolean
+  archivedQuoteWorkspace?: boolean
+  quoteComparisonPicks?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.RfpRequest$customerArgs<ExtArgs>
@@ -2959,6 +3073,8 @@ export type RfpRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   parentRfpId?: boolean
   refreshSequence?: boolean
   archivedAt?: boolean
+  archivedQuoteWorkspace?: boolean
+  quoteComparisonPicks?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.RfpRequest$customerArgs<ExtArgs>
@@ -2995,6 +3111,8 @@ export type RfpRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   parentRfpId?: boolean
   refreshSequence?: boolean
   archivedAt?: boolean
+  archivedQuoteWorkspace?: boolean
+  quoteComparisonPicks?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.RfpRequest$customerArgs<ExtArgs>
@@ -3031,11 +3149,13 @@ export type RfpRequestSelectScalar = {
   parentRfpId?: boolean
   refreshSequence?: boolean
   archivedAt?: boolean
+  archivedQuoteWorkspace?: boolean
+  quoteComparisonPicks?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "supplierContactSelections" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "quoteSummarySentAt" | "sentAt" | "status" | "notes" | "enrollmentDetails" | "parentRfpId" | "refreshSequence" | "archivedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
+export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "supplierContactSelections" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "quoteSummarySentAt" | "sentAt" | "status" | "notes" | "enrollmentDetails" | "parentRfpId" | "refreshSequence" | "archivedAt" | "archivedQuoteWorkspace" | "quoteComparisonPicks" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
 export type RfpRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.RfpRequest$customerArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
@@ -3123,6 +3243,14 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
      * When set, hidden from default Recent RFPs lists (history / closed deals).
      */
     archivedAt: Date | null
+    /**
+     * Snapshot of quote comparison picks/manual rows when archived (JSON). See `QuoteWorkspaceSnapshot` usage in app.
+     */
+    archivedQuoteWorkspace: runtime.JsonValue | null
+    /**
+     * Saved term → pick for quote comparison (keys: term months as string). See quotes workspace save/load.
+     */
+    quoteComparisonPicks: runtime.JsonValue | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["rfpRequest"]>
@@ -3584,6 +3712,8 @@ export interface RfpRequestFieldRefs {
   readonly parentRfpId: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly refreshSequence: Prisma.FieldRef<"RfpRequest", 'Int'>
   readonly archivedAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
+  readonly archivedQuoteWorkspace: Prisma.FieldRef<"RfpRequest", 'Json'>
+  readonly quoteComparisonPicks: Prisma.FieldRef<"RfpRequest", 'Json'>
   readonly createdAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"RfpRequest", 'DateTime'>
 }

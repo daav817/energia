@@ -20,11 +20,14 @@ import {
   StickyNote,
   Search,
   X,
+  FilePenLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { formatUsPhoneDigits } from "@/lib/us-phone";
 import {
   Table,
   TableBody,
@@ -54,6 +57,10 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { displayMainContactForContract, getPrimaryContactPromptKind } from "@/lib/contract-main-contact";
 import {
+  expirationDateToRfpContractStartMonth,
+  RFP_FROM_CONTRACT_SESSION_KEY,
+} from "@/lib/rfp-from-contract-prefill";
+import {
   stripEnergySuffix,
   normalizeCompanyKey,
   isCustomerCandidateContact,
@@ -74,6 +81,8 @@ import {
 type Contact = {
   id: string;
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
   email: string | null;
   phone: string | null;
   company: string | null;
@@ -353,6 +362,17 @@ function formatRateOrMargin(n: number): string {
 
 function formatDate(s: string | null | undefined): string {
   if (!s) return "—";
+  const d = String(s).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split("-").map((x) => Number.parseInt(x, 10));
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(day)) {
+      return new Date(y, m - 1, day).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+  }
   return new Date(s).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -414,6 +434,7 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [contractIdFromQuery, setContractIdFromQuery] = useState<string | null>(null);
   const [rfpRequestIdFromQuery, setRfpRequestIdFromQuery] = useState<string | null>(null);
+  const [highlightContractId, setHighlightContractId] = useState<string | null>(null);
   const rfpCloseoutPrefillDoneRef = useRef(false);
   const [tab, setTab] = useState<"active" | "ended">("active");
   const [energyFilter, setEnergyFilter] = useState<"all" | "electric" | "gas">("all");
@@ -499,7 +520,24 @@ export default function ContractsPage() {
     const sp = new URLSearchParams(window.location.search);
     setContractIdFromQuery(sp.get("contractId"));
     setRfpRequestIdFromQuery(sp.get("rfpRequestId"));
+    const hi = sp.get("highlightContract")?.trim();
+    if (hi) {
+      setHighlightContractId(hi);
+      sp.delete("highlightContract");
+      const next = sp.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!highlightContractId || loading) return;
+    const t = window.setTimeout(() => {
+      document
+        .getElementById(`contract-row-${highlightContractId}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [highlightContractId, loading, contracts]);
 
   // From RFP workspace: pre-fill Add Contract from a submitted RFP (closeout).
   useEffect(() => {
@@ -922,6 +960,70 @@ export default function ContractsPage() {
     else setSelectedIds(new Set(filteredContracts.map((c) => c.id)));
   };
 
+  async function openRfpGeneratorFromContract(c: Contract) {
+    const contactDirectory = Array.isArray(contacts) ? contacts : [];
+    const main = displayMainContactForContract(
+      {
+        customerId: c.customerId,
+        customer: c.customer,
+        mainContact: c.mainContact,
+        mainContactId: c.mainContactId,
+      },
+      contactDirectory
+    );
+    const contactId = (main?.id ?? c.mainContactId ?? "").trim() || null;
+
+    type AccRow = { accountNumber: string; serviceAddress: string; annualUsage: string; avgMonthlyUsage: string };
+    let accountLines: AccRow[] = [];
+    try {
+      const res = await fetch(`/api/contracts/${encodeURIComponent(c.id)}/accounts`);
+      if (res.ok) {
+        const rows = (await res.json()) as Array<{
+          accountId?: string;
+          serviceAddress?: string | null;
+          annualUsage?: string | null;
+          avgMonthlyUsage?: string | null;
+        }>;
+        if (Array.isArray(rows) && rows.length > 0) {
+          accountLines = rows.map((r) => ({
+            accountNumber: String(r.accountId ?? "").trim(),
+            serviceAddress: String(r.serviceAddress ?? "").trim(),
+            annualUsage:
+              r.annualUsage != null && String(r.annualUsage).trim() !== "" ? String(r.annualUsage) : "",
+            avgMonthlyUsage:
+              r.avgMonthlyUsage != null && String(r.avgMonthlyUsage).trim() !== ""
+                ? String(r.avgMonthlyUsage)
+                : "",
+          }));
+        }
+      }
+    } catch {
+      /* fall back to contract-level usage */
+    }
+    if (accountLines.length === 0) {
+      accountLines = [
+        {
+          accountNumber: "",
+          serviceAddress: "",
+          annualUsage: c.annualUsage != null ? String(c.annualUsage) : "",
+          avgMonthlyUsage: c.avgMonthlyUsage != null ? String(c.avgMonthlyUsage) : "",
+        },
+      ];
+    }
+
+    const payload = {
+      version: 1 as const,
+      customerId: c.customer.id,
+      customerContactId: contactId,
+      energyType: c.energyType,
+      ldcUtility: (c.customerUtility ?? "").trim(),
+      contractStartValue: expirationDateToRfpContractStartMonth(c.expirationDate),
+      accountLines,
+    };
+    sessionStorage.setItem(RFP_FROM_CONTRACT_SESSION_KEY, JSON.stringify(payload));
+    window.open("/rfp?fromContract=1", "_blank", "noopener,noreferrer");
+  }
+
   const handleLinkDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!linkDocContract) return;
@@ -1260,6 +1362,7 @@ export default function ContractsPage() {
             onSendRenewalEmail={(c) => setRenewalEmailContractId(c.id)}
             onOpenContractAccounts={(c) => setAccountsModalContract(c)}
             onOpenPrimaryContactSetup={(c) => setPrimarySetupContract(c)}
+            onStartRfpFromContract={(c) => void openRfpGeneratorFromContract(c)}
             onNotes={openNotesDialog}
             totalEstIncomePerYear={totalEstIncomePerYear}
             totalEstTotalValue={totalEstTotalValue}
@@ -1267,6 +1370,7 @@ export default function ContractsPage() {
             showArchive
             onRestore={undefined}
             tableClassName="flex-1 min-h-0 ended-grid"
+            highlightContractId={highlightContractId}
           />
         </div>
       )}
@@ -1320,6 +1424,7 @@ export default function ContractsPage() {
             onSendRenewalEmail={(c) => setRenewalEmailContractId(c.id)}
             onOpenContractAccounts={(c) => setAccountsModalContract(c)}
             onOpenPrimaryContactSetup={(c) => setPrimarySetupContract(c)}
+            onStartRfpFromContract={(c) => void openRfpGeneratorFromContract(c)}
             onNotes={openNotesDialog}
             totalEstIncomePerYear={totalEstIncomePerYear}
             totalEstTotalValue={totalEstTotalValue}
@@ -1327,6 +1432,7 @@ export default function ContractsPage() {
             showArchive={false}
             onRestore={handleRestoreToActive}
             tableClassName="flex-1 min-h-0"
+            highlightContractId={highlightContractId}
           />
         </div>
       )}
@@ -1709,6 +1815,7 @@ function ContractsTable({
   onSendRenewalEmail,
   onOpenContractAccounts,
   onOpenPrimaryContactSetup,
+  onStartRfpFromContract,
   onNotes,
   totalEstIncomePerYear,
   totalEstTotalValue,
@@ -1716,6 +1823,7 @@ function ContractsTable({
   showArchive,
   onRestore,
   tableClassName,
+  highlightContractId,
 }: {
   contracts: Contract[];
   contactDirectory: Contact[];
@@ -1737,6 +1845,7 @@ function ContractsTable({
   onSendRenewalEmail?: (c: Contract) => void;
   onOpenContractAccounts?: (c: Contract) => void;
   onOpenPrimaryContactSetup?: (c: Contract) => void;
+  onStartRfpFromContract?: (c: Contract) => void;
   onNotes: (c: Contract) => void;
   totalEstIncomePerYear: number;
   totalEstTotalValue: number;
@@ -1744,6 +1853,7 @@ function ContractsTable({
   showArchive: boolean;
   onRestore?: (id: string) => void;
   tableClassName?: string;
+  highlightContractId?: string | null;
 }) {
   const visibleCols = columnOrder.filter((id) => id !== "actions");
   const showLightGrid = !!tableClassName && tableClassName.includes("ended-grid");
@@ -1826,12 +1936,17 @@ function ContractsTable({
                     : needsDetail
                       ? "bg-amber-50/90 dark:bg-amber-950/30 ring-1 ring-inset ring-amber-200/80 dark:ring-amber-800/50"
                       : "";
+                  const urlFocus = highlightContractId === c.id;
 
                   return (
                     <TableRow
                       id={`contract-row-${c.id}`}
                       key={c.id}
-                      className={`${rowHighlight} ${showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : ""}`}
+                      className={cn(
+                        rowHighlight,
+                        showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : "",
+                        urlFocus && "ring-2 ring-inset ring-primary z-[1] relative"
+                      )}
                     >
                       <TableCell className={`sticky left-0 z-10 w-10 min-w-[2.5rem] border-r ${stickyRowBg} shadow-[1px_0_0_0_hsl(var(--border))]`}>
                         <input
@@ -1868,6 +1983,17 @@ function ContractsTable({
                               title="Utility accounts for this contract"
                             >
                               <ClipboardList className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {onStartRfpFromContract && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => onStartRfpFromContract(c)}
+                              title="Open RFP generator with this contract’s customer, contact, utility, and accounts"
+                            >
+                              <FilePenLine className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -2061,7 +2187,7 @@ function ContactDetailModal({ contact, onClose, onCompose, onContactUpdated }: {
     const e = contact.emails?.length ? contact.emails[0].email : contact.email;
     const p = contact.phones?.length ? contact.phones[0].phone : contact.phone;
     setEditEmail(e || "");
-    setEditPhone(p || "");
+    setEditPhone(formatUsPhoneDigits(p || ""));
     setEditing(!e && !p);
   }, [contact?.id, contact?.email, contact?.phone, contact?.emails, contact?.phones]);
 
@@ -2135,7 +2261,7 @@ function ContactDetailModal({ contact, onClose, onCompose, onContactUpdated }: {
             </div>
             <div className="grid gap-2">
               <Label>Phone</Label>
-              <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="Phone" />
+              <PhoneInput value={editPhone} onChange={setEditPhone} placeholder="Phone" />
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
@@ -2411,7 +2537,7 @@ function AddCustomerModal({
         </div>
         <div>
           <Label>Phone</Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
+          <PhoneInput value={phone} onChange={setPhone} placeholder="Phone" />
         </div>
         <ContactLabelsField
           value={labelsSerialized}
@@ -2507,7 +2633,7 @@ function AddContactModal({
         </div>
         <div>
           <Label>Phone</Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
+          <PhoneInput value={phone} onChange={setPhone} placeholder="Phone" />
         </div>
         <ContactLabelsField
           value={labelsSerialized}
@@ -2567,7 +2693,7 @@ function AddSupplierModal({
         </div>
         <div>
           <Label>Phone</Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
+          <PhoneInput value={phone} onChange={setPhone} placeholder="Phone" />
         </div>
         <DialogFooter className="pt-4">
           <Button type="button" variant="outline" onClick={onClose}>

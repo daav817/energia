@@ -3,6 +3,8 @@
  * plus calendar-year allocation using contract dates.
  */
 
+import { coerceFiniteNumber } from "@/lib/coerce-number";
+
 function parseYmd(iso: string): { y: number; m: number; d: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
   if (!m) return null;
@@ -46,15 +48,34 @@ export type ContractLikeForIncome = {
 };
 
 function num(v: unknown): number {
-  if (v == null) return 0;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+  return coerceFiniteNumber(v);
 }
 
 export function annualUsageResolved(c: ContractLikeForIncome): number {
   const annual = num(c.annualUsage);
   if (annual > 0) return annual;
   return num(c.avgMonthlyUsage) * 12;
+}
+
+/** Days in year (365 or 366), for prorating annual usage to calendar overlap. */
+export function daysInCalendarYear(year: number): number {
+  return new Date(year, 1, 29).getMonth() === 1 ? 366 : 365;
+}
+
+/**
+ * Estimated usage attributed to a calendar year from bill-based annual usage:
+ * annualUsage × (days contract term overlaps that year ÷ days in that year).
+ */
+export function calendarYearProRatedAnnualUsage(c: ContractLikeForIncome, year: number): number {
+  const s = parseYmd(String(c.startDate));
+  const e = parseYmd(String(c.expirationDate));
+  if (!s || !e) return 0;
+  const overlap = overlapDaysInCalendarYear(s, e, year);
+  if (overlap <= 0) return 0;
+  const annual = annualUsageResolved(c);
+  if (annual <= 0) return 0;
+  const dim = daysInCalendarYear(year);
+  return (annual * overlap) / dim;
 }
 
 /** Full-term broker income: stored contractIncome, else margin × (annual/12) × term months (matches directory contracts page). */

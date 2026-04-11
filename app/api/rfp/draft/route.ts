@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { EnergyType, PriceUnit } from "@/generated/prisma/client";
+import { localDateFromDayInput } from "@/lib/calendar-date";
 
 /**
  * POST /api/rfp/draft — Create or replace a draft RFP (no email). Pass draftId to update the same draft.
@@ -50,7 +51,9 @@ export async function POST(request: NextRequest) {
     const normalizedAccountLines = normalizeAccountLines(accountLines);
     const termValues = normalizeRequestedTerms(requestedTerms, customTermMonths);
     const marginValue = parseOptionalNumber(brokerMargin);
-    const quoteDue = quoteDueDate ? new Date(quoteDueDate) : null;
+    const quoteDue = localDateFromDayInput(
+      typeof quoteDueDate === "string" ? quoteDueDate : null
+    );
     const primaryTermMonths =
       termValues.find((value) => value.kind === "months")?.months ?? null;
 

@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { annualUsageResolved, totalTermBrokerIncome, type ContractLikeForIncome } from "@/lib/contract-broker-income";
 import {
-  annualUsageResolved,
-  calendarYearBrokerIncome,
-  totalTermBrokerIncome,
-  type ContractLikeForIncome,
-} from "@/lib/contract-broker-income";
+  activeBookAnnualBrokerIncomeTotals,
+  activeBookAnnualUsageTotals,
+  aggregateUsageByCalendarYear,
+  type ContractLikeForUsageCalendar,
+} from "@/lib/broker-usage-calendar";
 import { EnergyType } from "@/generated/prisma/client";
+import { coerceFiniteNumber } from "@/lib/coerce-number";
 
 function num(v: unknown): number {
-  if (v == null) return 0;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+  return coerceFiniteNumber(v);
 }
 
 function estIncomePerYear(c: ContractLikeForIncome): number {
@@ -28,6 +28,8 @@ export async function GET() {
       where: { status: { not: "archived" } },
       select: {
         energyType: true,
+        priceUnit: true,
+        status: true,
         startDate: true,
         expirationDate: true,
         termMonths: true,
@@ -38,10 +40,54 @@ export async function GET() {
       },
     });
 
-    const year = new Date().getFullYear();
+    const usageRows = await prisma.contract.findMany({
+      where: { NOT: { status: "cancelled" } },
+      select: {
+        startDate: true,
+        expirationDate: true,
+        energyType: true,
+        priceUnit: true,
+        annualUsage: true,
+        avgMonthlyUsage: true,
+        brokerMargin: true,
+        status: true,
+      },
+    });
+
+    const usageSlice = usageRows.map(
+      (r): ContractLikeForUsageCalendar => ({
+        startDate: r.startDate.toISOString(),
+        expirationDate: r.expirationDate.toISOString(),
+        energyType: String(r.energyType),
+        priceUnit: r.priceUnit,
+        annualUsage: r.annualUsage,
+        avgMonthlyUsage: r.avgMonthlyUsage,
+        brokerMargin: r.brokerMargin,
+        status: r.status,
+      })
+    );
+
+    const bookUsageSlice = rows.map(
+      (r): ContractLikeForUsageCalendar => ({
+        startDate: r.startDate.toISOString(),
+        expirationDate: r.expirationDate.toISOString(),
+        energyType: String(r.energyType),
+        priceUnit: r.priceUnit,
+        annualUsage: r.annualUsage,
+        avgMonthlyUsage: r.avgMonthlyUsage,
+        brokerMargin: r.brokerMargin,
+        status: r.status,
+      })
+    );
+
+    const usageByYear = aggregateUsageByCalendarYear(usageSlice);
+    const { electricKwh: activeBookElectricKwh, naturalGasMcf: activeBookGasMcf } =
+      activeBookAnnualUsageTotals(bookUsageSlice);
+    const { electricUsd: activeBookElectricBrokerIncomeUsd, gasUsd: activeBookGasBrokerIncomeUsd } =
+      activeBookAnnualBrokerIncomeTotals(bookUsageSlice);
+
     let totalEstIncomePerYear = 0;
     let totalTermBrokerIncomeSum = 0;
-    let currentYearAttributableIncome = 0;
     let activeElectric = 0;
     let activeGas = 0;
 
@@ -57,7 +103,6 @@ export async function GET() {
       };
       totalEstIncomePerYear += estIncomePerYear(like);
       totalTermBrokerIncomeSum += totalTermBrokerIncome(like);
-      currentYearAttributableIncome += calendarYearBrokerIncome(like, year);
       if (c.energyType === EnergyType.ELECTRIC) activeElectric += 1;
       else activeGas += 1;
     }
@@ -68,8 +113,11 @@ export async function GET() {
       activeGas,
       totalEstIncomePerYear,
       totalTermBrokerIncome: totalTermBrokerIncomeSum,
-      currentYearAttributableIncome,
-      incomeYear: year,
+      usageByYear,
+      activeBookElectricKwh,
+      activeBookGasMcf,
+      activeBookElectricBrokerIncomeUsd,
+      activeBookGasBrokerIncomeUsd,
     });
   } catch (e) {
     console.error("contracts-financial-summary", e);

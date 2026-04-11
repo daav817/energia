@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/gmail";
+import { fetchGmailAttachmentBytes } from "@/lib/gmail-attachment-bytes";
 
 /**
  * GET /api/emails/[id]/attachments/[attachmentId]
@@ -16,35 +17,22 @@ export async function GET(
   try {
     const { id, attachmentId } = await params;
     const gmail = await getGmailClient();
-
-    const res = await gmail.users.messages.attachments.get({
-      userId: "me",
-      messageId: id,
-      id: attachmentId,
-    });
-
-    const raw = res.data.data;
-    if (!raw) {
-      return NextResponse.json({ error: "Attachment data not found" }, { status: 404 });
-    }
-
-    // Decode base64url payload into bytes without Node Buffer typing dependency.
-    const normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+    const bytes = await fetchGmailAttachmentBytes(gmail, id, attachmentId);
 
     const url = new URL(request.url);
     const filename = url.searchParams.get("filename") || "attachment";
     const mimeType = url.searchParams.get("mimeType") || "application/octet-stream";
+    const download = url.searchParams.get("download") === "1" || url.searchParams.get("download") === "true";
+    const safeName = filename.replace(/"/g, "");
 
     return new NextResponse(bytes, {
       status: 200,
       headers: {
         "Content-Type": mimeType,
         "Content-Length": bytes.length.toString(),
-        // Use inline so browsers can preview (PDF/images) but still allow saving
-        "Content-Disposition": `inline; filename="${filename.replace(/"/g, "")}"`,
+        "Content-Disposition": download
+          ? `attachment; filename="${safeName}"`
+          : `inline; filename="${safeName}"`,
         "Cache-Control": "private, max-age=0, must-revalidate",
       },
     });

@@ -82,6 +82,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tooltip } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmailAttachmentDriveUploadButton } from "@/components/communications/email-attachment-drive-upload";
 
 type EmailMessage = {
   id: string;
@@ -530,27 +531,43 @@ export function EmailDetailPanel({
             <Paperclip className="h-3 w-3" />
             <span>Attachments ({detail.attachments.length})</span>
           </div>
-          <ul className="space-y-1 text-sm">
+          <ul className="space-y-2 text-sm">
             {detail.attachments.map((att) => {
-              const href = `/api/emails/${email.id}/attachments/${att.attachmentId}?filename=${encodeURIComponent(
+              const base = `/api/emails/${email.id}/attachments/${att.attachmentId}?filename=${encodeURIComponent(
                 att.filename
               )}&mimeType=${encodeURIComponent(att.mimeType)}`;
               const sizeKb =
                 att.size && att.size > 0 ? `${Math.round(att.size / 1024)} KB` : undefined;
               return (
-                <li key={att.attachmentId}>
+                <li key={att.attachmentId} className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
                   <a
-                    href={href}
+                    href={base}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-muted transition-colors"
+                    className="inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-muted transition-colors min-w-0"
                   >
-                    <Paperclip className="h-4 w-4" />
-                    <span className="truncate max-w-xs" title={att.filename}>
+                    <Paperclip className="h-4 w-4 shrink-0" />
+                    <span className="truncate max-w-[min(100%,280px)]" title={att.filename}>
                       {att.filename || "attachment"}
                     </span>
-                    {sizeKb && <span className="text-xs text-muted-foreground">({sizeKb})</span>}
+                    {sizeKb && <span className="text-xs text-muted-foreground shrink-0">({sizeKb})</span>}
                   </a>
+                  <div className="flex flex-wrap items-center gap-2 pl-1 sm:pl-0">
+                    <a
+                      href={`${base}&download=1`}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      Download
+                    </a>
+                    <EmailAttachmentDriveUploadButton
+                      messageId={email.id}
+                      attachment={{
+                        attachmentId: att.attachmentId,
+                        filename: att.filename || "attachment",
+                        mimeType: att.mimeType || "application/octet-stream",
+                      }}
+                    />
+                  </div>
                 </li>
               );
             })}

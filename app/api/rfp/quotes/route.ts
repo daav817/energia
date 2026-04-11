@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const quotes = await prisma.rfpQuote.findMany({
       where,
       include: {
-        supplier: { select: { name: true, email: true } },
+        supplier: { select: { id: true, name: true, email: true } },
         rfpRequest: {
           include: { customer: { select: { name: true } } },
         },
@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
         { error: "supplierId, rate, priceUnit, and termMonths are required" },
         { status: 400 }
       );
+    }
+
+    const termMonthsValue = parseInt(String(termMonths), 10);
+    if (!Number.isFinite(termMonthsValue)) {
+      return NextResponse.json({ error: "Invalid termMonths" }, { status: 400 });
     }
 
     if (isBestOffer) {
@@ -109,7 +114,6 @@ export async function POST(request: NextRequest) {
           (sum, line) => sum + Number(line.avgMonthlyUsage),
           0
         );
-        const termMonthsValue = parseInt(termMonths, 10);
         const rateValue = parseFloat(rate);
         computedTotalMargin = avgMonthlyUsageTotal * termMonthsValue * marginValue;
         if (Number.isFinite(rateValue)) {
@@ -119,28 +123,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const quote = await prisma.rfpQuote.create({
-      data: {
-        rfpRequestId: rfpRequestId || null,
-        supplierId,
-        rate: parseFloat(rate),
-        priceUnit: priceUnit as PriceUnit,
-        termMonths: parseInt(termMonths, 10),
-        brokerMargin: brokerMargin ? parseFloat(brokerMargin) : null,
-        totalMargin: computedTotalMargin,
-        estimatedContractValue: computedEstimatedContractValue,
-        isBestOffer: Boolean(isBestOffer),
-        notes: notes || null,
-      },
-      include: {
-        supplier: { select: { id: true, name: true, email: true } },
-        rfpRequest: {
+    const quoteData = {
+      rfpRequestId: rfpRequestId || null,
+      supplierId,
+      rate: parseFloat(rate),
+      priceUnit: priceUnit as PriceUnit,
+      termMonths: termMonthsValue,
+      brokerMargin: brokerMargin ? parseFloat(brokerMargin) : null,
+      totalMargin: computedTotalMargin,
+      estimatedContractValue: computedEstimatedContractValue,
+      isBestOffer: Boolean(isBestOffer),
+      notes: notes || null,
+    };
+
+    const existingForCell =
+      rfpRequestId != null && String(rfpRequestId).trim() !== ""
+        ? await prisma.rfpQuote.findFirst({
+            where: {
+              rfpRequestId: String(rfpRequestId),
+              supplierId: String(supplierId),
+              termMonths: termMonthsValue,
+            },
+            select: { id: true },
+          })
+        : null;
+
+    const quote = existingForCell
+      ? await prisma.rfpQuote.update({
+          where: { id: existingForCell.id },
+          data: quoteData,
           include: {
-            customer: { select: { name: true } },
+            supplier: { select: { id: true, name: true, email: true } },
+            rfpRequest: {
+              include: {
+                customer: { select: { name: true } },
+              },
+            },
           },
-        },
-      },
-    });
+        })
+      : await prisma.rfpQuote.create({
+          data: quoteData,
+          include: {
+            supplier: { select: { id: true, name: true, email: true } },
+            rfpRequest: {
+              include: {
+                customer: { select: { name: true } },
+              },
+            },
+          },
+        });
 
     if (rfpRequestId) {
       await prisma.rfpRequest.update({

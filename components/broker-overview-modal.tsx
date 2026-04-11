@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { BrokerProfile } from "@/lib/broker-profile";
+import { BrokerageUsageByYearPanel } from "@/components/brokerage-usage-by-year-panel";
+import type { UsageYearBreakdownRow } from "@/lib/broker-usage-calendar";
 
 type Summary = {
   activeContractCount: number;
@@ -15,8 +17,11 @@ type Summary = {
   activeGas: number;
   totalEstIncomePerYear: number;
   totalTermBrokerIncome: number;
-  currentYearAttributableIncome: number;
-  incomeYear: number;
+  usageByYear?: UsageYearBreakdownRow[];
+  activeBookElectricKwh?: number;
+  activeBookGasMcf?: number;
+  activeBookElectricBrokerIncomeUsd?: number;
+  activeBookGasBrokerIncomeUsd?: number;
 };
 
 function formatMoney(n: number): string {
@@ -61,7 +66,7 @@ export function BrokerOverviewModal(props: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[min(90vh,720px)] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[min(92vh,820px)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{profile.companyName?.trim() || "Broker"}</DialogTitle>
         </DialogHeader>
@@ -128,19 +133,26 @@ export function BrokerOverviewModal(props: {
                     <dt className="text-muted-foreground">Est. broker income / year</dt>
                     <dd className="font-medium tabular-nums">{formatMoney(summary.totalEstIncomePerYear)}</dd>
                   </div>
-                  <div className="flex justify-between gap-4 border-b border-border/50 pb-2">
+                  <div className="flex justify-between gap-4 pb-1">
                     <dt className="text-muted-foreground">Est. total term broker income</dt>
                     <dd className="font-medium tabular-nums">{formatMoney(summary.totalTermBrokerIncome)}</dd>
                   </div>
-                  <div className="flex justify-between gap-4 pt-1">
-                    <dt className="text-muted-foreground">Attributed to {summary.incomeYear} (prorated)</dt>
-                    <dd className="font-medium tabular-nums">{formatMoney(summary.currentYearAttributableIncome)}</dd>
-                  </div>
                 </dl>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Estimates use the same margin and usage rules as the Contracts directory. Edit contract rows to change
-                  totals.
+                  Per-year usage and income below use prorated usage × margin. Other totals use the same rules as Contract
+                  Management (including stored contract value when set).
                 </p>
+                {Array.isArray(summary.usageByYear) &&
+                summary.activeBookElectricKwh != null &&
+                summary.activeBookGasMcf != null ? (
+                  <BrokerageUsageByYearPanel
+                    usageByYear={summary.usageByYear}
+                    activeBookElectricKwh={summary.activeBookElectricKwh}
+                    activeBookGasMcf={summary.activeBookGasMcf}
+                    activeBookElectricBrokerIncomeUsd={summary.activeBookElectricBrokerIncomeUsd ?? 0}
+                    activeBookGasBrokerIncomeUsd={summary.activeBookGasBrokerIncomeUsd ?? 0}
+                  />
+                ) : null}
               </>
             ) : null}
           </div>

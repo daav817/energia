@@ -36,6 +36,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { formatUsPhoneDigits } from "@/lib/us-phone";
 
 type Supplier = {
   id: string;
@@ -202,7 +204,7 @@ export default function SuppliersPage() {
     setForm({
       name: s.name,
       email: s.email || "",
-      phone: s.phone || "",
+      phone: formatUsPhoneDigits(s.phone || ""),
       website: s.website || "",
       address: "",
       city: "",
@@ -500,11 +502,7 @@ export default function SuppliersPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
+                <PhoneInput id="phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
               </div>
             </div>
             <div className="grid gap-2">

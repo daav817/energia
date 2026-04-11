@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function parseLabelTokens(raw: string | null | undefined) {
-  if (!raw) return [];
-  return raw
-    .split(/[,;]+/g)
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { isSupplierCandidateContact } from "@/lib/customers-overview";
+import { contactMatchesRfpEnergy } from "@/lib/supplier-rfp-contacts";
 
 export async function GET() {
   try {
@@ -30,8 +24,10 @@ export async function GET() {
     });
 
     const gaps = contacts.filter((contact) => {
-      const labels = parseLabelTokens(contact.label);
-      return labels.includes("supplier") && !labels.includes("gas") && !labels.includes("electric");
+      if (!isSupplierCandidateContact(contact.label)) return false;
+      const hasElec = contactMatchesRfpEnergy(contact.label, "ELECTRIC");
+      const hasGas = contactMatchesRfpEnergy(contact.label, "NATURAL_GAS");
+      return !hasElec && !hasGas;
     });
 
     return NextResponse.json({

@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Star, Plus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Archive, RefreshCw, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -21,28 +22,39 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  QuoteComparisonTab,
+  type ComparisonRfpQuote,
+  type ManualQuoteRow,
+  type SupplierInboxEmailDetail,
+  type TermPick,
+} from "@/components/quotes/quote-comparison-tab";
+import { QuoteComposeCustomerTab } from "@/components/quotes/quote-compose-customer-tab";
+import type { QuoteWorkspaceSnapshotV1 } from "@/lib/quote-workspace-snapshot";
+import { cn } from "@/lib/utils";
+import { useAppToast } from "@/components/app-toast-provider";
+import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
+import { hydrateQuoteComparisonPicks, serializeQuoteComparisonPicks } from "@/lib/quote-comparison-picks";
 
-type RfpQuote = {
-  id: string;
-  rate: number;
-  priceUnit: string;
-  termMonths: number;
+const QUOTES_PAGE_RESIZE_HANDLE_CLASS =
+  "relative h-1.5 w-full shrink-0 rounded-sm bg-border/80 outline-none hover:bg-primary/40 data-[panel-group-direction=horizontal]:mx-0.5 data-[panel-group-direction=horizontal]:h-full data-[panel-group-direction=horizontal]:w-1.5 data-[panel-group-direction=horizontal]:my-0 data-[panel-group-direction=vertical]:my-0.5";
+
+type RfpQuote = ComparisonRfpQuote & {
   brokerMargin: number | null;
   totalMargin: number | null;
   estimatedContractValue: number | null;
   isBestOffer: boolean;
   notes: string | null;
-  supplier: { name: string };
-  rfpRequest?: { customer?: { name: string } };
 };
 
 type RfpRequestSummary = {
@@ -55,61 +67,95 @@ type RfpRequestSummary = {
   brokerMargin: number | null;
   brokerMarginUnit: string | null;
   ldcUtility: string | null;
+  sentAt: string | null;
   requestedTerms: Array<{ kind: "months"; months: number } | { kind: "nymex" }> | null;
   customer: { id: string; name: string; company: string | null } | null;
-  customerContact?: { id: string; name: string; email: string | null; phone: string | null } | null;
+  customerContact?: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    company?: string | null;
+  } | null;
   quoteSummaryContactIds?: string[];
   quoteSummarySentAt?: string | null;
-  suppliers: Array<{ id: string; name: string }>;
-  accountLines: Array<{ id: string; accountNumber: string; annualUsage: number; avgMonthlyUsage: number }>;
+  suppliers: Array<{ id: string; name: string; email: string | null }>;
+  accountLines: Array<{
+    id: string;
+    accountNumber: string;
+    serviceAddress?: string | null;
+    annualUsage: number;
+    avgMonthlyUsage: number;
+  }>;
+  quoteComparisonPicks?: unknown;
 };
 
-const emptyForm = {
-  rfpRequestId: "",
-  supplierId: "",
-  rate: "",
-  priceUnit: "MCF",
-  termMonths: "",
-  brokerMargin: "",
-  totalMargin: "",
-  estimatedContractValue: "",
-  isBestOffer: false,
-  notes: "",
-};
+const EMPTY_MANUAL_ROWS: ManualQuoteRow[] = [];
 
-type CustomerContactRow = {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-};
+/** Select sentinel: clear RFP selection and reset workspace (after saving picks). */
+const RFP_SELECT_NONE = "__none__";
 
 export default function RfpQuotesPage() {
+  const router = useRouter();
+  const toast = useAppToast();
   const [quotes, setQuotes] = useState<RfpQuote[]>([]);
   const [rfpRequests, setRfpRequests] = useState<RfpRequestSummary[]>([]);
   const [selectedRfpId, setSelectedRfpId] = useState("");
+  const [mainTab, setMainTab] = useState<"compare" | "compose">("compare");
   const [loading, setLoading] = useState(true);
-  const [statusUpdating, setStatusUpdating] = useState(false);
   const [recipientsSaving, setRecipientsSaving] = useState(false);
-  const [quoteSummarySentRecording, setQuoteSummarySentRecording] = useState(false);
-  const [customerContacts, setCustomerContacts] = useState<CustomerContactRow[]>([]);
+  const [customerContacts, setCustomerContacts] = useState<
+    Array<{ id: string; name: string; email: string | null; phone: string | null }>
+  >([]);
   const [primaryContactId, setPrimaryContactId] = useState("");
-  const [extraRecipientIds, setExtraRecipientIds] = useState<string[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const selectedRequest =
-    rfpRequests.find((request) => request.id === selectedRfpId) ?? null;
-  const formRequest =
-    rfpRequests.find((request) => request.id === form.rfpRequestId) ?? selectedRequest;
-  const availableSuppliers = formRequest?.suppliers ?? [];
-  const requestedMonthTerms =
-    formRequest?.requestedTerms?.filter(
-      (term): term is { kind: "months"; months: number } => term.kind === "months"
-    ) ?? [];
-  const quoteSummaries = summarizeQuotesByTerm(quotes);
+  const [pickByTerm, setPickByTerm] = useState<Partial<Record<number, TermPick>>>({});
+  const pickByTermRef = useRef(pickByTerm);
+  pickByTermRef.current = pickByTerm;
+  const selectedRfpIdRef = useRef(selectedRfpId);
+  selectedRfpIdRef.current = selectedRfpId;
+
+  const [refreshOpen, setRefreshOpen] = useState(false);
+  const [refreshHasChanges, setRefreshHasChanges] = useState<boolean | null>(null);
+  const [refreshDueDate, setRefreshDueDate] = useState("");
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveMessage, setArchiveMessage] = useState<string | null>(null);
+
+  const [supplierReadEmailId, setSupplierReadEmailId] = useState<string | null>(null);
+  const [supplierReadEmailDetail, setSupplierReadEmailDetail] = useState<SupplierInboxEmailDetail | null>(null);
+  const [supplierReadEmailLoading, setSupplierReadEmailLoading] = useState(false);
+  const [insertQuoteRowBusy, setInsertQuoteRowBusy] = useState(false);
+  const [comparisonPicksSaveBusy, setComparisonPicksSaveBusy] = useState(false);
+  const [rfpSwitchBusy, setRfpSwitchBusy] = useState(false);
+  const lastHydratedRfpIdRef = useRef<string | null>(null);
+
+  const [quoteSummarySentRecording, setQuoteSummarySentRecording] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [wideDetailSplit, setWideDetailSplit] = useState(true);
+
+  const selectedRequest = rfpRequests.find((request) => request.id === selectedRfpId) ?? null;
+  const defaultUnit = selectedRequest ? defaultPriceUnitForRequest(selectedRequest) : "MCF";
+  const energyLabel = selectedRequest?.energyType === "ELECTRIC" ? "Electric" : "Natural gas";
+  const energyLabelSubject = selectedRequest?.energyType === "ELECTRIC" ? "Electric" : "Natural Gas";
+  const resolvedRfpCompanyName = selectedRequest
+    ? (
+        selectedRequest.customer?.company?.trim() ||
+        selectedRequest.customer?.name?.trim() ||
+        selectedRequest.customerContact?.company?.trim() ||
+        ""
+      ).trim()
+    : "";
 
   useEffect(() => {
-    void loadRfpRequests();
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setWideDetailSplit(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
   useEffect(() => {
@@ -117,41 +163,86 @@ export default function RfpQuotesPage() {
     const fromUrl = new URL(window.location.href).searchParams.get("rfpRequestId");
     if (fromUrl) {
       setSelectedRfpId(fromUrl);
-      setForm((current) => ({ ...current, rfpRequestId: fromUrl }));
     }
   }, []);
 
   useEffect(() => {
-    if (!selectedRfpId && rfpRequests.length > 0) {
-      const sentRequest = rfpRequests.find((request) => request.status === "sent") || rfpRequests[0];
-      setSelectedRfpId(sentRequest.id);
-      setForm((current) => ({
-        ...current,
-        rfpRequestId: sentRequest.id,
-        brokerMargin: sentRequest.brokerMargin != null ? String(sentRequest.brokerMargin) : "",
-        priceUnit: defaultPriceUnitForRequest(sentRequest),
-      }));
+    if (!selectedRfpId) {
+      setQuotes([]);
+      setLoading(false);
+      return;
     }
-  }, [rfpRequests, selectedRfpId]);
-
-  useEffect(() => {
     void fetchQuotes(selectedRfpId);
   }, [selectedRfpId]);
+
+  useEffect(() => {
+    setSupplierReadEmailId(null);
+    setSupplierReadEmailDetail(null);
+  }, [selectedRfpId]);
+
+  useEffect(() => {
+    if (!selectedRfpId) {
+      setPickByTerm({});
+      lastHydratedRfpIdRef.current = null;
+      return;
+    }
+    if (lastHydratedRfpIdRef.current === selectedRfpId) return;
+    const row = rfpRequests.find((r) => r.id === selectedRfpId);
+    if (!row) return;
+    setPickByTerm(hydrateQuoteComparisonPicks(row.quoteComparisonPicks));
+    lastHydratedRfpIdRef.current = selectedRfpId;
+  }, [selectedRfpId, rfpRequests]);
+
+  useEffect(() => {
+    if (!supplierReadEmailId) {
+      setSupplierReadEmailDetail(null);
+      setSupplierReadEmailLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSupplierReadEmailLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/emails/${encodeURIComponent(supplierReadEmailId)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Load failed");
+        if (cancelled) return;
+        const rawAtt = data.attachments;
+        const attachments: SupplierInboxEmailDetail["attachments"] = Array.isArray(rawAtt)
+          ? rawAtt
+              .map((a: { attachmentId?: string; filename?: string; mimeType?: string; size?: number }) => ({
+                attachmentId: String(a.attachmentId ?? ""),
+                filename: String(a.filename ?? "attachment"),
+                mimeType: String(a.mimeType ?? "application/octet-stream"),
+                size: typeof a.size === "number" ? a.size : 0,
+              }))
+              .filter((a) => a.attachmentId)
+          : [];
+        setSupplierReadEmailDetail({
+          subject: String(data.subject ?? ""),
+          bodyHtml: String(data.bodyHtml ?? ""),
+          body: String(data.body ?? ""),
+          attachments,
+        });
+      } catch {
+        if (!cancelled) setSupplierReadEmailDetail(null);
+      } finally {
+        if (!cancelled) setSupplierReadEmailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplierReadEmailId]);
 
   useEffect(() => {
     if (!selectedRequest?.customer?.id) {
       setCustomerContacts([]);
       setPrimaryContactId("");
-      setExtraRecipientIds([]);
       return;
     }
 
     setPrimaryContactId(selectedRequest.customerContact?.id ?? "");
-    setExtraRecipientIds(
-      (selectedRequest.quoteSummaryContactIds || []).filter(
-        (id) => id && id !== selectedRequest.customerContact?.id
-      )
-    );
 
     const custId = selectedRequest.customer?.id;
     if (!custId) {
@@ -161,65 +252,119 @@ export default function RfpQuotesPage() {
     void (async () => {
       const res = await fetch(`/api/customers/${encodeURIComponent(custId)}?contacts=1`);
       const data = await res.json();
-      const rows = Array.isArray(data?.contacts) ? (data.contacts as CustomerContactRow[]) : [];
+      const rows = Array.isArray(data?.contacts) ? data.contacts : [];
       setCustomerContacts(rows);
     })();
-  }, [
-    selectedRequest?.id,
-    selectedRequest?.customer?.id,
-    selectedRequest?.customerContact?.id,
-    (selectedRequest?.quoteSummaryContactIds ?? []).join(","),
-  ]);
+  }, [selectedRequest?.id, selectedRequest?.customer?.id, selectedRequest?.customerContact?.id]);
 
-  useEffect(() => {
-    const request = formRequest;
-    if (!request) return;
+  function rfpListLabel(request: RfpRequestSummary): string {
+    const company = (
+      request.customer?.company?.trim() ||
+      request.customer?.name?.trim() ||
+      request.customerContact?.company?.trim() ||
+      ""
+    ).trim();
+    const contact = (request.customerContact?.name || "").trim();
+    const energy = request.energyType === "ELECTRIC" ? "Electric" : "Natural Gas";
+    let base: string;
+    if (company && contact) base = `${company} — ${contact}`;
+    else if (company) base = company;
+    else base = contact || "Customer";
+    return `${base} · ${energy}`;
+  }
 
-    setForm((current) => {
-      const nextBrokerMargin =
-        current.brokerMargin ||
-        (request.brokerMargin != null ? String(request.brokerMargin) : "");
-      const nextPriceUnit = defaultPriceUnitForRequest(request);
-
-      const derived = deriveQuoteMetrics({
-        request,
-        rate: current.rate,
-        brokerMargin: nextBrokerMargin,
-        termMonths: current.termMonths,
-      });
-
-      return {
-        ...current,
-        rfpRequestId: request.id,
-        brokerMargin: nextBrokerMargin,
-        priceUnit: nextPriceUnit,
-        totalMargin: derived.totalMargin,
-        estimatedContractValue: derived.estimatedContractValue,
-      };
-    });
-  }, [selectedRfpId, formRequest]);
-
-  useEffect(() => {
-    if (!formRequest) return;
-    const derived = deriveQuoteMetrics({
-      request: formRequest,
-      rate: form.rate,
-      brokerMargin: form.brokerMargin,
-      termMonths: form.termMonths,
-    });
-
-    setForm((current) => ({
-      ...current,
-      totalMargin: derived.totalMargin,
-      estimatedContractValue: derived.estimatedContractValue,
-    }));
-  }, [form.rate, form.brokerMargin, form.termMonths, formRequest]);
-
-  const loadRfpRequests = async () => {
+  const loadRfpRequests = useCallback(async () => {
     const response = await fetch("/api/rfp");
     const data = await response.json();
-    setRfpRequests(Array.isArray(data) ? data : []);
-  };
+    const rows = Array.isArray(data) ? (data as RfpRequestSummary[]) : [];
+    setRfpRequests(rows.filter((r) => r.sentAt && r.status !== "draft"));
+  }, []);
+
+  const persistComparisonPicksForRfp = useCallback(
+    async (
+      rfpId: string,
+      picks: Partial<Record<number, TermPick>>,
+      options?: { refreshList?: boolean }
+    ): Promise<{ ok: boolean }> => {
+      const payload = serializeQuoteComparisonPicks(picks);
+      const res = await fetch(`/api/rfp/${encodeURIComponent(rfpId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteComparisonPicks: payload }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          message: typeof data.error === "string" ? data.error : "Could not save picks",
+          variant: "error",
+        });
+        return { ok: false };
+      }
+      if (options?.refreshList !== false) await loadRfpRequests();
+      return { ok: true };
+    },
+    [toast, loadRfpRequests]
+  );
+
+  const handleSaveComparisonPicks = useCallback(async () => {
+    if (!selectedRfpId) return;
+    setComparisonPicksSaveBusy(true);
+    try {
+      const { ok } = await persistComparisonPicksForRfp(selectedRfpId, pickByTerm);
+      if (ok) toast({ message: "Saved quote picks for this RFP.", variant: "success" });
+    } finally {
+      setComparisonPicksSaveBusy(false);
+    }
+  }, [selectedRfpId, pickByTerm, persistComparisonPicksForRfp, toast]);
+
+  const persistAndClearWorkspace = useCallback(async () => {
+    const previousId = selectedRfpIdRef.current;
+    const picks = pickByTermRef.current;
+    if (previousId) {
+      setRfpSwitchBusy(true);
+      try {
+        const { ok } = await persistComparisonPicksForRfp(previousId, picks);
+        if (!ok) return;
+        toast({ message: "Saved quote picks. Workspace cleared.", variant: "success" });
+      } finally {
+        setRfpSwitchBusy(false);
+      }
+    }
+    setSelectedRfpId("");
+    lastHydratedRfpIdRef.current = null;
+    setPickByTerm({});
+    setQuotes([]);
+    setLoading(false);
+    setSupplierReadEmailId(null);
+    setSupplierReadEmailDetail(null);
+    router.replace("/quotes", { scroll: false });
+  }, [persistComparisonPicksForRfp, router, toast]);
+
+  const handleRfpSelectChange = useCallback(
+    async (value: string) => {
+      if (value === RFP_SELECT_NONE) {
+        await persistAndClearWorkspace();
+        return;
+      }
+      const previousId = selectedRfpIdRef.current;
+      const picks = pickByTermRef.current;
+      if (previousId && previousId !== value) {
+        setRfpSwitchBusy(true);
+        try {
+          const { ok } = await persistComparisonPicksForRfp(previousId, picks);
+          if (!ok) return;
+        } finally {
+          setRfpSwitchBusy(false);
+        }
+      }
+      setSelectedRfpId(value);
+    },
+    [persistAndClearWorkspace, persistComparisonPicksForRfp]
+  );
+
+  useEffect(() => {
+    void loadRfpRequests();
+  }, [loadRfpRequests]);
 
   const fetchQuotes = async (rfpRequestId?: string) => {
     setLoading(true);
@@ -230,71 +375,11 @@ export default function RfpQuotesPage() {
     setLoading(false);
   };
 
-  const handleSetBest = async (id: string) => {
-    await fetch(`/api/rfp/quotes/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isBestOffer: true }),
-    });
-    void fetchQuotes(selectedRfpId);
-  };
-
-  const handleAddQuote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch("/api/rfp/quotes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rfpRequestId: form.rfpRequestId,
-        supplierId: form.supplierId,
-        rate: parseFloat(form.rate),
-        priceUnit: form.priceUnit,
-        termMonths: parseInt(form.termMonths, 10),
-        brokerMargin: form.brokerMargin ? parseFloat(form.brokerMargin) : undefined,
-        totalMargin: form.totalMargin ? parseFloat(form.totalMargin) : undefined,
-        estimatedContractValue: form.estimatedContractValue || undefined,
-        isBestOffer: form.isBestOffer,
-        notes: form.notes || undefined,
-      }),
-    });
-    if (res.ok) {
-      setDialogOpen(false);
-      setForm({
-        ...emptyForm,
-        rfpRequestId: selectedRfpId,
-        brokerMargin:
-          selectedRequest?.brokerMargin != null ? String(selectedRequest.brokerMargin) : "",
-        priceUnit: selectedRequest ? defaultPriceUnitForRequest(selectedRequest) : "MCF",
-      });
-      void fetchQuotes(selectedRfpId);
-    }
-  };
-
-  const handleStatusUpdate = async (status: string) => {
-    if (!selectedRfpId) return;
-    setStatusUpdating(true);
-    try {
-      const res = await fetch(`/api/rfp/${selectedRfpId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-
-      if (res.ok) {
-        await loadRfpRequests();
-      }
-    } finally {
-      setStatusUpdating(false);
-    }
-  };
-
   const handleSaveQuoteRecipients = async () => {
     if (!selectedRequest) return;
     setRecipientsSaving(true);
     try {
-      const merged = Array.from(
-        new Set([primaryContactId, ...extraRecipientIds].filter(Boolean))
-      );
+      const merged = primaryContactId ? [primaryContactId] : [];
       const res = await fetch(`/api/rfp/${selectedRequest.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -324,88 +409,344 @@ export default function RfpQuotesPage() {
     }
   };
 
+  const handleStatusUpdate = async (status: string) => {
+    if (!selectedRfpId) return;
+    setStatusUpdating(true);
+    try {
+      const res = await fetch(`/api/rfp/${selectedRfpId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) await loadRfpRequests();
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const onPick = useCallback(
+    (termMonths: number, pick: TermPick | null) => {
+      let next: Partial<Record<number, TermPick>> | undefined;
+      setPickByTerm((prev) => {
+        const updated = { ...prev };
+        if (pick == null) delete updated[termMonths];
+        else updated[termMonths] = pick;
+        next = updated;
+        return updated;
+      });
+      const id = selectedRfpIdRef.current;
+      if (id && next) void persistComparisonPicksForRfp(id, next, { refreshList: false });
+    },
+    [persistComparisonPicksForRfp]
+  );
+
+  const handleInsertQuoteRow = useCallback(
+    async (payload: { supplierId: string; termMonths: number; rate: number }) => {
+      if (!selectedRfpId) return;
+      setInsertQuoteRowBusy(true);
+      try {
+        const unit = selectedRequest ? defaultPriceUnitForRequest(selectedRequest) : "MCF";
+        const brokerMargin =
+          selectedRequest?.brokerMargin != null && Number.isFinite(Number(selectedRequest.brokerMargin))
+            ? Number(selectedRequest.brokerMargin)
+            : undefined;
+        const res = await fetch("/api/rfp/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rfpRequestId: selectedRfpId,
+            supplierId: payload.supplierId,
+            rate: payload.rate,
+            priceUnit: unit,
+            termMonths: payload.termMonths,
+            ...(brokerMargin != null ? { brokerMargin } : {}),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast({
+            message: typeof data.error === "string" ? data.error : "Could not add quote row",
+            variant: "error",
+          });
+          return;
+        }
+        await fetchQuotes(selectedRfpId);
+        void loadRfpRequests();
+        toast({ message: "Quote row added to the table.", variant: "success" });
+      } finally {
+        setInsertQuoteRowBusy(false);
+      }
+    },
+    [selectedRfpId, selectedRequest, toast]
+  );
+
+  const onRefreshConfirm = async () => {
+    if (!selectedRequest) return;
+    if (refreshHasChanges === true) {
+      router.push(`/rfp?rfpRequestId=${encodeURIComponent(selectedRequest.id)}&openForEdit=1`);
+      setRefreshOpen(false);
+      return;
+    }
+    if (refreshHasChanges !== false) return;
+    const due = refreshDueDate.trim();
+    if (!due) return;
+    setRefreshBusy(true);
+    setRefreshError(null);
+    try {
+      const res = await fetch(`/api/rfp/${encodeURIComponent(selectedRequest.id)}/refresh-suppliers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteDueDate: due }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Refresh failed");
+      await loadRfpRequests();
+      setRefreshOpen(false);
+      setRefreshHasChanges(null);
+      setRefreshDueDate("");
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshBusy(false);
+    }
+  };
+
+  const onArchive = async () => {
+    if (!selectedRequest) return;
+    setArchiveBusy(true);
+    setArchiveMessage(null);
+    const pickSnap: QuoteWorkspaceSnapshotV1["pickByTerm"] = {};
+    for (const [k, v] of Object.entries(pickByTerm)) {
+      if (v) pickSnap[String(k)] = v;
+    }
+    const quoteWorkspaceSnapshot: QuoteWorkspaceSnapshotV1 = {
+      version: 1,
+      pickByTerm: pickSnap,
+      manualRows: [],
+      extraTermMonths: [],
+      capturedAt: new Date().toISOString(),
+    };
+    try {
+      const res = await fetch(`/api/rfp/${encodeURIComponent(selectedRequest.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive: true, quoteWorkspaceSnapshot }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Archive failed");
+      const cid = typeof data.createdContractId === "string" ? data.createdContractId : null;
+      const skip = typeof data.archiveSkippedContractReason === "string" ? data.archiveSkippedContractReason : null;
+      setArchiveOpen(false);
+      setSelectedRfpId("");
+      await loadRfpRequests();
+      if (cid) {
+        router.push(`/directory/contracts?highlightContract=${encodeURIComponent(cid)}`);
+      } else if (skip) {
+        setArchiveMessage(skip);
+      }
+    } catch (e) {
+      setArchiveMessage(e instanceof Error ? e.message : "Archive failed");
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">RFP Quotes</h1>
-          <p className="text-muted-foreground">
-            Review sent RFPs, capture supplier responses, and compare the best offer by term.
-          </p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)} disabled={!selectedRfpId}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Quote
-        </Button>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="shrink-0">
+        <h1 className="text-base font-semibold tracking-tight">Quotes</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Choose RFP request</CardTitle>
-          <CardDescription>
-            Quotes are now tied to a specific RFP so supplier responses stay grouped with the original request.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="grid gap-2">
-            <Label>RFP request</Label>
-            <Select value={selectedRfpId} onValueChange={setSelectedRfpId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an RFP request" />
-              </SelectTrigger>
-              <SelectContent>
-                {rfpRequests.map((request) => (
-                  <SelectItem key={request.id} value={request.id}>
-                    {`${request.customer?.name ?? "Unknown customer"} · ${
-                      request.energyType === "ELECTRIC" ? "Electric" : "Gas"
-                    }`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <PanelGroup
+        direction="vertical"
+        autoSaveId="energia-quotes-rfp-workflow-split"
+        className="flex min-h-[min(88dvh,880px)] min-w-0 flex-1 flex-col"
+      >
+        <Panel defaultSize={42} minSize={20} className="min-h-0 flex flex-col">
+          <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
+        <CardContent className="grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain p-4 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-4">
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-wrap items-end gap-2 gap-y-2">
+                <div className="grid min-w-[200px] flex-1 gap-1.5">
+                  <Label className="text-xs">RFP</Label>
+                  <Select
+                    value={selectedRfpId ? selectedRfpId : RFP_SELECT_NONE}
+                    onValueChange={(v) => void handleRfpSelectChange(v)}
+                    disabled={rfpSwitchBusy}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an RFP" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={RFP_SELECT_NONE}>— None —</SelectItem>
+                      {rfpRequests.map((request) => (
+                        <SelectItem key={request.id} value={request.id}>
+                          {rfpListLabel(request)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void loadRfpRequests()}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh list
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedRequest}
+                    onClick={() => {
+                      setRefreshHasChanges(null);
+                      setRefreshDueDate(selectedRequest?.quoteDueDate?.slice(0, 10) ?? "");
+                      setRefreshOpen(true);
+                    }}
+                  >
+                    Refresh RFP
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedRequest}
+                    onClick={() => setArchiveOpen(true)}
+                  >
+                    <Archive className="h-4 w-4 mr-1" />
+                    Archive
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={rfpSwitchBusy}
+                  onClick={() => void persistAndClearWorkspace()}
+                  title="Save quote picks for the current RFP, then clear the workspace"
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Reset
+                </Button>
+              </div>
+            </div>
           </div>
 
-          {selectedRequest && (
-            <div className="rounded-lg border p-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={selectedRequest.energyType === "ELECTRIC" ? "electric" : "gas"}>
-                  {selectedRequest.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}
-                </Badge>
-                <Badge variant="outline">{selectedRequest.status}</Badge>
-              </div>
-              <p className="font-medium">
-                {selectedRequest.customer?.name ?? "Unknown customer"}
-                {selectedRequest.customer?.company ? ` (${selectedRequest.customer.company})` : ""}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Utility: {selectedRequest.ldcUtility || "—"} · Quote due:{" "}
-                {selectedRequest.quoteDueDate
-                  ? new Date(selectedRequest.quoteDueDate).toLocaleDateString()
-                  : "—"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Suppliers: {selectedRequest.suppliers.map((supplier) => supplier.name).join(", ") || "—"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Requested terms:{" "}
-                {selectedRequest.requestedTerms?.map(formatRequestedTerm).join(", ") || "—"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Accounts: {selectedRequest.accountLines.length}
-              </p>
+          {selectedRequest ? (
+            <div className="rounded-lg border p-4 space-y-3 text-sm">
+              <PanelGroup
+                direction={wideDetailSplit ? "horizontal" : "vertical"}
+                autoSaveId="energia-quotes-rfp-detail-accounts"
+                className={cn(
+                  "flex w-full min-w-0",
+                  wideDetailSplit ? "min-h-[104px]" : "min-h-[200px]"
+                )}
+              >
+                <Panel
+                  defaultSize={wideDetailSplit ? 66 : 64}
+                  minSize={wideDetailSplit ? 40 : 30}
+                  className="min-h-0 min-w-0"
+                >
+                  <div className="min-w-0 space-y-2 pr-0 md:pr-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={selectedRequest.energyType === "ELECTRIC" ? "electric" : "gas"}>
+                        {selectedRequest.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}
+                      </Badge>
+                      <Badge variant="outline">{selectedRequest.status}</Badge>
+                    </div>
+                    <p className="font-medium">
+                      {(
+                        selectedRequest.customer?.company?.trim() ||
+                        selectedRequest.customer?.name?.trim() ||
+                        selectedRequest.customerContact?.company?.trim() ||
+                        ""
+                      ).trim() || "—"}
+                    </p>
+                    {selectedRequest.customer?.company?.trim() &&
+                    selectedRequest.customer?.name?.trim() &&
+                    selectedRequest.customer.company.trim() !== selectedRequest.customer.name.trim() ? (
+                      <p className="text-xs text-muted-foreground">
+                        CRM name: {selectedRequest.customer.name}
+                      </p>
+                    ) : null}
+                    <p className="text-muted-foreground">
+                      Utility: {selectedRequest.ldcUtility || "—"} · Quote due:{" "}
+                      {selectedRequest.quoteDueDate
+                        ? formatLocaleDateFromStoredDay(selectedRequest.quoteDueDate)
+                        : "—"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Customer contact:{" "}
+                      {selectedRequest.customerContact
+                        ? `${selectedRequest.customerContact.name}${
+                            selectedRequest.customerContact.email
+                              ? ` · ${selectedRequest.customerContact.email}`
+                              : ""
+                          }`
+                        : "—"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Suppliers: {selectedRequest.suppliers.map((s) => s.name).join(", ") || "—"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Requested terms:{" "}
+                      {selectedRequest.requestedTerms?.map(formatRequestedTerm).join(", ") || "—"}
+                    </p>
+                  </div>
+                </Panel>
+                <PanelResizeHandle className={QUOTES_PAGE_RESIZE_HANDLE_CLASS} />
+                <Panel
+                  defaultSize={wideDetailSplit ? 34 : 36}
+                  minSize={wideDetailSplit ? 18 : 22}
+                  className="min-h-0 min-w-0"
+                >
+                  <div className="min-w-0 pt-3 md:pt-0 md:pl-1">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Accounts
+                    </p>
+                    <div className="max-h-32 overflow-y-auto rounded-md border text-[10px] md:max-h-36">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="[&_th]:h-7 [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-[10px]">
+                            <TableHead>Acct</TableHead>
+                            <TableHead className="max-w-[100px]">Address</TableHead>
+                            <TableHead className="text-right">Annual</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedRequest.accountLines.map((line) => (
+                            <TableRow key={line.id} className="[&_td]:px-1.5 [&_td]:py-0.5">
+                              <TableCell className="tabular-nums font-medium">{line.accountNumber}</TableCell>
+                              <TableCell className="max-w-[100px] truncate text-muted-foreground">
+                                {line.serviceAddress ?? "—"}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {Number(line.annualUsage).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </Panel>
+              </PanelGroup>
 
-              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
-                <p className="text-sm font-medium">Customer quote summary recipients</p>
-                <p className="text-xs text-muted-foreground">
-                  Choose who should receive the consolidated quote summary. The primary contact is the main signer or
-                  negotiator; check additional people at the same company to copy them as well.
-                </p>
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <p className="text-sm font-medium">Quote email recipients (CRM)</p>
                 {customerContacts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No contacts on file for this customer.</p>
+                  <p className="text-xs text-muted-foreground">No contacts for this customer.</p>
                 ) : (
-                  <div className="grid gap-3">
+                  <>
                     <div className="grid gap-2">
-                      <Label>Primary customer contact</Label>
+                      <Label className="text-xs">Primary customer contact</Label>
                       <Select value={primaryContactId} onValueChange={setPrimaryContactId}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select contact" />
@@ -419,39 +760,6 @@ export default function RfpQuotesPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid gap-2">
-                      <Label>Also send summary to</Label>
-                      <div className="max-h-40 space-y-2 overflow-y-auto rounded border p-2">
-                        {customerContacts.map((c) => {
-                          const disabled = c.id === primaryContactId;
-                          const checked = extraRecipientIds.includes(c.id);
-                          return (
-                            <label
-                              key={c.id}
-                              className={`flex items-center gap-2 text-sm ${disabled ? "opacity-50" : ""}`}
-                            >
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border accent-primary"
-                                disabled={disabled}
-                                checked={disabled ? false : checked}
-                                onChange={() => {
-                                  setExtraRecipientIds((current) =>
-                                    current.includes(c.id)
-                                      ? current.filter((id) => id !== c.id)
-                                      : [...current, c.id]
-                                  );
-                                }}
-                              />
-                              <span>
-                                {c.name}
-                                {c.email ? ` (${c.email})` : ""}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
                     <Button
                       type="button"
                       size="sm"
@@ -459,337 +767,263 @@ export default function RfpQuotesPage() {
                       disabled={recipientsSaving || !primaryContactId}
                       onClick={() => void handleSaveQuoteRecipients()}
                     >
-                      {recipientsSaving ? "Saving..." : "Save recipients"}
+                      {recipientsSaving ? "Saving…" : "Save recipients"}
                     </Button>
-                    <div className="flex flex-col gap-1 pt-2 border-t border-border/60">
-                      <p className="text-xs text-muted-foreground">
-                        After you email the quote summary to the customer from your mail client, record it here so the
-                        dashboard can show pending follow-up.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={quoteSummarySentRecording}
-                          onClick={() => void handleRecordQuoteSummaryEmailSent()}
-                        >
-                          {quoteSummarySentRecording ? "Recording..." : "Record quote summary email sent"}
-                        </Button>
-                        {selectedRequest.quoteSummarySentAt ? (
-                          <span className="text-xs text-muted-foreground">
-                            Logged{" "}
-                            {new Date(selectedRequest.quoteSummarySentAt).toLocaleString(undefined, {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
+                  </>
                 )}
+                <div className="flex flex-col gap-1 pt-2 border-t border-border/60">
+                  <p className="text-xs text-muted-foreground">
+                    After the customer quote email is sent from Energia, record it here for dashboard follow-up.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={quoteSummarySentRecording}
+                      onClick={() => void handleRecordQuoteSummaryEmailSent()}
+                    >
+                      {quoteSummarySentRecording ? "Recording…" : "Record quote summary email sent"}
+                    </Button>
+                    {selectedRequest.quoteSummarySentAt ? (
+                      <span className="text-xs text-muted-foreground">
+                        Logged{" "}
+                        {new Date(selectedRequest.quoteSummarySentAt).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleStatusUpdate("quotes_received")}
+                  onClick={() => void handleStatusUpdate("quotes_received")}
                   disabled={statusUpdating || selectedRequest.status === "quotes_received"}
                 >
-                  Mark Quotes Received
+                  Mark quotes received
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleStatusUpdate("completed")}
+                  onClick={() => void handleStatusUpdate("completed")}
                   disabled={statusUpdating || selectedRequest.status === "completed"}
                 >
-                  Mark Completed
+                  Mark completed
                 </Button>
-                <Link
-                  href={`/rfp?rfpRequestId=${selectedRequest.id}`}
-                  className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium"
-                >
-                  Back to RFP
-                </Link>
               </div>
+
+              <Link
+                href={`/rfp?rfpRequestId=${selectedRequest.id}`}
+                className="inline-flex text-sm font-medium text-primary hover:underline"
+              >
+                Open full RFP →
+              </Link>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              Choose a submitted RFP to begin.
             </div>
           )}
         </CardContent>
-      </Card>
+          </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Quote comparison</CardTitle>
-          <CardDescription>
-            Best current pricing by requested term for the selected RFP.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {quoteSummaries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Supplier quote summaries will appear here once quotes are entered.
-            </p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {quoteSummaries.map((summary) => (
-                <div key={summary.termMonths} className="rounded-lg border p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium">{summary.termMonths} months</p>
-                    {summary.bestQuote?.isBestOffer ? <Badge>Best tagged</Badge> : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Lowest rate:{" "}
-                    <span className="font-semibold text-foreground">
-                      {summary.bestQuote
-                        ? `$${Number(summary.bestQuote.rate).toFixed(6)}`
-                        : "—"}
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Supplier:{" "}
-                    <span className="font-semibold text-foreground">
-                      {summary.bestQuote?.supplier.name || "—"}
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Total margin:{" "}
-                    <span className="font-semibold text-foreground">
-                      {summary.bestQuote?.totalMargin != null
-                        ? formatCurrency(Number(summary.bestQuote.totalMargin))
-                        : "—"}
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Contract value:{" "}
-                    <span className="font-semibold text-foreground">
-                      {summary.bestQuote?.estimatedContractValue != null
-                        ? formatCurrency(Number(summary.bestQuote.estimatedContractValue))
-                        : "—"}
-                    </span>
-                  </p>
-                </div>
-              ))}
+        <PanelResizeHandle className={QUOTES_PAGE_RESIZE_HANDLE_CLASS} />
+
+        <Panel defaultSize={58} minSize={24} className="min-h-0 flex flex-col">
+          <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 pt-4">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="flex w-fit max-w-full gap-1 rounded-lg border border-border/80 bg-muted/40 p-1 text-sm shadow-sm">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "whitespace-nowrap px-4 font-medium transition-colors",
+                  mainTab === "compare"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                )}
+                onClick={() => setMainTab("compare")}
+              >
+                Quote comparison
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "whitespace-nowrap px-4 font-medium transition-colors",
+                  mainTab === "compose"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                )}
+                onClick={() => setMainTab("compose")}
+              >
+                Compose customer quote
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Pricing Table</CardTitle>
-          <CardDescription>
-            Quotes for the selected RFP. Click the star to mark the best offer for that request.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="py-8 text-center text-muted-foreground">Loading...</p>
-          ) : quotes.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              No quotes yet for this RFP. Add the supplier responses as they come back.
-            </p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {!selectedRequest ? (
+            <p className="text-sm text-muted-foreground">Select an RFP above.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Term</TableHead>
-                  <TableHead>Broker Margin</TableHead>
-                  <TableHead>Total Margin</TableHead>
-                  <TableHead>Contract Value</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Best</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {quotes.map((q) => (
-                  <TableRow key={q.id} className={q.isBestOffer ? "bg-primary/5" : ""}>
-                    <TableCell className="font-medium">{q.supplier.name}</TableCell>
-                    <TableCell>${Number(q.rate).toFixed(4)}</TableCell>
-                    <TableCell>{q.priceUnit}</TableCell>
-                    <TableCell>{q.termMonths} mo</TableCell>
-                    <TableCell>
-                      {q.brokerMargin != null ? `$${Number(q.brokerMargin).toFixed(4)}` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {q.totalMargin != null ? `$${Number(q.totalMargin).toLocaleString()}` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {q.estimatedContractValue != null
-                        ? `$${Number(q.estimatedContractValue).toLocaleString()}`
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="max-w-[260px] whitespace-pre-wrap text-sm text-muted-foreground">
-                      {q.notes || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSetBest(q.id)}
-                        className={q.isBestOffer ? "text-amber-500" : ""}
-                      >
-                        <Star className={q.isBestOffer ? "fill-current" : ""} />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+              <div className={cn("min-h-0", mainTab !== "compare" && "hidden")}>
+                <QuoteComparisonTab
+                  rfp={{
+                    id: selectedRequest.id,
+                    quoteDueDate: selectedRequest.quoteDueDate,
+                    requestedTerms: selectedRequest.requestedTerms,
+                    energyType: selectedRequest.energyType,
+                    suppliers: selectedRequest.suppliers,
+                    accountLines: selectedRequest.accountLines,
+                  }}
+                  quotes={quotes}
+                  pickByTerm={pickByTerm}
+                  onPick={onPick}
+                  defaultPriceUnit={defaultUnit}
+                  onInsertQuoteRow={handleInsertQuoteRow}
+                  insertQuoteRowBusy={insertQuoteRowBusy}
+                  quotesLoading={loading}
+                  onSaveComparisonPicks={handleSaveComparisonPicks}
+                  comparisonPicksSaveBusy={comparisonPicksSaveBusy}
+                  manualRows={EMPTY_MANUAL_ROWS}
+                  selectedEmailId={supplierReadEmailId}
+                  onSelectedEmailIdChange={setSupplierReadEmailId}
+                  emailDetail={supplierReadEmailDetail}
+                  emailDetailLoading={supplierReadEmailLoading}
+                />
+              </div>
+              <div className={cn("min-h-0", mainTab !== "compose" && "hidden")}>
+                <QuoteComposeCustomerTab
+                  rfpRequestId={selectedRequest.id}
+                  defaultPriceUnit={defaultUnit}
+                  energyTypeLabel={energyLabel}
+                  energyTypeSubjectSegment={energyLabelSubject}
+                  resolvedCompanyName={resolvedRfpCompanyName}
+                  rfp={{
+                    accountLines: selectedRequest.accountLines,
+                    ldcUtility: selectedRequest.ldcUtility,
+                    customer: selectedRequest.customer,
+                  }}
+                  quotes={quotes}
+                  pickByTerm={pickByTerm}
+                  manualRows={EMPTY_MANUAL_ROWS}
+                  customerContact={selectedRequest.customerContact ?? null}
+                  contractStartMonth={selectedRequest.contractStartMonth}
+                  contractStartYear={selectedRequest.contractStartYear}
+                  onQuoteEmailSent={() => void loadRfpRequests()}
+                />
+              </div>
+            </>
           )}
+          </div>
         </CardContent>
-      </Card>
+          </Card>
+        </Panel>
+      </PanelGroup>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {archiveMessage ? (
+        <p className="text-sm text-amber-700 dark:text-amber-400">{archiveMessage}</p>
+      ) : null}
+
+      <Dialog
+        open={refreshOpen}
+        onOpenChange={(o) => {
+          setRefreshOpen(o);
+          if (!o) {
+            setRefreshHasChanges(null);
+            setRefreshError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add RFP Quote</DialogTitle>
+            <DialogTitle>Refresh supplier quotes</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleAddQuote} className="space-y-4">
-            <div className="grid gap-2">
-              <Label>RFP request *</Label>
-              <Select value={form.rfpRequestId} onValueChange={(v) => setForm({ ...form, rfpRequestId: v, supplierId: "" })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select RFP request" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rfpRequests.map((request) => (
-                    <SelectItem key={request.id} value={request.id}>
-                      {`${request.customer?.name ?? "Unknown customer"} · ${
-                        request.energyType === "ELECTRIC" ? "Electric" : "Gas"
-                      }`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Supplier *</Label>
-              <Select value={form.supplierId} onValueChange={(v) => setForm({ ...form, supplierId: v })} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSuppliers.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Rate *</Label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={form.rate}
-                  onChange={(e) => setForm({ ...form, rate: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Unit *</Label>
-                <Select value={form.priceUnit} onValueChange={(v) => setForm({ ...form, priceUnit: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="KWH">KWH</SelectItem>
-                    <SelectItem value="MCF">MCF</SelectItem>
-                    <SelectItem value="CCF">CCF</SelectItem>
-                    <SelectItem value="DTH">DTH</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Term (months) *</Label>
-              {requestedMonthTerms.length > 0 ? (
-                <Select value={form.termMonths} onValueChange={(v) => setForm({ ...form, termMonths: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select requested term" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {requestedMonthTerms.map((term) => (
-                      <SelectItem key={term.months} value={String(term.months)}>
-                        {`${term.months} months`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  type="number"
-                  value={form.termMonths}
-                  onChange={(e) => setForm({ ...form, termMonths: e.target.value })}
-                  required
-                />
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Broker Margin</Label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={form.brokerMargin}
-                  onChange={(e) => setForm({ ...form, brokerMargin: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Total Margin</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={form.totalMargin}
-                  readOnly
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Estimated contract value</Label>
-              <Input value={form.estimatedContractValue} readOnly />
-            </div>
-            <div className="grid gap-2 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-              {selectedRequest ? (
-                <>
-                  <p>Total monthly usage: {formatUsageTotal(selectedRequest.accountLines)}</p>
-                  <p>Accounts in request: {selectedRequest.accountLines.length}</p>
-                </>
-              ) : (
-                <p>Select an RFP request to calculate total margin and contract value.</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label>Notes</Label>
-              <Input
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="Supplier email notes or response details"
-              />
-            </div>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.isBestOffer}
-                onChange={(e) => setForm({ ...form, isBestOffer: e.target.checked })}
-              />
-              <span className="text-sm">Best offer</span>
-            </label>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
+          <p className="text-sm text-muted-foreground">
+            Supplier quotes are usually only good for the day you receive them. If the customer needs fresh pricing, you
+            can re-open the RFP to edit details, or keep the same package and only move the supplier quote due date.
+          </p>
+          <div className="grid gap-2">
+            <Label htmlFor="quotes-refresh-quote-due">New supplier quote due date</Label>
+            <Input
+              id="quotes-refresh-quote-due"
+              type="date"
+              value={refreshDueDate}
+              onChange={(e) => setRefreshDueDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Do you need to change anything on the RFP before re-sending?</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={refreshHasChanges === true ? "secondary" : "outline"}
+                onClick={() => setRefreshHasChanges(true)}
+              >
+                Yes — edit on RFP page
               </Button>
-              <Button type="submit">Add</Button>
-            </DialogFooter>
-          </form>
+              <Button
+                type="button"
+                size="sm"
+                variant={refreshHasChanges === false ? "secondary" : "outline"}
+                onClick={() => setRefreshHasChanges(false)}
+              >
+                No — same package
+              </Button>
+            </div>
+            {refreshError ? (
+              <p className="text-sm text-destructive">{refreshError}</p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRefreshOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                refreshBusy ||
+                refreshHasChanges == null ||
+                (refreshHasChanges === false && !refreshDueDate.trim())
+              }
+              onClick={() => void onRefreshConfirm()}
+            >
+              {refreshBusy ? "Working…" : refreshHasChanges === true ? "Continue" : "Send to suppliers"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive RFP and quote work?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This hides the RFP from active lists, keeps all quote rows in the database, adds an Archives entry under
+            Settings, and creates a contract stub (when a CRM customer is linked) for you to complete with executed
+            terms.
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setArchiveOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={archiveBusy} onClick={() => void onArchive()}>
+              {archiveBusy ? "Archiving…" : "Archive"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -797,74 +1031,9 @@ export default function RfpQuotesPage() {
 }
 
 function defaultPriceUnitForRequest(request: RfpRequestSummary) {
-  return request.energyType === "ELECTRIC"
-    ? "KWH"
-    : request.brokerMarginUnit || "MCF";
-}
-
-function deriveQuoteMetrics({
-  request,
-  rate,
-  brokerMargin,
-  termMonths,
-}: {
-  request: RfpRequestSummary;
-  rate: string;
-  brokerMargin: string;
-  termMonths: string;
-}) {
-  const avgMonthlyTotal = request.accountLines.reduce(
-    (sum, line) => sum + Number(line.avgMonthlyUsage || 0),
-    0
-  );
-  const months = Number.parseInt(termMonths, 10);
-  const margin = Number(brokerMargin);
-  const rateValue = Number(rate);
-
-  const totalMargin =
-    Number.isFinite(months) && Number.isFinite(margin)
-      ? avgMonthlyTotal * months * margin
-      : 0;
-  const estimatedContractValue =
-    Number.isFinite(months) && Number.isFinite(margin) && Number.isFinite(rateValue)
-      ? avgMonthlyTotal * months * (rateValue + margin)
-      : 0;
-
-  return {
-    totalMargin: totalMargin ? totalMargin.toFixed(2) : "",
-    estimatedContractValue: estimatedContractValue ? estimatedContractValue.toFixed(2) : "",
-  };
+  return request.energyType === "ELECTRIC" ? "KWH" : request.brokerMarginUnit || "MCF";
 }
 
 function formatRequestedTerm(term: { kind: "months"; months: number } | { kind: "nymex" }) {
   return term.kind === "nymex" ? "NYMEX" : `${term.months} months`;
-}
-
-function formatUsageTotal(
-  accountLines: Array<{ avgMonthlyUsage: number }>
-) {
-  const total = accountLines.reduce((sum, line) => sum + Number(line.avgMonthlyUsage || 0), 0);
-  return total.toLocaleString();
-}
-
-function summarizeQuotesByTerm(quotes: RfpQuote[]) {
-  const grouped = new Map<number, RfpQuote[]>();
-
-  for (const quote of quotes) {
-    const existing = grouped.get(quote.termMonths) || [];
-    existing.push(quote);
-    grouped.set(quote.termMonths, existing);
-  }
-
-  return Array.from(grouped.entries())
-    .map(([termMonths, termQuotes]) => ({
-      termMonths,
-      bestQuote:
-        [...termQuotes].sort((a, b) => Number(a.rate) - Number(b.rate))[0] ?? null,
-    }))
-    .sort((a, b) => a.termMonths - b.termMonths);
-}
-
-function formatCurrency(value: number) {
-  return value.toLocaleString(undefined, { style: "currency", currency: "USD" });
 }

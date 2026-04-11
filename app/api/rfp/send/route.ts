@@ -3,22 +3,69 @@ import { Prisma, CalendarEventType, EnergyType, PriceUnit, type Customer } from 
 import { getGmailClient, getGoogleDriveClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { flattenDeliverableSupplierContacts } from "@/lib/supplier-rfp-contacts";
+import { localDateFromDayInput } from "@/lib/calendar-date";
 
 type SendMode = "preview" | "test" | "send";
 type Attachment = { filename: string; content: Buffer; mimeType: string };
 
-function rfpGreetingFirstNameFromContact(row: { firstName: string | null; name: string } | null): string {
-  if (!row) return "";
-  const fn = (row.firstName ?? "").trim();
-  if (fn) return fn;
-  const display = (row.name ?? "").trim();
-  if (!display) return "";
-  if (display.includes(",")) {
-    const parts = display.split(",").map((s) => s.trim());
-    const after = parts[1];
-    if (after) return (after.split(/\s+/)[0] ?? after).trim();
+/** Persisted inside `enrollmentDetails` so refresh/resend can rebuild the email signature. */
+const RFP_BROKER_EMAIL_SIGNATURE_KEY = "rfpBrokerEmailSignature";
+
+type RfpBrokerEmailSignature = {
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  fax: string;
+};
+
+function brokerProfileFromBody(body: Record<string, unknown>): unknown {
+  return body.brokerProfile;
+}
+
+function normalizeBrokerEmailSignature(raw: unknown): RfpBrokerEmailSignature | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const p: RfpBrokerEmailSignature = {
+    firstName: String(o.firstName ?? "").trim(),
+    lastName: String(o.lastName ?? "").trim(),
+    companyName: String(o.companyName ?? "").trim(),
+    email: String(o.email ?? "").trim(),
+    phone: String(o.phone ?? "").trim(),
+    fax: String(o.fax ?? "").trim(),
+  };
+  return Object.values(p).some(Boolean) ? p : null;
+}
+
+function brokerSignatureFromEnrollmentJson(enrollment: unknown): RfpBrokerEmailSignature | null {
+  if (!enrollment || typeof enrollment !== "object" || Array.isArray(enrollment)) return null;
+  const raw = (enrollment as Record<string, unknown>)[RFP_BROKER_EMAIL_SIGNATURE_KEY];
+  return normalizeBrokerEmailSignature(raw);
+}
+
+function mergeEnrollmentWithBrokerSignature(
+  base: Prisma.InputJsonValue | undefined,
+  broker: RfpBrokerEmailSignature | null
+): Prisma.InputJsonValue | undefined {
+  const hasBase = base !== undefined;
+  const hasBroker = Boolean(broker);
+  if (!hasBase && !hasBroker) return undefined;
+  const obj =
+    base && typeof base === "object" && !Array.isArray(base)
+      ? { ...(base as Record<string, unknown>) }
+      : {};
+  if (broker) obj[RFP_BROKER_EMAIL_SIGNATURE_KEY] = broker;
+  return obj as Prisma.InputJsonValue;
+}
+
+function uniqueRecipientEmailCount(recipients: Array<{ email: string }>): number {
+  const seen = new Set<string>();
+  for (const r of recipients) {
+    const e = (r.email || "").trim().toLowerCase();
+    if (e) seen.add(e);
   }
-  return (display.split(/\s+/)[0] ?? display).trim();
+  return seen.size;
 }
 
 function enrollmentDetailsFromBody(body: Record<string, unknown>): Prisma.InputJsonValue | undefined {
@@ -43,18 +90,12 @@ export async function POST(request: NextRequest) {
     const payload = await buildRfpPayload(body, attachments);
 
     if (mode === "preview") {
-      const ccRow = await prisma.contact.findUnique({
-        where: { id: payload.customerContact.id },
-        select: { firstName: true, name: true },
-      });
-      const customerGreet = rfpGreetingFirstNameFromContact(ccRow);
-      const sampleSupplier = payload.supplierRecipients[0]?.supplierName ?? "there";
-      const greetForPlaceholder = customerGreet || sampleSupplier;
+      const { html, text } = personalizeForFirstSupplierRecipient(payload);
       return NextResponse.json({
         success: true,
         subject: payload.subject,
-        text: payload.emailText.replace(/\{\{supplierContactName\}\}/g, greetForPlaceholder),
-        html: personalizeEmailHtml(payload.emailHtml, customerGreet, sampleSupplier),
+        text,
+        html,
         recipientPreview: payload.supplierRecipients.map((recipient) => ({
           supplierName: recipient.supplierName,
           contactName: recipient.contactName,
@@ -73,18 +114,19 @@ export async function POST(request: NextRequest) {
 
       await ensureDriveFilesAccessible(payload, [testEmail]);
 
+      const { html: testHtml, text: testText } = personalizeForFirstSupplierRecipient(payload);
       await sendMimeEmail(gmail, {
         to: [testEmail],
         subject: `[TEST] ${payload.subject}`,
-        text: payload.emailText,
-        html: payload.emailHtml,
+        text: testText,
+        html: testHtml,
         attachments: payload.attachments,
       });
 
-      return NextResponse.json({ success: true, sentTo: 1, testEmail });
+      return NextResponse.json({ success: true, sentTo: 1, emailRecipientCount: 1, testEmail });
     }
 
-    const quoteDue = payload.quoteDueDate ? new Date(payload.quoteDueDate) : null;
+    const quoteDue = localDateFromDayInput(payload.quoteDueDate ?? null);
     const primaryTermMonths =
       payload.termValues.find((value) => value.kind === "months")?.months ?? null;
 
@@ -103,7 +145,11 @@ export async function POST(request: NextRequest) {
     }
 
     const supplierContactSelections = supplierSelectionsFromBody(body);
-    const enrollmentDetails = enrollmentDetailsFromBody(body);
+    const brokerSig = normalizeBrokerEmailSignature(brokerProfileFromBody(body));
+    const enrollmentDetails = mergeEnrollmentWithBrokerSignature(
+      enrollmentDetailsFromBody(body),
+      brokerSig
+    );
 
     const rfpRequest = await prisma.rfpRequest.create({
       data: {
@@ -177,19 +223,22 @@ export async function POST(request: NextRequest) {
     );
 
     for (const recipient of payload.supplierRecipients) {
+      const greet = rfpSupplierGreeting(recipient);
       await sendMimeEmail(gmail, {
         to: [recipient.email],
         subject: payload.subject,
-        text: payload.emailText,
-        html: personalizeEmailHtml(payload.emailHtml, recipient.contactName, recipient.supplierName),
+        text: payload.emailText.replace(/\{\{supplierContactName\}\}/g, greet),
+        html: personalizeEmailHtml(payload.emailHtml, greet, recipient.supplierName),
         attachments: payload.attachments,
       });
     }
 
+    const emailRecipientCount = uniqueRecipientEmailCount(payload.supplierRecipients);
     return NextResponse.json({
       success: true,
       rfpRequestId: rfpRequest.id,
-      sentTo: payload.supplierRecipients.length,
+      sentTo: emailRecipientCount,
+      emailRecipientCount,
       suppliers: payload.supplierRecipients.map((recipient) => recipient.supplierName),
     });
   } catch (err) {
@@ -235,20 +284,112 @@ async function parseRequestPayload(request: NextRequest): Promise<{
   return { body, attachments };
 }
 
+type RfpRecipientSlot = { contactId: string; email: string };
+
+function parseRecipientSlotsFromJsonValue(value: unknown): RfpRecipientSlot[] {
+  if (!Array.isArray(value)) return [];
+  const out: RfpRecipientSlot[] = [];
+  for (const item of value) {
+    if (typeof item === "string") {
+      const t = item.trim();
+      if (t) out.push({ contactId: t, email: "" });
+    } else if (item && typeof item === "object") {
+      const o = item as Record<string, unknown>;
+      const cid = String(o.contactId ?? "").trim();
+      const em = String(o.email ?? "").trim();
+      if (cid) out.push({ contactId: cid, email: em });
+    }
+  }
+  return out;
+}
+
+function normalizeSupplierContactSelectionValue(value: unknown): string[] {
+  const slots = parseRecipientSlotsFromJsonValue(value);
+  if (slots.length === 0) {
+    if (typeof value === "string") {
+      const t = value.trim();
+      return t ? [t] : [];
+    }
+    if (Array.isArray(value)) {
+      return value.map(String).map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return slots.map((s) => s.contactId).filter(Boolean);
+}
+
+function recipientSlotsFromBody(body: Record<string, unknown>): RfpRecipientSlot[] {
+  const supplierIds = Array.isArray(body.supplierIds) ? body.supplierIds.map(String) : [];
+  const slots: RfpRecipientSlot[] = [];
+  const rawSelections = body.supplierContactSelections;
+  if (rawSelections && typeof rawSelections === "object" && !Array.isArray(rawSelections)) {
+    for (const sid of supplierIds) {
+      slots.push(...parseRecipientSlotsFromJsonValue((rawSelections as Record<string, unknown>)[sid]));
+    }
+  }
+  if (slots.length === 0 && Array.isArray(body.supplierRecipientSlots)) {
+    slots.push(...parseRecipientSlotsFromJsonValue(body.supplierRecipientSlots));
+  }
+  if (slots.length === 0) {
+    const supplierContactIds = Array.isArray(body.supplierContactIds)
+      ? body.supplierContactIds.map(String)
+      : [];
+    for (let i = 0; i < supplierIds.length; i++) {
+      const c = supplierContactIds[i]?.trim();
+      if (c) slots.push({ contactId: c, email: "" });
+    }
+  }
+  return slots;
+}
+
 function supplierSelectionsFromBody(
   body: Record<string, unknown>
-): Record<string, string> | null {
+): Record<string, RfpRecipientSlot[]> | null {
   const supplierIds = Array.isArray(body.supplierIds) ? body.supplierIds.map(String) : [];
+  if (supplierIds.length === 0) return null;
+
+  const map: Record<string, RfpRecipientSlot[]> = {};
+  const rawSelections = body.supplierContactSelections;
+  if (rawSelections && typeof rawSelections === "object" && !Array.isArray(rawSelections)) {
+    for (const sid of supplierIds) {
+      const part = parseRecipientSlotsFromJsonValue((rawSelections as Record<string, unknown>)[sid]);
+      if (part.length > 0) map[sid] = part;
+    }
+  }
+
   const supplierContactIds = Array.isArray(body.supplierContactIds)
     ? body.supplierContactIds.map(String)
     : [];
-  if (supplierIds.length === 0) return null;
-  const map: Record<string, string> = {};
-  for (let i = 0; i < supplierIds.length; i++) {
-    const c = supplierContactIds[i];
-    if (c) map[supplierIds[i]] = c;
+
+  if (Object.keys(map).length === 0) {
+    for (let i = 0; i < supplierIds.length; i++) {
+      const c = supplierContactIds[i]?.trim();
+      if (c) map[supplierIds[i]] = [{ contactId: c, email: "" }];
+    }
+  } else {
+    for (let i = 0; i < supplierIds.length; i++) {
+      const sid = supplierIds[i];
+      const c = supplierContactIds[i]?.trim();
+      if (c && (!map[sid] || map[sid].length === 0)) {
+        map[sid] = [{ contactId: c, email: "" }];
+      }
+    }
   }
+
   return Object.keys(map).length > 0 ? map : null;
+}
+
+function formatBrokerMarginForEmail(margin: number, unit: PriceUnit | string | undefined): string {
+  const u = unit != null ? String(unit).trim() : "";
+  let amt = margin.toFixed(6);
+  amt = amt.replace(/(\.\d*?[1-9])0+$/, "$1");
+  amt = amt.replace(/\.0+$/, "");
+  return u ? `$${amt}/${u}` : `$${amt}`;
+}
+
+function buildRfpBrokerSignatureLines(p: RfpBrokerEmailSignature | null | undefined): string[] {
+  if (!p) return [];
+  const name = [p.firstName, p.lastName].filter(Boolean).join(" ").trim();
+  return [name, p.companyName, p.phone, p.fax, p.email].map((x) => (x || "").trim()).filter(Boolean);
 }
 
 function buildRfpEmailBody(opts: {
@@ -273,6 +414,7 @@ function buildRfpEmailBody(opts: {
     avgMonthlyUsage: number;
   }>;
   notes?: string;
+  brokerProfile?: RfpBrokerEmailSignature | null;
 }): { text: string; html: string } {
   const contractStart = formatContractStart(opts.contractStartMonth, opts.contractStartYear);
   const usageSummaryLines = opts.accountLines.map((line) =>
@@ -298,26 +440,43 @@ function buildRfpEmailBody(opts: {
     )
     .join("\n");
 
-  const marginText =
+  const energyLabel = formatEnergyType(opts.energyType);
+  const marginCore =
     opts.brokerMargin != null
-      ? `${opts.brokerMargin.toFixed(6)} ${opts.brokerMarginUnit ? `$/` + opts.brokerMarginUnit : ""}`
+      ? formatBrokerMarginForEmail(opts.brokerMargin, opts.brokerMarginUnit)
       : "To be provided with quoted price";
+  const marginCell =
+    opts.brokerMargin != null
+      ? `${marginCore} (please include this into the quoted price)`
+      : marginCore;
   const billReference = opts.billDocumentUrl
-    ? `<a href="${escapeHtml(opts.billDocumentUrl)}">Open bill link</a>`
+    ? `<a href="${escapeHtml(opts.billDocumentUrl)}" style="font-weight:700;text-decoration:underline;">Bill Link</a>`
     : opts.billAttachmentName
       ? `Attached file: ${escapeHtml(opts.billAttachmentName)}`
       : "—";
   /** Spreadsheet link / attachment replaces the in-email usage table. */
   const externalUsageOnly = Boolean(opts.usageSummaryUrl || opts.usageSummaryAttachmentName);
 
+  const sigLines = buildRfpBrokerSignatureLines(opts.brokerProfile);
+  const signatureHtml =
+    sigLines.length > 0
+      ? `<p style="margin-top: 22px;">${sigLines
+          .map((line) =>
+            line.includes("@") && !/\s/.test(line)
+              ? `<a href="mailto:${escapeHtml(line)}">${escapeHtml(line)}</a>`
+              : escapeHtml(line)
+          )
+          .join("<br />\n        ")}</p>`
+      : `<p style="margin-top: 22px;">—</p>`;
+
   const rows = [
-    ["Energy Type", formatEnergyType(opts.energyType)],
+    ["Energy Type", energyLabel],
     ["Local Distribution Center", opts.ldcUtility || "—"],
     ["Customer Name", opts.customer.name],
     ["Contract Length Requested", opts.requestedTerms.map(formatRequestedTerm).join(", ")],
     ["Contract Starting Month/Year", contractStart || "—"],
-    ["Broker Margin", `${marginText} (please include this into the quoted price)`],
-    ["Customer’s Energy Type Bills for pricing", billReference],
+    ["Broker Margin", marginCell],
+    [`Customer’s ${energyLabel} Bills for pricing`, billReference],
   ];
 
   const utilityAccountsTableHtml =
@@ -351,7 +510,7 @@ function buildRfpEmailBody(opts: {
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #111; line-height: 1.4;">
-      <p style="font-size: 28px; margin: 0 0 8px;"><strong>${escapeHtml(opts.customer.name)}</strong> | <strong>${escapeHtml(formatEnergyType(opts.energyType))}</strong> Quote</p>
+      <p style="font-size: 28px; margin: 0 0 8px;"><strong>${escapeHtml(opts.customer.name)} | ${escapeHtml(energyLabel)} Quote</strong></p>
       <p style="margin: 0 0 18px;">Date Submitted: <strong>${escapeHtml(formatDisplayDate(new Date().toISOString()))}</strong></p>
       <p>Hi {{supplierContactName}},</p>
       <p>Please provide a quote for this customer on the following date: <strong>${escapeHtml(formatDisplayDate(opts.quoteDueDate || ""))}</strong>.</p>
@@ -374,18 +533,12 @@ function buildRfpEmailBody(opts: {
       ${opts.notes ? `<p style="margin-top: 18px;">${escapeHtml(opts.notes)}</p>` : ""}
       <p style="margin-top: 18px;">If you have any questions about this request, please contact me.</p>
       <p>Thank you!</p>
-      <p style="margin-top: 22px;">
-        Tamara Gregory<br />
-        Energia Power LLC<br />
-        234-207-2994<br />
-        234-414-6763 (fax)<br />
-        <a href="mailto:tamara@energiapower.llc">tamara@energiapower.llc</a>
-      </p>
+      ${signatureHtml}
     </div>
   `.trim();
 
   const textLines: string[] = [
-    `${opts.customer.name} | ${formatEnergyType(opts.energyType)} Quote`,
+    `${opts.customer.name} | ${energyLabel} Quote`,
     `Date Submitted: ${formatDisplayDate(new Date().toISOString())}`,
     "",
     "Hi {{supplierContactName}},",
@@ -393,13 +546,13 @@ function buildRfpEmailBody(opts: {
     `Please provide a quote for this customer on the following date: ${formatDisplayDate(opts.quoteDueDate || "")}.`,
     "",
     "Pricing Terms and Customer Information:",
-    `Energy Type: ${formatEnergyType(opts.energyType)}`,
+    `Energy Type: ${energyLabel}`,
     `Local Distribution Center: ${opts.ldcUtility || "—"}`,
     `Customer Name: ${opts.customer.name}`,
     `Contract Length Requested: ${opts.requestedTerms.map(formatRequestedTerm).join(", ")}`,
     `Contract Starting Month/Year: ${contractStart || "—"}`,
-    `Broker Margin: ${marginText}`,
-    `Customer Bills: ${opts.billDocumentUrl || (opts.billAttachmentName ? `Attached file: ${opts.billAttachmentName}` : "—")}`,
+    `Broker Margin: ${marginCore}`,
+    `Customer’s ${energyLabel} Bills for pricing: ${opts.billDocumentUrl || (opts.billAttachmentName ? `Attached file: ${opts.billAttachmentName}` : "—")}`,
   ];
   if (!externalUsageOnly) {
     textLines.push(
@@ -419,11 +572,7 @@ function buildRfpEmailBody(opts: {
     "",
     "Thank you!",
     "",
-    "Tamara Gregory",
-    "Energia Power LLC",
-    "234-207-2994",
-    "234-414-6763 (fax)",
-    "tamara@energiapower.llc"
+    ...(sigLines.length > 0 ? sigLines : ["—"]),
   );
 
   return { text: textLines.filter(Boolean).join("\n"), html };
@@ -545,9 +694,6 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
   const customerContactId = String(body.customerContactId || "").trim();
   const energyType = String(body.energyType || "").trim();
   const supplierIds = Array.isArray(body.supplierIds) ? body.supplierIds.map(String) : [];
-  const supplierContactIds = Array.isArray(body.supplierContactIds)
-    ? body.supplierContactIds.map(String)
-    : [];
 
   if (!customerContactId || !isEnergyType(energyType)) {
     throw new Error("customerContactId and energyType are required");
@@ -658,22 +804,41 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
     select: {
       id: true,
       name: true,
+      firstName: true,
       email: true,
       phone: true,
       company: true,
       supplierId: true,
       label: true,
       isPriority: true,
-      emails: { orderBy: { order: "asc" }, take: 1, select: { email: true } },
+      emails: { orderBy: { order: "asc" }, select: { email: true } },
     },
   });
 
   const deliverableContacts = flattenDeliverableSupplierContacts(suppliers, contactPool);
 
-  const supplierRecipients = (supplierContactIds.length > 0
-    ? deliverableContacts.filter((contact) => supplierContactIds.includes(contact.contactId))
-    : deliverableContacts
-  ).filter((contact, index, all) => all.findIndex((item) => item.email === contact.email) === index);
+  const recipientTargets = recipientSlotsFromBody(body);
+  let supplierRecipients: typeof deliverableContacts;
+  if (recipientTargets.length > 0) {
+    const hasExplicitEmail = recipientTargets.some((t) => (t.email || "").trim() !== "");
+    if (hasExplicitEmail) {
+      const want = new Set(
+        recipientTargets.map((t) => `${t.contactId}\0${(t.email || "").trim().toLowerCase()}`)
+      );
+      supplierRecipients = deliverableContacts.filter((r) =>
+        want.has(`${r.contactId}\0${r.email.trim().toLowerCase()}`)
+      );
+    } else {
+      const ids = new Set(recipientTargets.map((t) => t.contactId));
+      supplierRecipients = deliverableContacts.filter((r) => ids.has(r.contactId));
+    }
+  } else {
+    supplierRecipients = deliverableContacts;
+  }
+  supplierRecipients = supplierRecipients.filter(
+    (contact, index, all) =>
+      all.findIndex((item) => item.email.toLowerCase() === contact.email.toLowerCase()) === index
+  );
 
   if (supplierRecipients.length === 0) {
     throw new Error("Select at least one supplier contact with a deliverable email address");
@@ -717,6 +882,10 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
   const baseSubject = `${customer.name} | ${formatEnergyType(energyType)} | Quote`;
   const subjectPrefix = nonEmptyString(body.rfpSubjectPrefix);
   const subject = subjectPrefix ? `${subjectPrefix} — ${baseSubject}` : baseSubject;
+  const enrollmentJson = enrollmentDetailsFromBody(body);
+  const brokerForEmail =
+    normalizeBrokerEmailSignature(brokerProfileFromBody(body)) ??
+    brokerSignatureFromEnrollmentJson(enrollmentJson);
   const emailContent = buildRfpEmailBody({
     customer,
     customerContact,
@@ -734,6 +903,7 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
     brokerMarginUnit,
     accountLines,
     notes: notes || undefined,
+    brokerProfile: brokerForEmail,
   });
 
   return {
@@ -830,8 +1000,42 @@ async function ensureDriveFilesAccessible(
   }
 }
 
-export function personalizeEmailHtml(html: string, supplierContactName: string, supplierName: string) {
-  return html.replace(/\{\{supplierContactName\}\}/g, escapeHtml(supplierContactName || supplierName || "there"));
+export function personalizeEmailHtml(html: string, greetingName: string, supplierName: string) {
+  return html.replace(
+    /\{\{supplierContactName\}\}/g,
+    escapeHtml(greetingName || supplierName || "there")
+  );
+}
+
+function rfpSupplierGreeting(recipient: {
+  greetingName: string;
+  contactName: string;
+  supplierName: string;
+}): string {
+  const g = (recipient.greetingName || "").trim();
+  if (g) return g;
+  const first = (recipient.contactName || "").trim().split(/\s+/)[0];
+  if (first) return first;
+  const s = (recipient.supplierName || "").trim();
+  return s || "there";
+}
+
+/** Preview and test RFP emails use the first selected supplier contact, same as first live recipient. */
+function personalizeForFirstSupplierRecipient(payload: {
+  emailHtml: string;
+  emailText: string;
+  supplierRecipients: Array<{
+    supplierName: string;
+    contactName: string;
+    greetingName: string;
+  }>;
+}): { html: string; text: string } {
+  const first = payload.supplierRecipients[0];
+  const greet = first ? rfpSupplierGreeting(first) : "there";
+  return {
+    html: personalizeEmailHtml(payload.emailHtml, greet, first?.supplierName ?? ""),
+    text: payload.emailText.replace(/\{\{supplierContactName\}\}/g, greet),
+  };
 }
 
 function escapeHeaderValue(value: string) {
@@ -992,7 +1196,9 @@ function dbRequestedTermsToForm(rt: unknown): { requestedTerms: string[]; custom
  * Resend the same supplier RFP email (Drive links in body) with subject prefix "RFP Refresh".
  * Does not create a new `RfpRequest` row; increments `refreshSequence`.
  */
-export async function resendStoredRfpSupplierEmails(rfpId: string): Promise<{ sentTo: number }> {
+export async function resendStoredRfpSupplierEmails(
+  rfpId: string
+): Promise<{ sentTo: number; emailRecipientCount: number }> {
   const row = await prisma.rfpRequest.findUnique({
     where: { id: rfpId },
     include: {
@@ -1006,14 +1212,13 @@ export async function resendStoredRfpSupplierEmails(rfpId: string): Promise<{ se
   }
   if (!row.customerContactId) throw new Error("RFP has no customer contact");
 
-  const selections =
+  const supplierContactSelections =
     row.supplierContactSelections &&
     typeof row.supplierContactSelections === "object" &&
     !Array.isArray(row.supplierContactSelections)
-      ? (row.supplierContactSelections as Record<string, string>)
+      ? (row.supplierContactSelections as Record<string, unknown>)
       : {};
   const supplierIds = row.suppliers.map((s) => s.id);
-  const supplierContactIds = supplierIds.map((sid) => selections[sid] || "");
   const { requestedTerms: rtParts, customTermMonths } = dbRequestedTermsToForm(row.requestedTerms);
   const quoteDue = row.quoteDueDate ? row.quoteDueDate.toISOString().slice(0, 10) : "";
 
@@ -1022,7 +1227,7 @@ export async function resendStoredRfpSupplierEmails(rfpId: string): Promise<{ se
     customerContactId: row.customerContactId,
     energyType: row.energyType,
     supplierIds,
-    supplierContactIds,
+    supplierContactSelections,
     accountLines: row.accountLines.map((al) => ({
       accountNumber: al.accountNumber,
       serviceAddress: al.serviceAddress ?? "",
@@ -1051,11 +1256,12 @@ export async function resendStoredRfpSupplierEmails(rfpId: string): Promise<{ se
     payload.supplierRecipients.map((r) => r.email)
   );
   for (const recipient of payload.supplierRecipients) {
+    const greet = rfpSupplierGreeting(recipient);
     await sendMimeEmail(gmail, {
       to: [recipient.email],
       subject: payload.subject,
-      text: payload.emailText,
-      html: personalizeEmailHtml(payload.emailHtml, recipient.contactName, recipient.supplierName),
+      text: payload.emailText.replace(/\{\{supplierContactName\}\}/g, greet),
+      html: personalizeEmailHtml(payload.emailHtml, greet, recipient.supplierName),
       attachments: payload.attachments,
     });
   }
@@ -1063,5 +1269,6 @@ export async function resendStoredRfpSupplierEmails(rfpId: string): Promise<{ se
     where: { id: rfpId },
     data: { refreshSequence: { increment: 1 } },
   });
-  return { sentTo: payload.supplierRecipients.length };
+  const emailRecipientCount = uniqueRecipientEmailCount(payload.supplierRecipients);
+  return { sentTo: emailRecipientCount, emailRecipientCount };
 }

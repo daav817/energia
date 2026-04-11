@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { cn } from "@/lib/utils";
 import {
   customerContactCandidatesForContract,
@@ -229,7 +230,12 @@ export function PrimaryCustomerContactDialog(props: {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="pc-phone">Phone</Label>
-              <Input id="pc-phone" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Optional" />
+              <PhoneInput
+                id="pc-phone"
+                value={newPhone}
+                onChange={setNewPhone}
+                placeholder="Optional"
+              />
             </div>
             <p className="text-xs text-muted-foreground">Company on the contact: {companyForContact || "—"}</p>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}

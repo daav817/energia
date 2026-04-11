@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ComposeBrokerInsertMenu, insertTextAtTextareaSelection } from "@/components/compose-broker-insert-menu";
 
 type OverviewContract = {
   id: string;
@@ -308,6 +309,7 @@ export default function CustomersPage() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeSending, setComposeSending] = useState(false);
+  const composeBodyRef = useRef<HTMLTextAreaElement>(null);
 
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesCustomerIds, setNotesCustomerIds] = useState<string[]>([]);
@@ -1176,8 +1178,17 @@ export default function CustomersPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="compose-body">Message</Label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label htmlFor="compose-body" className="mb-0">
+                    Message
+                  </Label>
+                  <ComposeBrokerInsertMenu
+                    disabled={composeSending}
+                    onInsert={(text) => insertTextAtTextareaSelection(composeBodyRef, composeBody, setComposeBody, text)}
+                  />
+                </div>
                 <textarea
+                  ref={composeBodyRef}
                   id="compose-body"
                   required
                   className="min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

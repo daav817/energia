@@ -2,6 +2,8 @@
 
 export const EMAIL_TEMPLATES_STORAGE_KEY = "energia-email-templates-v1";
 export const RENEWAL_TEMPLATE_DEFAULT_ID = "renewal-reminder-v1";
+/** Default id for the Quotes “customer summary” outbound template (editable under Email templates). */
+export const CUSTOMER_QUOTES_TEMPLATE_DEFAULT_ID = "customer-quotes-v1";
 
 export type StoredEmailTemplate = {
   id: string;
@@ -35,6 +37,20 @@ Please reply with recent energy bill(s) for every account you wish to renew.</p>
 {{brokerFax}}</p>
 `.trim();
 
+const DEFAULT_CUSTOMER_QUOTES_SUBJECT = "Your {{energyLabel}} supply quotes for review";
+
+const DEFAULT_CUSTOMER_QUOTES_HTML = `
+<p>Dear {{greetingFirstName}},</p>
+<p>Please find indicative quotes below for your review. Reply with any questions or your preferred option.</p>
+<p><strong>Next steps</strong><br/>
+Add your comparison table using <em>Insert quotes table</em> on the Quotes page, or paste details here.</p>
+<p>Best regards,<br/>
+{{brokerFirstName}} {{brokerLastName}}<br/>
+{{brokerCompany}}<br/>
+{{brokerPhone}}<br/>
+{{brokerFax}}</p>
+`.trim();
+
 /** Clears all templates (empty list). Renewal email still uses built-in content when none are stored. */
 export function clearAllEmailTemplates() {
   if (typeof window === "undefined") return;
@@ -46,7 +62,7 @@ export function loadEmailTemplates(): StoredEmailTemplate[] {
   try {
     const raw = localStorage.getItem(EMAIL_TEMPLATES_STORAGE_KEY);
     if (!raw) {
-      const seeded = seedRenewalTemplateOnly();
+      const seeded = seedDefaultTemplates();
       saveEmailTemplates(seeded);
       return seeded;
     }
@@ -55,11 +71,11 @@ export function loadEmailTemplates(): StoredEmailTemplate[] {
       return [];
     }
     if (!Array.isArray(j)) {
-      const seeded = seedRenewalTemplateOnly();
+      const seeded = seedDefaultTemplates();
       saveEmailTemplates(seeded);
       return seeded;
     }
-    return j
+    const mapped = j
       .map((row) => row as Partial<StoredEmailTemplate>)
       .filter((t) => t.id && t.name != null && t.subject != null && t.htmlBody != null)
       .map((t) => ({
@@ -69,8 +85,17 @@ export function loadEmailTemplates(): StoredEmailTemplate[] {
         htmlBody: String(t.htmlBody),
         updatedAt: typeof t.updatedAt === "string" ? t.updatedAt : new Date().toISOString(),
       }));
+    const merged = ensureCustomerQuotesBuiltinTemplate(mapped);
+    if (merged.length > mapped.length) {
+      try {
+        saveEmailTemplates(merged);
+      } catch {
+        /* ignore */
+      }
+    }
+    return merged;
   } catch {
-    const seeded = seedRenewalTemplateOnly();
+    const seeded = seedDefaultTemplates();
     try {
       saveEmailTemplates(seeded);
     } catch {
@@ -80,7 +105,22 @@ export function loadEmailTemplates(): StoredEmailTemplate[] {
   }
 }
 
-function seedRenewalTemplateOnly(): StoredEmailTemplate[] {
+function defaultCustomerQuotesRow(now: string): StoredEmailTemplate {
+  return {
+    id: CUSTOMER_QUOTES_TEMPLATE_DEFAULT_ID,
+    name: "Customer quotes (summary)",
+    subject: DEFAULT_CUSTOMER_QUOTES_SUBJECT,
+    htmlBody: DEFAULT_CUSTOMER_QUOTES_HTML,
+    updatedAt: now,
+  };
+}
+
+function ensureCustomerQuotesBuiltinTemplate(list: StoredEmailTemplate[]): StoredEmailTemplate[] {
+  if (list.some((t) => t.id === CUSTOMER_QUOTES_TEMPLATE_DEFAULT_ID)) return list;
+  return [...list, defaultCustomerQuotesRow(new Date().toISOString())];
+}
+
+function seedDefaultTemplates(): StoredEmailTemplate[] {
   const now = new Date().toISOString();
   return [
     {
@@ -90,6 +130,7 @@ function seedRenewalTemplateOnly(): StoredEmailTemplate[] {
       htmlBody: DEFAULT_RENEWAL_HTML,
       updatedAt: now,
     },
+    defaultCustomerQuotesRow(now),
   ];
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, type FormEvent } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, type FormEvent } from "react";
 import {
   Users,
   Plus,
@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { formatUsPhoneDigits } from "@/lib/us-phone";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ComposeBrokerInsertMenu, insertTextAtTextareaSelection } from "@/components/compose-broker-insert-menu";
 import { ContactLabelsField } from "@/components/contact-labels-field";
 import {
   DropdownMenu,
@@ -615,19 +618,20 @@ export default function ContactsPage() {
     const primaryPhone = c.phones?.[0]?.phone ?? c.phone ?? "";
     const emails = c.emails?.length ? c.emails : [];
     const phones = c.phones?.length ? c.phones : [];
+    const phonesNorm = phones.map((p) => ({ ...p, phone: formatUsPhoneDigits(p.phone || "") }));
     setForm({
       firstName: c.firstName || "",
       lastName: c.lastName || "",
       name: c.name,
       email: emails.length ? "" : primaryEmail,
-      phone: phones.length ? "" : primaryPhone,
+      phone: phones.length ? "" : formatUsPhoneDigits(primaryPhone),
       company: c.company || "",
       jobTitle: c.jobTitle || "",
       label: c.label || "",
       website: c.website || "",
       notes: c.notes || "",
       emails,
-      phones,
+      phones: phonesNorm,
       addresses: c.addresses || [],
       significantDates:
         c.significantDates?.map((d) => ({
@@ -1523,6 +1527,7 @@ function ComposeModal({
   onClose: () => void;
   onSent: () => void;
 }) {
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -1585,8 +1590,15 @@ function ComposeModal({
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
           </div>
           <div className="grid gap-2">
-            <Label>Message</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label className="mb-0">Message</Label>
+              <ComposeBrokerInsertMenu
+                disabled={sending}
+                onInsert={(text) => insertTextAtTextareaSelection(bodyRef, body, setBody, text)}
+              />
+            </div>
             <textarea
+              ref={bodyRef}
               className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -1765,22 +1777,27 @@ function ContactFormDialog({
                 + Add
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              US numbers: ###-###-#### (area code, hyphen, three digits, hyphen, four digits).
+            </p>
             {form.phones.length === 0 ? (
-              <Input
+              <PhoneInput
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
                 placeholder="Primary phone"
                 className="mt-1"
               />
             ) : (
               form.phones.map((p, i) => (
                 <div key={i} className="flex gap-2 mt-1">
-                  <Input
+                  <PhoneInput
+                    showFieldHint={false}
+                    className="min-w-0 flex-1"
                     value={p.phone}
-                    onChange={(ev) =>
+                    onChange={(v) =>
                       setForm((f) => ({
                         ...f,
-                        phones: f.phones.map((ph, j) => (j === i ? { ...ph, phone: ev.target.value } : ph)),
+                        phones: f.phones.map((ph, j) => (j === i ? { ...ph, phone: v } : ph)),
                       }))
                     }
                     placeholder="Phone"

@@ -46,6 +46,8 @@ export function getAuthUrl(loginHint?: string): string {
       "https://www.googleapis.com/auth/tasks",
       "https://www.googleapis.com/auth/calendar.events",
       "https://www.googleapis.com/auth/drive.readonly",
+      /** Create/upload files (e.g. email attachments) into folders you can edit. */
+      "https://www.googleapis.com/auth/drive.file",
     ],
     prompt: "select_account consent",
     ...(loginHint && { login_hint: loginHint }),

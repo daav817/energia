@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,8 @@ type ConfirmDialogProps = {
   onOpenChange: (open: boolean) => void;
   title?: string;
   message?: string;
+  /** Optional content below the message (e.g. recipient lists). */
+  children?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "destructive";
@@ -25,6 +28,7 @@ export function ConfirmDialog({
   onOpenChange,
   title = "Confirm",
   message = "Are you sure you want to delete this?",
+  children,
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
   variant = "destructive",
@@ -42,6 +46,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <p className="py-4 text-sm text-muted-foreground">{message}</p>
+        {children != null ? <div className="text-sm">{children}</div> : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {cancelLabel}

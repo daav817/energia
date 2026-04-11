@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { ComposeBrokerInsertMenu } from "@/components/compose-broker-insert-menu";
 import { RichTextEditor } from "@/components/communications/RichTextEditor";
 
 function extractEmail(str: string): string {
@@ -89,6 +90,14 @@ export function ComposeEmailForm({
   const toInputRef = useRef<HTMLInputElement>(null);
   const ccInputRef = useRef<HTMLInputElement>(null);
   const bccInputRef = useRef<HTMLInputElement>(null);
+  const brokerInsertNonce = useRef(0);
+  const [brokerInsertSnippet, setBrokerInsertSnippet] = useState<{ nonce: number; html: string } | null>(null);
+
+  const insertBrokerAtCaret = useCallback((text: string) => {
+    brokerInsertNonce.current += 1;
+    const html = escapeHtml(text).replace(/\r?\n/g, "<br/>");
+    setBrokerInsertSnippet({ nonce: brokerInsertNonce.current, html });
+  }, []);
 
   useEffect(() => {
     if (initialTo && !replyId && !forwardId) {
@@ -461,13 +470,17 @@ export function ComposeEmailForm({
               />
             </div>
             <div className="grid gap-2">
-              <Label>Message</Label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label className="mb-0">Message</Label>
+                <ComposeBrokerInsertMenu disabled={sending} onInsert={insertBrokerAtCaret} />
+              </div>
               <RichTextEditor
                 initialHtml={bodyHtml}
                 resetKey={`compose-${composeEditorKey}`}
                 onChangeHtml={(html) => setBodyHtml(html)}
                 disabled={sending}
                 onAttachFiles={addFilesFromEditor}
+                insertSnippet={brokerInsertSnippet}
               />
             </div>
             <div className="grid gap-2">

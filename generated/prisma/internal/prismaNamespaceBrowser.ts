@@ -352,6 +352,8 @@ export const RfpRequestScalarFieldEnum = {
   parentRfpId: 'parentRfpId',
   refreshSequence: 'refreshSequence',
   archivedAt: 'archivedAt',
+  archivedQuoteWorkspace: 'archivedQuoteWorkspace',
+  quoteComparisonPicks: 'quoteComparisonPicks',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

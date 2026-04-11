@@ -51,6 +51,22 @@ export function saveBrokerProfile(p: BrokerProfile) {
   window.dispatchEvent(new Event(BROKER_PROFILE_UPDATED_EVENT));
 }
 
+/**
+ * Multi-line block for email signatures: name, company, phone, fax, email (Settings → Profile).
+ */
+export function brokerProfileFullInfoPlainText(p: BrokerProfile): string {
+  const nameLine = [p.firstName, p.lastName].filter(Boolean).join(" ").trim();
+  return [
+    nameLine,
+    (p.companyName || "").trim(),
+    (p.phone || "").trim(),
+    (p.fax || "").trim(),
+    (p.email || "").trim(),
+  ]
+    .filter((line) => line.length > 0)
+    .join("\n");
+}
+
 export const RENEWAL_EMAIL_TEMPLATE_ID = "renewal_v1";
 
 export function buildRenewalEmailContent(opts: {
@@ -96,9 +112,9 @@ Please reply to this email with a copy/scan of recent energy bill(s) (all pages)
 <p>Best regards,<br/>
 ${opts.broker.firstName} ${opts.broker.lastName}<br/>
 ${opts.broker.companyName}<br/>
-${opts.broker.email ? `${opts.broker.email}<br/>` : ""}
 ${opts.broker.phone}<br/>
-${opts.broker.fax ? `${opts.broker.fax}<br/>` : ""}</p>
+${opts.broker.fax ? `${opts.broker.fax}<br/>` : ""}
+${opts.broker.email ? `${opts.broker.email}<br/>` : ""}</p>
 `.trim();
 
   const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();

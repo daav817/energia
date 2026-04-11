@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         customerContact: {
           select: { id: true, name: true, email: true, phone: true, company: true },
         },
-        suppliers: { select: { id: true, name: true } },
+        suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {
           include: { supplier: { select: { id: true, name: true } } },

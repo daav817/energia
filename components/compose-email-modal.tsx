@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ComposeBrokerInsertMenu, insertTextAtTextareaSelection } from "@/components/compose-broker-insert-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,6 +24,7 @@ export function ComposeEmailModal({
   onClose: () => void;
   onSent: () => void;
 }) {
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -73,8 +75,15 @@ export function ComposeEmailModal({
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
           </div>
           <div className="grid gap-2">
-            <Label>Message</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label className="mb-0">Message</Label>
+              <ComposeBrokerInsertMenu
+                disabled={sending}
+                onInsert={(text) => insertTextAtTextareaSelection(bodyRef, body, setBody, text)}
+              />
+            </div>
             <textarea
+              ref={bodyRef}
               className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={body}
               onChange={(e) => setBody(e.target.value)}

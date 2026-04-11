@@ -25,7 +25,12 @@ import {
   type BrokerProfile,
 } from "@/lib/broker-profile";
 import { loadEmailTemplates, RENEWAL_TEMPLATE_DEFAULT_ID } from "@/lib/email-templates";
-import { displayMainContactForContract, type ContactLike } from "@/lib/contract-main-contact";
+import {
+  displayMainContactForContract,
+  enrichContactLikeFromDirectory,
+  type ContactLike,
+} from "@/lib/contract-main-contact";
+import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
 import {
   applyTemplateTokens,
   buildRenewalTemplateVariables,
@@ -55,6 +60,7 @@ async function fetchContractAccountRowsForTemplate(contractId: string): Promise<
 type ContractApi = {
   id: string;
   customerId: string;
+  mainContactId?: string | null;
   energyType: string;
   pricePerUnit: string | number;
   priceUnit: string;
@@ -72,6 +78,7 @@ type ContractApi = {
   };
   supplier: { name: string };
   mainContact: {
+    id?: string | null;
     name: string;
     firstName?: string | null;
     lastName?: string | null;
@@ -148,15 +155,33 @@ function applyStoredOrLegacyTemplate(
   templateId: string,
   contractAccountRows: ContractAccountTemplateRow[] = []
 ): { subject: string; html: string; to: string } {
-  const resolved = displayMainContactForContract(c, directory);
-  const mainShape = resolved ? contactLikeToMainShape(resolved) : c.mainContact;
+  const resolved = displayMainContactForContract(
+    {
+      customerId: c.customerId,
+      customer: c.customer,
+      mainContact: c.mainContact
+        ? {
+            ...c.mainContact,
+            id: c.mainContact.id ?? undefined,
+          }
+        : null,
+      mainContactId: c.mainContactId ?? c.mainContact?.id ?? null,
+    },
+    directory
+  );
+  const resolvedForGreeting = enrichContactLikeFromDirectory(resolved, directory);
+  const mainShape = resolvedForGreeting
+    ? contactLikeToMainShape(resolvedForGreeting)
+    : resolved
+      ? contactLikeToMainShape(resolved)
+      : c.mainContact;
   const toEmail = renewalToAddress(c, mainShape);
 
   const templates = loadEmailTemplates();
   const tpl = templates.find((t) => t.id === templateId) ?? templates[0];
 
-  const end = new Date(c.expirationDate);
-  const start = new Date(c.startDate);
+  const endLabel = formatLocaleDateFromStoredDay(c.expirationDate);
+  const startLabel = formatLocaleDateFromStoredDay(c.startDate);
   const contactName = (mainShape?.name ?? c.customer.name).trim();
   const greet =
     mainShape != null ? greetingFirstName(mainShape) : contactName.split(/\s+/)[0] ?? contactName;
@@ -165,10 +190,10 @@ function applyStoredOrLegacyTemplate(
     supplierName: c.supplier.name,
     contactName,
     greetingFirstName: greet,
-    contractEndDate: end.toLocaleDateString(),
+    contractEndDate: endLabel,
     rateLabel: formatRate(c),
-    startDate: start.toLocaleDateString(),
-    endDate: end.toLocaleDateString(),
+    startDate: startLabel,
+    endDate: endLabel,
     accountLines: lines,
     broker,
   });
@@ -179,7 +204,8 @@ function applyStoredOrLegacyTemplate(
       broker,
       lines,
       mainShape,
-      contractAccountRows
+      contractAccountRows,
+      directory
     );
     let subjectOut = applyTemplateTokens(tpl.subject, vars).trim();
     let htmlOut = applyTemplateTokens(tpl.htmlBody, vars);

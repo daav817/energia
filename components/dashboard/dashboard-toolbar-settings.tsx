@@ -19,13 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   EMPTY_BROKER_PROFILE,
   loadBrokerProfile,
@@ -33,11 +27,10 @@ import {
   type BrokerProfile,
 } from "@/lib/broker-profile";
 import { annualGasUsageToMcf } from "@/lib/energy-usage";
-import {
-  annualUsageResolved,
-  calendarYearBrokerIncome,
-  totalTermBrokerIncome,
-} from "@/lib/contract-broker-income";
+import { annualUsageResolved, totalTermBrokerIncome } from "@/lib/contract-broker-income";
+import { aggregateUsageByCalendarYear } from "@/lib/broker-usage-calendar";
+import { BrokerageUsageByYearPanel } from "@/components/brokerage-usage-by-year-panel";
+import { ArchivesRfpModal } from "@/components/archives-rfp-modal";
 
 type ContractIncomeRow = {
   id: string;
@@ -45,6 +38,7 @@ type ContractIncomeRow = {
   startDate: string;
   expirationDate: string;
   energyType?: string | null;
+  status?: string | null;
   contractIncome?: unknown;
   pricePerUnit?: unknown;
   priceUnit?: string | null;
@@ -76,13 +70,13 @@ function customerKey(c: ContractIncomeRow): string {
 }
 
 export function DashboardToolbarSettings() {
+  const [archivesOpen, setArchivesOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [profile, setProfile] = useState<BrokerProfile>(EMPTY_BROKER_PROFILE);
   const [activeContracts, setActiveContracts] = useState<ContractIncomeRow[]>([]);
   const [incomeContracts, setIncomeContracts] = useState<ContractIncomeRow[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
-  const [incomeYear, setIncomeYear] = useState(() => new Date().getFullYear());
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -155,6 +149,19 @@ export function DashboardToolbarSettings() {
     return set;
   }, [gasRows]);
 
+  const usageByYear = useMemo(() => {
+    const slice = incomeContracts.map((c) => ({
+      startDate: String(c.startDate),
+      expirationDate: String(c.expirationDate),
+      energyType: String(c.energyType ?? ""),
+      priceUnit: c.priceUnit ?? null,
+      annualUsage: c.annualUsage,
+      avgMonthlyUsage: c.avgMonthlyUsage,
+      status: c.status ?? undefined,
+    }));
+    return aggregateUsageByCalendarYear(slice);
+  }, [incomeContracts]);
+
   const avgElectricPerCustomer = useMemo(() => {
     const n = electricCustomerIds.size;
     return n > 0 ? totalElectricKwh / n : 0;
@@ -184,19 +191,9 @@ export function DashboardToolbarSettings() {
     return buckets;
   }, [activeContracts]);
 
-  const incomeForSelectedYear = useMemo(() => {
-    const y = incomeYear;
-    return incomeContracts.reduce((s, c) => s + calendarYearBrokerIncome(c, y), 0);
-  }, [incomeContracts, incomeYear]);
-
   const totalEstimatedValueActive = useMemo(() => {
     return activeContracts.reduce((acc, c) => acc + totalTermBrokerIncome(c), 0);
   }, [activeContracts]);
-
-  const yearOptions = useMemo(() => {
-    const y = new Date().getFullYear();
-    return [y - 1, y, y + 1, y + 2, y + 3];
-  }, []);
 
   const saveProfile = () => {
     saveBrokerProfile(profile);
@@ -219,8 +216,11 @@ export function DashboardToolbarSettings() {
               Email templates
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setArchivesOpen(true)}>Archives</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ArchivesRfpModal open={archivesOpen} onOpenChange={setArchivesOpen} />
 
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent className="max-w-md">
@@ -258,11 +258,11 @@ export function DashboardToolbarSettings() {
             </div>
             <div className="grid gap-2">
               <Label>Broker phone</Label>
-              <Input value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} />
+              <PhoneInput value={profile.phone} onChange={(v) => setProfile((p) => ({ ...p, phone: v }))} />
             </div>
             <div className="grid gap-2">
               <Label>Broker fax</Label>
-              <Input value={profile.fax} onChange={(e) => setProfile((p) => ({ ...p, fax: e.target.value }))} />
+              <PhoneInput value={profile.fax} onChange={(v) => setProfile((p) => ({ ...p, fax: v }))} />
             </div>
             <div className="grid gap-2 sm:col-span-2">
               <Label>Website or LinkedIn URL</Label>
@@ -326,6 +326,11 @@ export function DashboardToolbarSettings() {
                 </div>
               </div>
 
+              <BrokerageUsageByYearPanel
+                usageByYear={usageByYear}
+                showActiveBookAnnualTotals={false}
+              />
+
               <div className="rounded-lg border border-primary/20 bg-muted/20 px-3 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
                   <p className="font-medium">Net 12 months — expirations by month</p>
@@ -366,32 +371,6 @@ export function DashboardToolbarSettings() {
                 </div>
               </div>
 
-              <div className="grid gap-2">
-                <Label>Estimated broker income for calendar year</Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Select value={String(incomeYear)} onValueChange={(v) => setIncomeYear(Number(v))}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {yearOptions.map((yy) => (
-                        <SelectItem key={yy} value={String(yy)}>
-                          {yy}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="font-medium tabular-nums">
-                    ${incomeForSelectedYear.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-snug">
-                  Uses each contract&apos;s <span className="font-medium">Est. Total Contract Value</span> (stored
-                  contract income when present, otherwise margin × annual usage × term), spread by day across start and
-                  end dates. Includes <span className="font-medium">active and ended</span> contracts for portions of{" "}
-                  {incomeYear} that fall inside the term.
-                </p>
-              </div>
               <div>
                 <p className="font-medium">Total est. contract value (active)</p>
                 <p className="text-lg font-semibold tabular-nums">

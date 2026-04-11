@@ -16,7 +16,7 @@ export async function GET(
         customerContact: {
           select: { id: true, name: true, email: true, phone: true, company: true },
         },
-        suppliers: { select: { id: true, name: true } },
+        suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {
           include: { supplier: { select: { id: true, name: true } } },
@@ -86,8 +86,26 @@ export async function PATCH(
 
     if (body.archive === true) {
       data.archivedAt = new Date();
+      const snap = body.quoteWorkspaceSnapshot;
+      if (snap != null && typeof snap === "object" && !Array.isArray(snap)) {
+        data.archivedQuoteWorkspace = snap as Prisma.InputJsonValue;
+      }
     } else if (body.archive === false) {
       data.archivedAt = null;
+    }
+
+    if (body.quoteComparisonPicks !== undefined) {
+      if (body.quoteComparisonPicks === null) {
+        data.quoteComparisonPicks = Prisma.DbNull;
+      } else if (
+        typeof body.quoteComparisonPicks === "object" &&
+        body.quoteComparisonPicks !== null &&
+        !Array.isArray(body.quoteComparisonPicks)
+      ) {
+        data.quoteComparisonPicks = body.quoteComparisonPicks as Prisma.InputJsonValue;
+      } else {
+        return NextResponse.json({ error: "Invalid quoteComparisonPicks" }, { status: 400 });
+      }
     }
 
     if (Object.keys(data).length === 0) {
@@ -102,7 +120,7 @@ export async function PATCH(
         customerContact: {
           select: { id: true, name: true, email: true, phone: true, company: true },
         },
-        suppliers: { select: { id: true, name: true } },
+        suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
         quotes: {
           include: { supplier: { select: { id: true, name: true } } },

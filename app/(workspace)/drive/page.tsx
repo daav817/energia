@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
+  Download,
   File,
   Folder,
   FolderOpen,
@@ -174,10 +175,11 @@ export default function DrivePage() {
               ))
             )}
           </div>
-          <div className="grid grid-cols-[minmax(0,2fr)_7rem_6rem] gap-2 border-b border-border/50 bg-zinc-100/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <div className="grid grid-cols-[minmax(0,2fr)_7rem_6rem_5rem] gap-2 border-b border-border/50 bg-zinc-100/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
             <div>Name</div>
             <div className="text-right">Modified</div>
             <div className="text-right">Size</div>
+            <div className="text-right">Get</div>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {loading ? (
@@ -198,7 +200,7 @@ export default function DrivePage() {
                   return (
                     <li
                       key={f.id}
-                      className="grid grid-cols-[minmax(0,2fr)_7rem_6rem] gap-2 border-b border-border/40 px-3 py-2 text-sm hover:bg-blue-50/60 dark:hover:bg-zinc-900/60"
+                      className="grid grid-cols-[minmax(0,2fr)_7rem_6rem_5rem] gap-2 border-b border-border/40 px-3 py-2 text-sm hover:bg-blue-50/60 dark:hover:bg-zinc-900/60"
                     >
                       <button
                         type="button"
@@ -229,6 +231,21 @@ export default function DrivePage() {
                           ? `${Math.max(1, Math.round(f.size / 1024))} KB`
                           : "—"}
                       </span>
+                      <div className="flex justify-end pt-0.5">
+                        {isFolder ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <a
+                            href={`/api/google-drive/files/${encodeURIComponent(f.id)}/download`}
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-primary hover:bg-muted"
+                            title="Download"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Save
+                          </a>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
@@ -259,8 +276,27 @@ export default function DrivePage() {
                       <File className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate font-medium">{f.name}</span>
                     </span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {Math.max(1, Math.round(f.size / 1024))} KB
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {Math.max(1, Math.round(f.size / 1024))} KB
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 px-2 text-xs"
+                        onClick={() => {
+                          const url = URL.createObjectURL(f.file);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = f.name;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </Button>
                     </span>
                   </li>
                 ))}
