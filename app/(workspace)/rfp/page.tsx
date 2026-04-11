@@ -33,6 +33,21 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { formatUsPhoneDigits } from "@/lib/us-phone";
 import {
+  type RfpBillDriveItem,
+  billDriveItemsFingerprintKey,
+  normalizeRfpBillDriveItemsFromBody,
+  normalizeRfpBillDriveItemsFromDb,
+} from "@/lib/rfp-bill-drive-items";
+import {
+  ELECTRIC_PRICING_OPTION_DEFS,
+  electricPricingFingerprintKey,
+  emptyElectricPricingOptionsState,
+  normalizeElectricPricingFromBody,
+  normalizeElectricPricingFromDb,
+  type ElectricPricingOptionId,
+  type RfpElectricPricingOptionsState,
+} from "@/lib/rfp-electric-pricing-options";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -63,9 +78,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ContactLabelsField } from "@/components/contact-labels-field";
 import { formatContactLabels, parseContactLabels } from "@/lib/contact-labels";
 import { loadBrokerProfile } from "@/lib/broker-profile";
+import { googleOAuthConnectUrl, isGoogleReconnectSuggestedMessage } from "@/lib/google-connect";
 import {
-  clearRfpFromContractPrefillStaging,
-  takePendingContractPrefillForRfp,
+  clearMemoryStagedContractPrefill,
+  fetchRfpFromContractPrefillPayload,
+  hasLocalContractPrefillPayload,
+  peekContractPrefillFromContractStorage,
+  seedContractPrefillPayload,
+  type RfpFromContractPrefillPayload,
 } from "@/lib/rfp-from-contract-prefill";
 import {
   contactMatchesRfpEnergy,
@@ -78,6 +98,7 @@ import { isSupplierCandidateContact, normalizeCompanyKey } from "@/lib/customers
 import { cn } from "@/lib/utils";
 import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
 import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
+import { ComposeEmailModal, type ComposeEmailTarget } from "@/components/compose-email-modal";
 import { useUnsavedNavigationBlock } from "@/components/unsaved-navigation-guard";
 
 type EnergyType = "ELECTRIC" | "NATURAL_GAS";
@@ -256,6 +277,22 @@ type DriveBreadcrumb = {
   name: string;
 };
 
+function appendBillDriveItem(prev: RfpBillDriveItem[], item: RfpBillDriveItem): RfpBillDriveItem[] {
+  const fid = item.fileId?.trim();
+  let url = item.webViewLink.trim();
+  if (!url && fid) url = `https://drive.google.com/file/d/${fid}/view`;
+  if (!url && !fid) return prev;
+  const normalized: RfpBillDriveItem = {
+    webViewLink: url,
+    ...(fid ? { fileId: fid } : {}),
+    ...(item.filename?.trim() ? { filename: item.filename.trim() } : {}),
+  };
+  if (fid && prev.some((p) => p.fileId === fid)) return prev;
+  const lk = url.toLowerCase();
+  if (prev.some((p) => p.webViewLink.trim().toLowerCase() === lk)) return prev;
+  return [...prev, normalized];
+}
+
 type SelectedDocumentKind = "bill" | "summary";
 
 type EmailPreview = {
@@ -288,9 +325,66 @@ type RecentRfp = {
     email: string | null;
     company?: string | null;
   } | null;
-  suppliers: Array<{ id: string; name: string }>;
+  supplierContactSelections?: unknown;
+  suppliers: Array<{ id: string; name: string; email?: string | null }>;
   accountLines: Array<{ accountNumber: string; annualUsage: string; avgMonthlyUsage: string }>;
 };
+
+/** Emails that received the original RFP send (from stored selections, with directory lookup for legacy rows). */
+function collectSubmittedRfpSupplierFollowUpTargets(
+  rfp: RecentRfp,
+  suppliersList: SupplierOption[]
+): ComposeEmailTarget[] {
+  const et = rfp.energyType;
+  const selections = normalizeSupplierRecipientSelectionsFromApi(rfp.supplierContactSelections);
+  const supplierById = new Map(suppliersList.map((s) => [s.id, s]));
+  const seenEmails = new Set<string>();
+  const out: ComposeEmailTarget[] = [];
+
+  const push = (email: string, name?: string) => {
+    const em = email.trim();
+    if (!em) return;
+    const k = em.toLowerCase();
+    if (seenEmails.has(k)) return;
+    seenEmails.add(k);
+    out.push(name?.trim() ? { email: em, name: name.trim() } : { email: em });
+  };
+
+  for (const [supplierId, slots] of Object.entries(selections)) {
+    const supplier = supplierById.get(supplierId);
+    const supplierName =
+      supplier?.name ?? rfp.suppliers.find((s) => s.id === supplierId)?.name ?? "Supplier";
+    const links = supplier?.contactLinks ?? [];
+    const forEnergy = links.length ? filterSupplierContactsForRfpEnergy(links, et) : [];
+
+    for (const slot of slots) {
+      const contactRow = links.find((c) => c.id === slot.contactId);
+      if (contactRow && isRetiredSupplierContact(contactRow.label)) continue;
+
+      let email = (slot.email || "").trim();
+      let contactName = "";
+      const contact = forEnergy.find((c) => c.id === slot.contactId);
+      if (contact) contactName = (contact.name || "").trim();
+      if (!email && contact) {
+        const delivered = supplierContactDeliverableEmails(contact);
+        email = delivered[0] || "";
+      }
+      const label =
+        contactName && supplierName ? `${contactName} — ${supplierName}` : supplierName;
+      push(email, label);
+    }
+  }
+
+  if (out.length === 0) {
+    for (const s of rfp.suppliers) {
+      const em = (s.email || "").trim();
+      const supplierName = (s.name || "").trim() || "Supplier";
+      if (em) push(em, supplierName);
+    }
+  }
+
+  return out;
+}
 
 type CustomerContractRow = {
   id: string;
@@ -454,15 +548,15 @@ type RfpFormFingerprintInput = {
   customTermMonths: string;
   contractStartValue: string;
   quoteDueDate: string;
-  googleDriveFolderUrl: string;
+  billDriveItemsKey: string;
   summarySpreadsheetUrl: string;
   ldcUtility: string;
   brokerMargin: string;
   brokerMarginUnit: PriceUnit;
   notes: string;
   accountLines: AccountLine[];
-  selectedBillDriveFileId: string;
   selectedSummaryDriveFileId: string;
+  electricPricingKey: string;
   reissueParentRfpId: string | null;
 };
 
@@ -501,15 +595,15 @@ function computeRfpFingerprint(input: RfpFormFingerprintInput): string {
     customTermMonths: input.customTermMonths.trim(),
     contractStartValue: input.contractStartValue,
     quoteDueDate: input.quoteDueDate,
-    googleDriveFolderUrl: input.googleDriveFolderUrl.trim(),
+    billDriveItemsKey: input.billDriveItemsKey,
     summarySpreadsheetUrl: input.summarySpreadsheetUrl.trim(),
     ldcUtility: input.ldcUtility.trim(),
     brokerMargin: input.brokerMargin.trim(),
     brokerMarginUnit: input.brokerMarginUnit,
     notes: input.notes.trim(),
     accounts,
-    selectedBillDriveFileId: input.selectedBillDriveFileId,
     selectedSummaryDriveFileId: input.selectedSummaryDriveFileId,
+    electricPricingKey: input.electricPricingKey,
     reissueParentRfpId: input.reissueParentRfpId,
   });
 }
@@ -524,6 +618,7 @@ type LoadedRfpCustomerPayload = {
     email?: string | null;
     phone?: string | null;
     company?: string | null;
+    label?: string | null;
   } | null;
 };
 
@@ -535,6 +630,8 @@ type LoadedRfpApiResponse = LoadedRfpCustomerPayload & {
   contractStartMonth?: number | null;
   quoteDueDate?: string | null;
   googleDriveFolderUrl?: string | null;
+  billDriveItems?: unknown;
+  electricPricingOptions?: unknown;
   summarySpreadsheetUrl?: string | null;
   ldcUtility?: string | null;
   brokerMargin?: unknown;
@@ -649,6 +746,15 @@ function fingerprintFromLoadedRfp(data: LoadedRfpApiResponse, customerCompanyRow
         ? String(data.id).trim()
         : null;
 
+  let billItems = normalizeRfpBillDriveItemsFromDb(data.billDriveItems);
+  if (billItems.length === 0 && data.googleDriveFolderUrl) {
+    const u = String(data.googleDriveFolderUrl).trim();
+    if (u) billItems = [{ webViewLink: u }];
+  }
+
+  const ep =
+    et === "ELECTRIC" ? normalizeElectricPricingFromDb(data.electricPricingOptions, "ELECTRIC") : null;
+
   return computeRfpFingerprint({
     customerCompanyId: customerCompanyRowId,
     customerContactId: contactId,
@@ -662,7 +768,7 @@ function fingerprintFromLoadedRfp(data: LoadedRfpApiResponse, customerCompanyRow
         ? `${String(data.contractStartYear).padStart(4, "0")}-${String(data.contractStartMonth).padStart(2, "0")}`
         : "",
     quoteDueDate: data.quoteDueDate ? String(data.quoteDueDate).slice(0, 10) : "",
-    googleDriveFolderUrl: data.googleDriveFolderUrl || "",
+    billDriveItemsKey: billDriveItemsFingerprintKey(billItems),
     summarySpreadsheetUrl: data.summarySpreadsheetUrl || "",
     ldcUtility: data.ldcUtility || "",
     brokerMargin: data.brokerMargin != null ? String(data.brokerMargin) : "",
@@ -675,8 +781,8 @@ function fingerprintFromLoadedRfp(data: LoadedRfpApiResponse, customerCompanyRow
         : "MCF",
     notes: data.notes || "",
     accountLines: lines,
-    selectedBillDriveFileId: "",
     selectedSummaryDriveFileId: "",
+    electricPricingKey: electricPricingFingerprintKey(ep),
     reissueParentRfpId: reissue,
   });
 }
@@ -726,6 +832,25 @@ function resolveSavedRfpCompanyRow(
   return null;
 }
 
+/** Match contract→RFP prefill to a customer-companies bucket (same rules as opening a saved RFP). */
+function resolveContractPrefillCompanyRow(
+  companies: CustomerCompanyOption[],
+  payload: RfpFromContractPrefillPayload
+): CustomerCompanyOption | null {
+  const stub: LoadedRfpCustomerPayload = {
+    customerId: payload.customerId,
+    customerContactId: payload.customerContactId,
+    customer: {
+      company: payload.contractCustomerCompany.trim() || null,
+      name: payload.contractCustomerName.trim() || null,
+    },
+    customerContact: payload.mainContactCompany.trim()
+      ? { company: payload.mainContactCompany.trim() }
+      : null,
+  };
+  return resolveSavedRfpCompanyRow(companies, stub);
+}
+
 export default function RfpGeneratorPage() {
   const router = useRouter();
   const [customerCompanies, setCustomerCompanies] = useState<CustomerCompanyOption[]>([]);
@@ -738,6 +863,7 @@ export default function RfpGeneratorPage() {
   const [customerContractsReminder, setCustomerContractsReminder] = useState<CustomerContractRow[]>([]);
   const [customerContractsReminderLoading, setCustomerContractsReminderLoading] = useState(false);
   const [refreshSupplierModalRfp, setRefreshSupplierModalRfp] = useState<RecentRfp | null>(null);
+  const [rfpFollowUpCompose, setRfpFollowUpCompose] = useState<ComposeEmailTarget[] | null>(null);
   const [refreshSupplierQuoteDueDate, setRefreshSupplierQuoteDueDate] = useState("");
   const [refreshSupplierSending, setRefreshSupplierSending] = useState(false);
   const [supplierDirectoryRefreshing, setSupplierDirectoryRefreshing] = useState(false);
@@ -769,13 +895,16 @@ export default function RfpGeneratorPage() {
   const [customTermMonths, setCustomTermMonths] = useState("");
   const [contractStartValue, setContractStartValue] = useState("");
   const [quoteDueDate, setQuoteDueDate] = useState("");
-  const [googleDriveFolderUrl, setGoogleDriveFolderUrl] = useState("");
+  const [billDriveItems, setBillDriveItems] = useState<RfpBillDriveItem[]>([]);
   const [summarySpreadsheetUrl, setSummarySpreadsheetUrl] = useState("");
   const [ldcUtility, setLdcUtility] = useState("");
   const [ldcUtilitySearch, setLdcUtilitySearch] = useState("");
   const [ldcUtilityDropdownOpen, setLdcUtilityDropdownOpen] = useState(false);
   const [brokerMargin, setBrokerMargin] = useState("");
   const [brokerMarginUnit, setBrokerMarginUnit] = useState<PriceUnit>("MCF");
+  const [electricPricing, setElectricPricing] = useState<RfpElectricPricingOptionsState>(() =>
+    emptyElectricPricingOptionsState()
+  );
   const [notes, setNotes] = useState("");
   const [accountLines, setAccountLines] = useState<AccountLine[]>([emptyAccountLine()]);
   const [marginCalculatorOpen, setMarginCalculatorOpen] = useState(false);
@@ -791,7 +920,6 @@ export default function RfpGeneratorPage() {
   const [driveSort, setDriveSort] = useState<"name" | "modified" | "size">("name");
   const [localBillFile, setLocalBillFile] = useState<File | null>(null);
   const [localSummaryFile, setLocalSummaryFile] = useState<File | null>(null);
-  const [selectedBillDriveFileId, setSelectedBillDriveFileId] = useState("");
   const [selectedSummaryDriveFileId, setSelectedSummaryDriveFileId] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -806,6 +934,11 @@ export default function RfpGeneratorPage() {
   const [contactRecordCustomerId, setContactRecordCustomerId] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
+  const [customerRfpLoadedBanner, setCustomerRfpLoadedBanner] = useState<"hidden" | "visible" | "fading">("hidden");
+  const customerRfpLoadedTimersRef = useRef<{
+    toFade?: ReturnType<typeof setTimeout>;
+    toHide?: ReturnType<typeof setTimeout>;
+  }>({});
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [deleteRfpTarget, setDeleteRfpTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleteRfpLoading, setDeleteRfpLoading] = useState(false);
@@ -837,10 +970,39 @@ export default function RfpGeneratorPage() {
   const suppressContactCompanySyncRef = useRef(false);
   const skipNextSupplierInclusionDefaultRef = useRef(false);
   const lastEnergyForSuppliersRef = useRef<EnergyChoice>("");
-  const contractPrefillConsumedRef = useRef(false);
+  /** Dedupes contract→RFP prefill apply; cleared on unmount so React Strict Mode reapplies. */
+  const contractPrefillAppliedKeyRef = useRef<string | null>(null);
+  const [contractPrefillHydrateTick, setContractPrefillHydrateTick] = useState(0);
+  /** After contract prefill, skip auto-setting broker margin unit from energy type so contract priceUnit wins. */
+  const skipNextBrokerMarginUnitDefaultRef = useRef(false);
 
   useEffect(() => {
     void loadPageData();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      contractPrefillAppliedKeyRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const u = new URL(window.location.href);
+    if (u.searchParams.get("fromContract") !== "1") return;
+    if (hasLocalContractPrefillPayload()) return;
+    const cid = u.searchParams.get("prefillContractId")?.trim();
+    if (!cid) return;
+    let cancelled = false;
+    void (async () => {
+      const p = await fetchRfpFromContractPrefillPayload(cid);
+      if (cancelled || !p) return;
+      seedContractPrefillPayload(p);
+      setContractPrefillHydrateTick((t) => t + 1);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -875,7 +1037,15 @@ export default function RfpGeneratorPage() {
       const raw = localStorage.getItem(RFP_WIP_STORAGE_KEY);
       if (!raw || skipNextWipPersist.current) return;
       const data = JSON.parse(raw) as Record<string, unknown>;
-      if (data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6)
+      if (
+        data.version !== 2 &&
+        data.version !== 3 &&
+        data.version !== 4 &&
+        data.version !== 5 &&
+        data.version !== 6 &&
+        data.version !== 7 &&
+        data.version !== 8
+      )
         return;
       if (typeof data.customerCompanyId === "string") setCustomerCompanyId(data.customerCompanyId);
       if (typeof data.customerContactId === "string") setCustomerContactId(data.customerContactId);
@@ -894,7 +1064,23 @@ export default function RfpGeneratorPage() {
       if (typeof data.customTermMonths === "string") setCustomTermMonths(data.customTermMonths);
       if (typeof data.contractStartValue === "string") setContractStartValue(data.contractStartValue);
       if (typeof data.quoteDueDate === "string") setQuoteDueDate(data.quoteDueDate);
-      if (typeof data.googleDriveFolderUrl === "string") setGoogleDriveFolderUrl(data.googleDriveFolderUrl);
+      const fromSavedBills =
+        (data.version === 7 || data.version === 8) && Array.isArray(data.billDriveItems)
+          ? normalizeRfpBillDriveItemsFromDb(data.billDriveItems)
+          : [];
+      const fromLegacy = normalizeRfpBillDriveItemsFromBody({
+        googleDriveFolderUrl: typeof data.googleDriveFolderUrl === "string" ? data.googleDriveFolderUrl : "",
+        billDriveFileId: typeof data.selectedBillDriveFileId === "string" ? data.selectedBillDriveFileId : "",
+      });
+      setBillDriveItems(fromSavedBills.length > 0 ? fromSavedBills : fromLegacy);
+      if (data.energyType === "ELECTRIC") {
+        setElectricPricing(
+          normalizeElectricPricingFromBody(
+            { electricPricingOptions: data.electricPricing } as Record<string, unknown>,
+            "ELECTRIC"
+          ) ?? emptyElectricPricingOptionsState()
+        );
+      }
       if (typeof data.summarySpreadsheetUrl === "string") setSummarySpreadsheetUrl(data.summarySpreadsheetUrl);
       if (typeof data.ldcUtility === "string") setLdcUtility(data.ldcUtility);
       if (typeof data.brokerMargin === "string") setBrokerMargin(data.brokerMargin);
@@ -925,7 +1111,6 @@ export default function RfpGeneratorPage() {
           })
         );
       }
-      if (typeof data.selectedBillDriveFileId === "string") setSelectedBillDriveFileId(data.selectedBillDriveFileId);
       if (typeof data.selectedSummaryDriveFileId === "string") setSelectedSummaryDriveFileId(data.selectedSummaryDriveFileId);
       if (typeof data.activeDraftId === "string") setActiveDraftId(data.activeDraftId);
     } catch {
@@ -944,7 +1129,7 @@ export default function RfpGeneratorPage() {
       localStorage.setItem(
         RFP_WIP_STORAGE_KEY,
         JSON.stringify({
-          version: 6,
+          version: 8,
           customerCompanyId,
           customerContactId,
           energyType,
@@ -954,14 +1139,14 @@ export default function RfpGeneratorPage() {
           customTermMonths,
           contractStartValue,
           quoteDueDate,
-          googleDriveFolderUrl,
+          billDriveItems,
+          electricPricing: energyType === "ELECTRIC" ? electricPricing : undefined,
           summarySpreadsheetUrl,
           ldcUtility,
           brokerMargin,
           brokerMarginUnit,
           notes,
           accountLines,
-          selectedBillDriveFileId,
           selectedSummaryDriveFileId,
           activeDraftId,
         })
@@ -979,14 +1164,15 @@ export default function RfpGeneratorPage() {
     customTermMonths,
     contractStartValue,
     quoteDueDate,
-    googleDriveFolderUrl,
+    billDriveItems,
     summarySpreadsheetUrl,
     ldcUtility,
     brokerMargin,
     brokerMarginUnit,
+    electricPricing,
+    energyType,
     notes,
     accountLines,
-    selectedBillDriveFileId,
     selectedSummaryDriveFileId,
     activeDraftId,
   ]);
@@ -1047,22 +1233,36 @@ export default function RfpGeneratorPage() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      const t = customerRfpLoadedTimersRef.current;
+      if (t.toFade) clearTimeout(t.toFade);
+      if (t.toHide) clearTimeout(t.toHide);
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined" || loading || customerCompanies.length === 0) return;
-    if (contractPrefillConsumedRef.current) return;
-    const payload = takePendingContractPrefillForRfp();
+    const u = new URL(window.location.href);
+    if (u.searchParams.get("fromContract") !== "1") return;
+
+    const payload = peekContractPrefillFromContractStorage();
     if (!payload) return;
 
-    const companyRow = customerCompanies.find((row) => row.customerId === payload.customerId);
+    const nonce = u.searchParams.get("prefillNonce") || "";
+    const dedupeKey = `${payload.sourceContractId}:${nonce}`;
+    if (contractPrefillAppliedKeyRef.current === dedupeKey) return;
+
+    const companyRow = resolveContractPrefillCompanyRow(customerCompanies, payload);
     if (!companyRow) {
-      clearRfpFromContractPrefillStaging();
+      clearMemoryStagedContractPrefill();
       setDraftNotice(
-        "Could not match this contract’s customer to the RFP company list. Add or link the customer, then start again from Contracts."
+        "Could not match this contract’s customer to the Customer Company list built from your Contacts. Ensure a customer-tagged contact uses the same company name as on the contract (or open the RFP and pick the company manually)."
       );
       window.history.replaceState({}, "", "/rfp");
       return;
     }
 
-    contractPrefillConsumedRef.current = true;
+    contractPrefillAppliedKeyRef.current = dedupeKey;
     skipNextWipPersist.current = true;
     localStorage.removeItem(RFP_WIP_STORAGE_KEY);
     suppressContactCompanySyncRef.current = true;
@@ -1097,7 +1297,9 @@ export default function RfpGeneratorPage() {
       setCustomerContactId(companyRow.primaryContactId || companyRow.contacts?.[0]?.id || "");
     }
 
+    skipNextBrokerMarginUnitDefaultRef.current = true;
     setEnergyType(payload.energyType);
+    setBrokerMarginUnit(payload.brokerMarginUnit ?? defaultMarginUnitForEnergy(payload.energyType));
     setLdcUtility(payload.ldcUtility);
     setLdcUtilitySearch(payload.ldcUtility);
     setContractStartValue(payload.contractStartValue);
@@ -1111,14 +1313,15 @@ export default function RfpGeneratorPage() {
         timing: { ...EMPTY_ACCOUNT_LINE_TIMING },
       }))
     );
-    setGoogleDriveFolderUrl("");
+    setBillDriveItems([]);
+    setElectricPricing(emptyElectricPricingOptionsState());
     setSummarySpreadsheetUrl("");
-    setSelectedBillDriveFileId("");
     setSelectedSummaryDriveFileId("");
     setLocalBillFile(null);
     setLocalSummaryFile(null);
-    setNotes("");
-    setBrokerMargin("");
+    setNotes(payload.notesFromContract.trim());
+    setBrokerMargin(payload.brokerMargin.trim() ? payload.brokerMargin : "");
+    setCustomTermMonths(payload.customTermMonths.trim());
     setQuoteDueDate("");
     setActiveDraftId(null);
     setReissueParentRfpId(null);
@@ -1126,17 +1329,26 @@ export default function RfpGeneratorPage() {
     setSelectedSupplierRecipients({});
     setResult(null);
 
-    clearRfpFromContractPrefillStaging();
+    clearMemoryStagedContractPrefill();
     setDraftNotice(
       "RFP prefilled from contract data. Use Save RFP to keep it—otherwise close this tab or start over."
     );
     window.setTimeout(() => setDraftNotice(null), 12_000);
-    window.history.replaceState({}, "", "/rfp");
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("fromContract");
+    cleanUrl.searchParams.delete("prefillNonce");
+    cleanUrl.searchParams.delete("prefillContractId");
+    cleanUrl.searchParams.delete("storage");
+    window.history.replaceState(
+      {},
+      "",
+      cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : "")
+    );
 
-    requestAnimationFrame(() => {
+    window.setTimeout(() => {
       suppressContactCompanySyncRef.current = false;
-    });
-  }, [loading, customerCompanies]);
+    }, 50);
+  }, [loading, customerCompanies, contractPrefillHydrateTick]);
 
   const eligibleSuppliers = useMemo(() => {
     if (!energyType) return [];
@@ -1149,15 +1361,28 @@ export default function RfpGeneratorPage() {
   }, [suppliers, energyType]);
 
   useEffect(() => {
-    if (energyType) setBrokerMarginUnit(defaultMarginUnitForEnergy(energyType));
+    if (!energyType) return;
+    if (skipNextBrokerMarginUnitDefaultRef.current) {
+      skipNextBrokerMarginUnitDefaultRef.current = false;
+      return;
+    }
+    setBrokerMarginUnit(defaultMarginUnitForEnergy(energyType));
   }, [energyType]);
 
   useEffect(() => {
+    if (energyType !== "ELECTRIC") {
+      setElectricPricing(emptyElectricPricingOptionsState());
+    }
+  }, [energyType]);
+
+  useEffect(() => {
+    /** Until /api/suppliers has loaded, eligibleSuppliers is empty — pruning would wipe draft selections. */
+    if (suppliers.length === 0) return;
     setSelectedSupplierIds((prev) => {
       const setEl = new Set(eligibleSuppliers.map((s) => s.id));
       return prev.filter((id) => setEl.has(id));
     });
-  }, [eligibleSuppliers]);
+  }, [eligibleSuppliers, suppliers.length]);
 
   useEffect(() => {
     if (!energyType) {
@@ -1170,6 +1395,7 @@ export default function RfpGeneratorPage() {
 
     if (skipNextSupplierInclusionDefaultRef.current) {
       skipNextSupplierInclusionDefaultRef.current = false;
+      lastEnergyForSuppliersRef.current = energyType;
       return;
     }
 
@@ -1183,6 +1409,8 @@ export default function RfpGeneratorPage() {
       setSelectedSupplierRecipients({});
       return;
     }
+    /** Same as supplier id prune: avoid replacing loaded draft recipients with {} before suppliers hydrate. */
+    if (suppliers.length === 0) return;
     const et = energyType;
     setSelectedSupplierRecipients((current) => {
       const next: Record<string, RfpSupplierRecipientSlot[]> = {};
@@ -1212,15 +1440,25 @@ export default function RfpGeneratorPage() {
       }
       return next;
     });
-  }, [eligibleSuppliers, energyType]);
+  }, [eligibleSuppliers, energyType, suppliers.length]);
 
   useEffect(() => {
+    if (suppressContactCompanySyncRef.current) return;
     const selectedCustomer = customerCompanies.find((customer) => customer.id === customerCompanyId);
     const firstContactId = selectedCustomer?.primaryContactId || selectedCustomer?.contacts?.[0]?.id || "";
-    setCustomerContactId((current) =>
-      selectedCustomer?.contacts?.some((contact) => contact.id === current) ? current : firstContactId
-    );
-  }, [customerCompanyId, customerCompanies]);
+    setCustomerContactId((current) => {
+      if (!selectedCustomer) {
+        /** Continue Editing: draft may have no matched company row while `rfpExtraCustomerContact` holds the saved contact — do not wipe. */
+        if (rfpExtraCustomerContact && rfpExtraCustomerContact.id === current) return current;
+        return "";
+      }
+      const inCompanyBucket = selectedCustomer.contacts?.some((contact) => contact.id === current) ?? false;
+      if (inCompanyBucket) return current;
+      /** Contract→RFP (or loaded draft) can set a main contact via `rfpExtraCustomerContact` when that id is missing from the bucket list — do not replace it with the first bucket contact. */
+      if (rfpExtraCustomerContact && rfpExtraCustomerContact.id === current) return current;
+      return firstContactId;
+    });
+  }, [customerCompanyId, customerCompanies, rfpExtraCustomerContact]);
 
   useEffect(() => {
     const selectedCompany = customerCompanies.find((customer) => customer.id === customerCompanyId);
@@ -1387,15 +1625,17 @@ export default function RfpGeneratorPage() {
         customTermMonths,
         contractStartValue,
         quoteDueDate,
-        googleDriveFolderUrl,
+        billDriveItemsKey: billDriveItemsFingerprintKey(billDriveItems),
         summarySpreadsheetUrl,
         ldcUtility,
         brokerMargin,
         brokerMarginUnit,
         notes,
         accountLines,
-        selectedBillDriveFileId,
         selectedSummaryDriveFileId,
+        electricPricingKey: electricPricingFingerprintKey(
+          energyType === "ELECTRIC" ? electricPricing : null
+        ),
         reissueParentRfpId,
       }),
     [
@@ -1408,14 +1648,14 @@ export default function RfpGeneratorPage() {
       customTermMonths,
       contractStartValue,
       quoteDueDate,
-      googleDriveFolderUrl,
+      billDriveItems,
       summarySpreadsheetUrl,
       ldcUtility,
       brokerMargin,
       brokerMarginUnit,
+      electricPricing,
       notes,
       accountLines,
-      selectedBillDriveFileId,
       selectedSummaryDriveFileId,
       reissueParentRfpId,
     ]
@@ -1723,6 +1963,18 @@ export default function RfpGeneratorPage() {
     }
   }
 
+  function toggleElectricPricingOption(id: ElectricPricingOptionId, checked: boolean) {
+    setElectricPricing((prev) => {
+      const nextSet = new Set(prev.selectedIds);
+      if (checked) nextSet.add(id);
+      else nextSet.delete(id);
+      const selectedIds = Array.from(nextSet) as ElectricPricingOptionId[];
+      let fixedRateCapacityAdjustNote = prev.fixedRateCapacityAdjustNote;
+      if (!nextSet.has("fixed_rate_capacity_adjust")) fixedRateCapacityAdjustNote = "";
+      return { selectedIds, fixedRateCapacityAdjustNote };
+    });
+  }
+
   function validateRfpRequest() {
     if (!customerCompanyId) {
       return "Select a customer company before previewing or sending the RFP.";
@@ -1732,6 +1984,14 @@ export default function RfpGeneratorPage() {
     }
     const termErr = validateCustomTermsInput(customTermMonths);
     if (termErr) return termErr;
+    if (energyType === "ELECTRIC") {
+      if (
+        electricPricing.selectedIds.includes("fixed_rate_capacity_adjust") &&
+        !electricPricing.fixedRateCapacityAdjustNote.trim()
+      ) {
+        return 'When "Fixed rate capacity adjust" is selected, enter the note for that option.';
+      }
+    }
     if (!customerContactId) {
       return "Select a customer contact before previewing or sending the RFP.";
     }
@@ -1790,7 +2050,8 @@ export default function RfpGeneratorPage() {
     setCustomTermsError("");
     setContractStartValue("");
     setQuoteDueDate("");
-    setGoogleDriveFolderUrl("");
+    setBillDriveItems([]);
+    setElectricPricing(emptyElectricPricingOptionsState());
     setSummarySpreadsheetUrl("");
     setLdcUtility("");
     setLdcUtilitySearch("");
@@ -1800,7 +2061,6 @@ export default function RfpGeneratorPage() {
     setAccountLines([emptyAccountLine()]);
     setLocalBillFile(null);
     setLocalSummaryFile(null);
-    setSelectedBillDriveFileId("");
     setSelectedSummaryDriveFileId("");
     setActiveDraftId(null);
     setReissueParentRfpId(null);
@@ -1820,7 +2080,7 @@ export default function RfpGeneratorPage() {
         customTermMonths: "",
         contractStartValue: "",
         quoteDueDate: "",
-        googleDriveFolderUrl: "",
+        billDriveItemsKey: billDriveItemsFingerprintKey([]),
         summarySpreadsheetUrl: "",
         ldcUtility: "",
         brokerMargin: "",
@@ -1836,8 +2096,8 @@ export default function RfpGeneratorPage() {
             timing: { ...EMPTY_ACCOUNT_LINE_TIMING },
           },
         ],
-        selectedBillDriveFileId: "",
         selectedSummaryDriveFileId: "",
+        electricPricingKey: "",
         reissueParentRfpId: null,
       })
     );
@@ -1873,7 +2133,8 @@ export default function RfpGeneratorPage() {
           quoteDueDate: quoteDueDate || undefined,
           contractStartMonth: contractStartMonth || undefined,
           contractStartYear: contractStartYear || undefined,
-          googleDriveFolderUrl: googleDriveFolderUrl || undefined,
+          billDriveItems: billDriveItems.length > 0 ? billDriveItems : undefined,
+          googleDriveFolderUrl: billDriveItems[0]?.webViewLink || undefined,
           summarySpreadsheetUrl: summarySpreadsheetUrl || undefined,
           ldcUtility: ldcUtility || undefined,
           brokerMargin: brokerMargin || undefined,
@@ -1886,6 +2147,14 @@ export default function RfpGeneratorPage() {
           })),
           notes: notes || undefined,
           enrollmentDetails: enrollmentDetailsPayload ?? undefined,
+          electricPricingOptions:
+            energyType === "ELECTRIC"
+              ? {
+                  selectedIds: electricPricing.selectedIds,
+                  fixedRateCapacityAdjustNote:
+                    electricPricing.fixedRateCapacityAdjustNote.trim() || undefined,
+                }
+              : undefined,
         }),
       });
       const data = await res.json();
@@ -1902,15 +2171,17 @@ export default function RfpGeneratorPage() {
           customTermMonths,
           contractStartValue,
           quoteDueDate,
-          googleDriveFolderUrl,
+          billDriveItemsKey: billDriveItemsFingerprintKey(billDriveItems),
           summarySpreadsheetUrl,
           ldcUtility,
           brokerMargin,
           brokerMarginUnit,
           notes,
           accountLines,
-          selectedBillDriveFileId,
           selectedSummaryDriveFileId,
+          electricPricingKey: electricPricingFingerprintKey(
+            energyType === "ELECTRIC" ? electricPricing : null
+          ),
           reissueParentRfpId,
         })
       );
@@ -1924,7 +2195,32 @@ export default function RfpGeneratorPage() {
     }
   }
 
-  async function loadSavedRfpIntoForm(id: string) {
+  function clearCustomerRfpLoadedTimers() {
+    const t = customerRfpLoadedTimersRef.current;
+    if (t.toFade) clearTimeout(t.toFade);
+    if (t.toHide) clearTimeout(t.toHide);
+    t.toFade = undefined;
+    t.toHide = undefined;
+  }
+
+  function revealCustomerRfpLoadedBanner() {
+    clearCustomerRfpLoadedTimers();
+    setCustomerRfpLoadedBanner("visible");
+    customerRfpLoadedTimersRef.current.toFade = setTimeout(() => {
+      setCustomerRfpLoadedBanner("fading");
+      customerRfpLoadedTimersRef.current.toHide = setTimeout(() => {
+        setCustomerRfpLoadedBanner("hidden");
+        customerRfpLoadedTimersRef.current.toHide = undefined;
+      }, 500);
+    }, 10_000);
+  }
+
+  function dismissCustomerRfpLoadedBanner() {
+    clearCustomerRfpLoadedTimers();
+    setCustomerRfpLoadedBanner("hidden");
+  }
+
+  async function loadSavedRfpIntoForm(id: string, options?: { showCustomerRfpLoaded?: boolean }) {
     setLoading(true);
     setResult(null);
     suppressContactCompanySyncRef.current = true;
@@ -1941,27 +2237,14 @@ export default function RfpGeneratorPage() {
       setCustomerCompanies(companyOptions);
 
       const companyRow = resolveSavedRfpCompanyRow(companyOptions, data);
-      let extraContact: NonNullable<CustomerCompanyOption["contacts"]>[number] | null = null;
+      const contactId =
+        data.customerContactId && String(data.customerContactId).trim()
+          ? String(data.customerContactId).trim()
+          : "";
 
       if (companyRow) {
         setCustomerCompanyId(companyRow.id);
         setCustomerCompanySearch(companyRow.displayName);
-        const contactId =
-          data.customerContactId && String(data.customerContactId).trim()
-            ? String(data.customerContactId).trim()
-            : "";
-        const inList = Boolean(contactId && companyRow.contacts?.some((ct) => ct.id === contactId));
-        const cc = data.customerContact;
-        if (contactId && !inList && cc && String(cc.id) === contactId) {
-          extraContact = {
-            id: String(cc.id),
-            customerId: companyRow.customerId ?? null,
-            name: (cc.name && String(cc.name).trim()) || "Customer contact",
-            email: cc.email != null ? String(cc.email) : null,
-            phone: cc.phone != null ? String(cc.phone) : null,
-            label: null,
-          };
-        }
       } else if (data.customer) {
         setCustomerCompanyId("");
         setCustomerCompanySearch(
@@ -1976,6 +2259,55 @@ export default function RfpGeneratorPage() {
         setCustomerCompanyId("");
         setCustomerCompanySearch("");
       }
+
+      const inList = Boolean(
+        companyRow && contactId && companyRow.contacts?.some((ct) => ct.id === contactId)
+      );
+
+      let cc = data.customerContact;
+      let contactRowCustomerId: string | null = null;
+      if (contactId && !inList && (!cc || String(cc.id) !== contactId)) {
+        try {
+          const r = await fetch(`/api/contacts/${encodeURIComponent(contactId)}`);
+          if (r.ok) {
+            const row = (await r.json()) as {
+              id?: string;
+              name?: string | null;
+              email?: string | null;
+              phone?: string | null;
+              company?: string | null;
+              label?: string | null;
+              customerId?: string | null;
+            };
+            if (row && String(row.id) === contactId) {
+              contactRowCustomerId = row.customerId != null ? String(row.customerId) : null;
+              cc = {
+                id: String(row.id),
+                name: row.name,
+                email: row.email,
+                phone: row.phone,
+                company: row.company,
+                label: row.label,
+              };
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      let extraContact: NonNullable<CustomerCompanyOption["contacts"]>[number] | null = null;
+      if (contactId && !inList && cc && String(cc.id) === contactId) {
+        extraContact = {
+          id: String(cc.id),
+          customerId: companyRow?.customerId ?? contactRowCustomerId,
+          name: (cc.name && String(cc.name).trim()) || "Customer contact",
+          email: cc.email != null ? String(cc.email) : null,
+          phone: cc.phone != null ? String(cc.phone) : null,
+          label: cc.label != null ? String(cc.label) : null,
+        };
+      }
+
       setRfpExtraCustomerContact(extraContact);
       setCustomerContactId(
         data.customerContactId && String(data.customerContactId).trim()
@@ -1997,7 +2329,22 @@ export default function RfpGeneratorPage() {
       setQuoteDueDate(
         data.quoteDueDate ? String(data.quoteDueDate).slice(0, 10) : ""
       );
-      setGoogleDriveFolderUrl(data.googleDriveFolderUrl || "");
+      {
+        let loadedBills = normalizeRfpBillDriveItemsFromDb(data.billDriveItems);
+        if (loadedBills.length === 0 && data.googleDriveFolderUrl) {
+          const u = String(data.googleDriveFolderUrl).trim();
+          if (u) loadedBills = [{ webViewLink: u }];
+        }
+        setBillDriveItems(loadedBills);
+      }
+      if (data.energyType === "ELECTRIC") {
+        setElectricPricing(
+          normalizeElectricPricingFromDb(data.electricPricingOptions, "ELECTRIC") ??
+            emptyElectricPricingOptionsState()
+        );
+      } else {
+        setElectricPricing(emptyElectricPricingOptionsState());
+      }
       setSummarySpreadsheetUrl(data.summarySpreadsheetUrl || "");
       setLdcUtility(data.ldcUtility || "");
       setBrokerMargin(data.brokerMargin != null ? String(data.brokerMargin) : "");
@@ -2020,6 +2367,12 @@ export default function RfpGeneratorPage() {
       }
       const loadedCompanyRowId = companyRow?.id ?? "";
       setBaselineFingerprint(fingerprintFromLoadedRfp(data, loadedCompanyRowId));
+      if (options?.showCustomerRfpLoaded) {
+        revealCustomerRfpLoadedBanner();
+      }
+      window.setTimeout(() => {
+        suppressContactCompanySyncRef.current = false;
+      }, 50);
     } catch (error) {
       suppressContactCompanySyncRef.current = false;
       setResult({ error: error instanceof Error ? error.message : "Failed to load RFP" });
@@ -2219,6 +2572,7 @@ export default function RfpGeneratorPage() {
       if (!response.ok) throw new Error(data.error || "Failed to send test email");
       setRfpTestEmailOk(true);
       setResult({ success: true, testEmailSent: true });
+      setPreviewOpen(false);
     } catch (error) {
       setResult({ error: error instanceof Error ? error.message : "Failed to send test email" });
     } finally {
@@ -2268,8 +2622,14 @@ export default function RfpGeneratorPage() {
       return;
     }
     if (drivePickerKind === "bill") {
-      setGoogleDriveFolderUrl(file.webViewLink || "");
-      setSelectedBillDriveFileId(file.id);
+      const link =
+        file.webViewLink?.trim() ||
+        (file.id ? `https://drive.google.com/file/d/${file.id}/view` : "");
+      if (link) {
+        setBillDriveItems((prev) =>
+          appendBillDriveItem(prev, { fileId: file.id, webViewLink: link, filename: file.name })
+        );
+      }
       setLocalBillFile(null);
     } else {
       setSummarySpreadsheetUrl(file.webViewLink || "");
@@ -2283,8 +2643,7 @@ export default function RfpGeneratorPage() {
     if (kind === "bill") {
       setLocalBillFile(file);
       if (file) {
-        setGoogleDriveFolderUrl("");
-        setSelectedBillDriveFileId("");
+        setBillDriveItems([]);
       }
     } else {
       setLocalSummaryFile(file);
@@ -2300,7 +2659,8 @@ export default function RfpGeneratorPage() {
     if (typeof window === "undefined") return;
 
     const localFile = kind === "bill" ? localBillFile : localSummaryFile;
-    const url = kind === "bill" ? googleDriveFolderUrl : summarySpreadsheetUrl;
+    const url =
+      kind === "bill" ? billDriveItems.find((b) => b.webViewLink.trim())?.webViewLink ?? "" : summarySpreadsheetUrl;
 
     if (localFile) {
       const objectUrl = URL.createObjectURL(localFile);
@@ -2391,9 +2751,9 @@ export default function RfpGeneratorPage() {
       quoteDueDate: quoteDueDate || undefined,
       contractStartMonth: contractStartMonth || undefined,
       contractStartYear: contractStartYear || undefined,
-      googleDriveFolderUrl: googleDriveFolderUrl || undefined,
+      billDriveItems: billDriveItems.length > 0 ? billDriveItems : undefined,
+      googleDriveFolderUrl: billDriveItems[0]?.webViewLink || undefined,
       summarySpreadsheetUrl: summarySpreadsheetUrl || undefined,
-      billDriveFileId: selectedBillDriveFileId || undefined,
       summaryDriveFileId: selectedSummaryDriveFileId || undefined,
       billAttachmentName: localBillFile?.name || undefined,
       summaryAttachmentName: localSummaryFile?.name || undefined,
@@ -2408,6 +2768,14 @@ export default function RfpGeneratorPage() {
         phone: bp.phone,
         fax: bp.fax,
       },
+      electricPricingOptions:
+        et === "ELECTRIC"
+          ? {
+              selectedIds: electricPricing.selectedIds,
+              fixedRateCapacityAdjustNote:
+                electricPricing.fixedRateCapacityAdjustNote.trim() || undefined,
+            }
+          : undefined,
       notes: notes || undefined,
       accountLines: accountLines.map((line) => ({
         accountNumber: line.accountNumber,
@@ -2435,6 +2803,26 @@ export default function RfpGeneratorPage() {
               >
                 <X className="h-4 w-4" />
               </button>
+            </div>
+          ) : null}
+          {customerRfpLoadedBanner !== "hidden" ? (
+            <div
+              role="status"
+              className={cn(
+                "cursor-pointer select-none rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 shadow-sm transition-opacity duration-500 ease-out dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
+                customerRfpLoadedBanner === "fading" ? "opacity-0" : "opacity-100"
+              )}
+              onClick={() => dismissCustomerRfpLoadedBanner()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  dismissCustomerRfpLoadedBanner();
+                }
+              }}
+              tabIndex={0}
+              aria-label="Customer RFP loaded. Click to dismiss."
+            >
+              <p className="leading-snug">Customer RFP Loaded</p>
             </div>
           ) : null}
           {result?.success && result.testEmailSent ? (
@@ -2470,7 +2858,20 @@ export default function RfpGeneratorPage() {
           ) : null}
           {result?.error ? (
             <div className="flex gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <p className="min-w-0 flex-1 leading-snug">{result.error}</p>
+              <div className="min-w-0 flex-1 space-y-2 leading-snug">
+                <p>{result.error}</p>
+                {isGoogleReconnectSuggestedMessage(result.error) ? (
+                  <p className="text-xs font-normal">
+                    <a
+                      href={googleOAuthConnectUrl(loadBrokerProfile().email)}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Reconnect Google
+                    </a>
+                    {" — "}complete sign-in, then try again.
+                  </p>
+                ) : null}
+              </div>
               <button
                 type="button"
                 className="shrink-0 rounded-sm p-1 text-destructive hover:bg-destructive/15"
@@ -2658,7 +3059,7 @@ export default function RfpGeneratorPage() {
                     <Select
                       value={customerContactId}
                       onValueChange={setCustomerContactId}
-                      disabled={!customerCompanyId || customerContactsForSelect.length === 0}
+                      disabled={customerContactsForSelect.length === 0}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer contact" />
@@ -2890,45 +3291,72 @@ export default function RfpGeneratorPage() {
               </div>
 
               <div className="grid gap-2">
-                <Label>Bill PDF link or local file *</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      value={googleDriveFolderUrl}
-                      onChange={(e) => {
-                        setGoogleDriveFolderUrl(e.target.value);
-                        setSelectedBillDriveFileId("");
-                        if (e.target.value) setLocalBillFile(null);
-                      }}
-                      placeholder="https://drive.google.com/..."
-                      className={googleDriveFolderUrl ? "pr-10" : undefined}
-                    />
-                    {googleDriveFolderUrl ? (
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => {
-                          setGoogleDriveFolderUrl("");
-                          setSelectedBillDriveFileId("");
-                        }}
-                        aria-label="Clear bill link"
+                <Label>Bill PDF links (Google Drive) or local file *</Label>
+                <p className="text-xs text-muted-foreground">
+                  Add one Drive link per bill (e.g. multiple accounts). Browse appends each file you pick.
+                </p>
+                {billDriveItems.length > 0 ? (
+                  <ul className="space-y-2">
+                    {billDriveItems.map((item, idx) => (
+                      <li
+                        key={`${item.fileId || "url"}-${idx}-${item.webViewLink.slice(0, 24)}`}
+                        className="flex flex-wrap items-center gap-2"
                       >
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </div>
+                        <Input
+                          value={item.webViewLink}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setBillDriveItems((prev) =>
+                              prev.map((row, i) => (i === idx ? { webViewLink: v } : row))
+                            );
+                            if (v) setLocalBillFile(null);
+                          }}
+                          placeholder="https://drive.google.com/..."
+                          className="min-w-0 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={!item.webViewLink.trim()}
+                          onClick={() => {
+                            const u = item.webViewLink.trim();
+                            if (u && typeof window !== "undefined") {
+                              window.open(u, "_blank", "noopener,noreferrer");
+                            }
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() => setBillDriveItems((prev) => prev.filter((_, i) => i !== idx))}
+                          aria-label={`Remove bill link ${idx + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={() => openDrivePicker("bill")}>
                     <FolderOpen className="mr-2 h-4 w-4" />
                     Browse
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!googleDriveFolderUrl && !localBillFile}
-                    onClick={() => openSelectedDocument("bill")}
-                  >
-                    View
-                  </Button>
+                  {localBillFile ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openSelectedDocument("bill")}
+                    >
+                      View local file
+                    </Button>
+                  ) : null}
                 </div>
                 {localBillFile && (
                   <p className="text-xs text-muted-foreground">
@@ -3287,6 +3715,62 @@ export default function RfpGeneratorPage() {
             </CardContent>
           </Card>
 
+          {energyType === "ELECTRIC" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pricing options</CardTitle>
+                <CardDescription>
+                  Optional electric pricing notes for suppliers (included in the RFP email below the main table, before
+                  your general notes).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {ELECTRIC_PRICING_OPTION_DEFS.map((def) =>
+                    def.id === "fixed_rate_capacity_adjust" ? (
+                      <div
+                        key={def.id}
+                        className="col-span-full flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4"
+                      >
+                        <label className="flex min-w-0 shrink-0 cursor-pointer items-center gap-2 text-sm sm:max-w-[min(100%,20rem)]">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 shrink-0 rounded border-input"
+                            checked={electricPricing.selectedIds.includes(def.id)}
+                            onChange={(e) => toggleElectricPricingOption(def.id, e.target.checked)}
+                          />
+                          <span>{def.label}</span>
+                        </label>
+                        {electricPricing.selectedIds.includes("fixed_rate_capacity_adjust") ? (
+                          <Input
+                            id="rfp-fixed-cap-note"
+                            className="min-w-0 flex-1"
+                            aria-label="Note for fixed rate capacity adjust"
+                            value={electricPricing.fixedRateCapacityAdjustNote}
+                            onChange={(e) =>
+                              setElectricPricing((p) => ({ ...p, fixedRateCapacityAdjustNote: e.target.value }))
+                            }
+                            placeholder="Note (required when this option is selected)"
+                          />
+                        ) : null}
+                      </div>
+                    ) : (
+                      <label key={def.id} className="flex cursor-pointer items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-input"
+                          checked={electricPricing.selectedIds.includes(def.id)}
+                          onChange={(e) => toggleElectricPricingOption(def.id, e.target.checked)}
+                        />
+                        <span>{def.label}</span>
+                      </label>
+                    )
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -3405,7 +3889,7 @@ export default function RfpGeneratorPage() {
                   ? `Broker margin (${brokerMargin} ${brokerMarginUnit})`
                   : "Broker margin and unit"}
               </ChecklistItem>
-              <ChecklistItem checked={Boolean(googleDriveFolderUrl || localBillFile)}>
+              <ChecklistItem checked={Boolean(billDriveItems.length || localBillFile)}>
                 Bill PDF linked
               </ChecklistItem>
               <ChecklistItem checked={accountLines.every((line) => line.accountNumber && line.annualUsage && line.avgMonthlyUsage)}>
@@ -3460,7 +3944,12 @@ export default function RfpGeneratorPage() {
                       </span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="secondary" onClick={() => void loadSavedRfpIntoForm(rfp.id)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void loadSavedRfpIntoForm(rfp.id, { showCustomerRfpLoaded: true })}
+                      >
                         Continue editing
                       </Button>
                       <Button
@@ -3539,6 +4028,26 @@ export default function RfpGeneratorPage() {
                       >
                         <RefreshCw className="mr-1 h-4 w-4 shrink-0" />
                         Supplier email refresh
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const targets = collectSubmittedRfpSupplierFollowUpTargets(rfp, suppliers);
+                          if (targets.length === 0) {
+                            setResult({
+                              error:
+                                "No supplier email addresses on file for this RFP. Ensure each supplier has contacts with email, or open Edit as re-issue and confirm recipients before sending.",
+                            });
+                            return;
+                          }
+                          setResult(null);
+                          setRfpFollowUpCompose(targets);
+                        }}
+                      >
+                        <Mail className="mr-1 h-4 w-4 shrink-0" />
+                        Follow-up email
                       </Button>
                       <Link
                         href={`/quotes?rfpRequestId=${rfp.id}`}
@@ -4161,6 +4670,14 @@ export default function RfpGeneratorPage() {
         </DialogContent>
       </Dialog>
 
+      <ComposeEmailModal
+        to={rfpFollowUpCompose}
+        sendSeparatelyPerRecipient
+        title="Supplier follow-up"
+        onClose={() => setRfpFollowUpCompose(null)}
+        onSent={() => setRfpFollowUpCompose(null)}
+      />
+
       <ContractRenewalEmailDialog
         open={renewalEmailContractId != null}
         onOpenChange={(o) => !o && setRenewalEmailContractId(null)}
@@ -4225,7 +4742,7 @@ export default function RfpGeneratorPage() {
           <DialogHeader>
             <DialogTitle>
               {drivePickerKind === "bill"
-                ? "Select Bill PDF from Google Drive"
+                ? "Add bill PDF from Google Drive"
                 : "Select Usage Summary from Google Drive"}
             </DialogTitle>
           </DialogHeader>
@@ -4393,31 +4910,38 @@ export default function RfpGeneratorPage() {
       />
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-1rem)] max-w-3xl gap-3 overflow-y-auto p-4 !top-4 !translate-y-0 sm:!top-[5vh] sm:max-h-[min(90dvh,calc(100vh-2rem))] sm:p-5">
-          <DialogHeader className="shrink-0 space-y-1.5 text-left">
-            <DialogTitle className="text-base font-bold sm:text-lg">RFP email preview</DialogTitle>
+        <DialogContent
+          overlayClassName="z-[100]"
+          className="z-[100] flex h-[min(96dvh,calc(100dvh-1rem))] max-h-[min(96dvh,calc(100dvh-1rem))] w-[min(calc(100vw-1rem),80rem)] max-w-[min(calc(100vw-1rem),80rem)] flex-col gap-0 overflow-hidden border-2 border-border p-0 shadow-lg sm:rounded-lg left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]"
+        >
+          <DialogHeader className="shrink-0 space-y-1.5 border-b border-border bg-muted/30 px-4 py-3 text-left sm:px-5 sm:py-4">
+            <DialogTitle className="text-base font-bold sm:text-lg pr-8">RFP email preview</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="rounded border p-2.5 text-xs sm:p-3 sm:text-sm">
-              <p>
-                <span className="font-medium">Subject:</span>{" "}
-                <span className="font-bold">{previewData?.subject || "—"}</span>
-              </p>
-              <p className="mt-1">
-                <span className="font-medium">Previewing first supplier:</span>{" "}
-                {previewData?.recipientPreview[0]
-                  ? `${previewData.recipientPreview[0].supplierName} - ${previewData.recipientPreview[0].contactName} (${previewData.recipientPreview[0].email})`
-                  : "—"}
-              </p>
-              <p className="mt-1 text-muted-foreground">
-                This preview shows the general email layout using the first selected supplier contact. Final send still delivers one private email per selected supplier contact.
-              </p>
-            </div>
-            <div className="max-h-[min(45vh,360px)] overflow-auto rounded border bg-white p-2.5 text-[13px] leading-snug sm:max-h-[min(50vh,420px)] sm:p-3 [&_table]:text-[13px]">
-              <div className="origin-top scale-[0.92] sm:scale-95">
-                <div dangerouslySetInnerHTML={{ __html: previewData?.html || "" }} />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <div className="shrink-0 rounded border border-border/80 bg-background p-2.5 text-xs sm:p-3 sm:text-sm">
+                <p>
+                  <span className="font-medium">Subject:</span>{" "}
+                  <span className="font-bold">{previewData?.subject || "—"}</span>
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">Previewing first supplier:</span>{" "}
+                  {previewData?.recipientPreview[0]
+                    ? `${previewData.recipientPreview[0].supplierName} - ${previewData.recipientPreview[0].contactName} (${previewData.recipientPreview[0].email})`
+                    : "—"}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  This preview shows the general email layout using the first selected supplier contact. Final send still delivers one private email per selected supplier contact.
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto overscroll-contain rounded border border-border bg-white p-2.5 text-[13px] leading-snug sm:p-3 [&_table]:text-[13px]">
+                <div className="origin-top scale-[0.92] sm:scale-95">
+                  <div dangerouslySetInnerHTML={{ __html: previewData?.html || "" }} />
+                </div>
               </div>
             </div>
+          </div>
+          <div className="shrink-0 border-t border-border bg-muted/30 px-4 py-3 sm:px-5 sm:py-4">
             <div className="grid gap-2 md:grid-cols-[1fr_auto]">
               <div className="grid gap-2">
                 <Label>Test email address</Label>

@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { useAppToast } from "@/components/app-toast-provider";
 import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
 import { hydrateQuoteComparisonPicks, serializeQuoteComparisonPicks } from "@/lib/quote-comparison-picks";
+import { rfpListLabelWithEnergy } from "@/lib/rfp-request-label";
 
 const QUOTES_PAGE_RESIZE_HANDLE_CLASS =
   "relative h-1.5 w-full shrink-0 rounded-sm bg-border/80 outline-none hover:bg-primary/40 data-[panel-group-direction=horizontal]:mx-0.5 data-[panel-group-direction=horizontal]:h-full data-[panel-group-direction=horizontal]:w-1.5 data-[panel-group-direction=horizontal]:my-0 data-[panel-group-direction=vertical]:my-0.5";
@@ -258,19 +259,7 @@ export default function RfpQuotesPage() {
   }, [selectedRequest?.id, selectedRequest?.customer?.id, selectedRequest?.customerContact?.id]);
 
   function rfpListLabel(request: RfpRequestSummary): string {
-    const company = (
-      request.customer?.company?.trim() ||
-      request.customer?.name?.trim() ||
-      request.customerContact?.company?.trim() ||
-      ""
-    ).trim();
-    const contact = (request.customerContact?.name || "").trim();
-    const energy = request.energyType === "ELECTRIC" ? "Electric" : "Natural Gas";
-    let base: string;
-    if (company && contact) base = `${company} — ${contact}`;
-    else if (company) base = company;
-    else base = contact || "Customer";
-    return `${base} · ${energy}`;
+    return rfpListLabelWithEnergy(request, request.energyType);
   }
 
   const loadRfpRequests = useCallback(async () => {

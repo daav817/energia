@@ -390,6 +390,10 @@ model RfpRequest {
   billDocumentId   String?    @map("bill_document_id")
   termMonths       Int?       @map("term_months")
   googleDriveFolderUrl  String?  @map("google_drive_folder_url") @db.Text
+  /// Multiple bill PDFs from Google Drive: JSON array of { fileId?, webViewLink, filename? }.
+  billDriveItems        Json?    @map("bill_drive_items")
+  /// Electric RFP only: { selectedIds: string[], fixedRateCapacityAdjustNote?: string }.
+  electricPricingOptions Json?   @map("electric_pricing_options")
   summarySpreadsheetUrl String?  @map("summary_spreadsheet_url") @db.Text
   quoteDueDate          DateTime? @map("quote_due_date") @db.Date
   contractStartMonth    Int?      @map("contract_start_month")

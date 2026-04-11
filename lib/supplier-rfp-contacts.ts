@@ -181,6 +181,7 @@ export function mergeContactsForSupplier(
   const seen = new Map<string, SupplierRfpContactRow>();
 
   const push = (raw: RawContactForSupplierMerge) => {
+    if (isRetiredSupplierContact(raw.label)) return;
     if (seen.has(raw.id)) return;
     const emails = collectDeliverableEmails(raw);
     seen.set(raw.id, {

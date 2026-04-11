@@ -48,6 +48,11 @@ export function getAuthUrl(loginHint?: string): string {
       "https://www.googleapis.com/auth/drive.readonly",
       /** Create/upload files (e.g. email attachments) into folders you can edit. */
       "https://www.googleapis.com/auth/drive.file",
+      /**
+       * Share existing Drive files with recipients (e.g. RFP bill/summary links). `drive.file` alone is often
+       * insufficient for `permissions.create` on arbitrary file IDs. Users must complete OAuth after this scope is added.
+       */
+      "https://www.googleapis.com/auth/drive",
     ],
     prompt: "select_account consent",
     ...(loginHint && { login_hint: loginHint }),

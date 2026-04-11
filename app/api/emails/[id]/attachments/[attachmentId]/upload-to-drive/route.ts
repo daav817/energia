@@ -4,6 +4,21 @@ import { getGmailClient, getGoogleDriveClient } from "@/lib/gmail";
 import { fetchGmailAttachmentBytes } from "@/lib/gmail-attachment-bytes";
 import { parseDriveFolderId } from "@/lib/parse-drive-folder-id";
 
+function formatUploadError(err: unknown): string {
+  if (err && typeof err === "object" && "response" in err) {
+    const data = (err as { response?: { data?: unknown } }).response?.data;
+    if (data && typeof data === "object" && data !== null && "error" in data) {
+      const inner = (data as { error?: { message?: string; errors?: Array<{ message?: string }> } }).error;
+      const msg = inner?.message;
+      if (typeof msg === "string" && msg.trim()) return msg.trim();
+      const first = inner?.errors?.[0]?.message;
+      if (typeof first === "string" && first.trim()) return first.trim();
+    }
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return "Upload failed";
+}
+
 /**
  * POST /api/emails/[id]/attachments/[attachmentId]/upload-to-drive
  * Body JSON: { folderId?: string, folderUrl?: string, filename?: string, mimeType?: string }
@@ -53,6 +68,8 @@ export async function POST(
         body: Readable.from(buffer),
       },
       fields: "id, name, webViewLink, mimeType",
+      /** Required when the destination folder is on a shared drive (Team Drive); safe for My Drive too. */
+      supportsAllDrives: true,
     });
 
     return NextResponse.json({
@@ -62,7 +79,7 @@ export async function POST(
     });
   } catch (err) {
     console.error("Upload attachment to Drive error:", err);
-    const message = err instanceof Error ? err.message : "Upload failed";
+    const message = formatUploadError(err);
     return NextResponse.json(
       {
         error: `${message} If this is a new capability, sign out of Google in the app and reconnect so Drive upload scope is granted.`,

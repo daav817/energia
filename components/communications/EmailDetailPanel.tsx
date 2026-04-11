@@ -83,6 +83,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailAttachmentDriveUploadButton } from "@/components/communications/email-attachment-drive-upload";
+import { EmailAttachmentsBulkActions } from "@/components/communications/email-attachments-bulk-actions";
 
 type EmailMessage = {
   id: string;
@@ -531,6 +532,7 @@ export function EmailDetailPanel({
             <Paperclip className="h-3 w-3" />
             <span>Attachments ({detail.attachments.length})</span>
           </div>
+          <EmailAttachmentsBulkActions messageId={email.id} attachments={detail.attachments} />
           <ul className="space-y-2 text-sm">
             {detail.attachments.map((att) => {
               const base = `/api/emails/${email.id}/attachments/${att.attachmentId}?filename=${encodeURIComponent(

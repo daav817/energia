@@ -31,6 +31,7 @@ import { annualUsageResolved, totalTermBrokerIncome } from "@/lib/contract-broke
 import { aggregateUsageByCalendarYear } from "@/lib/broker-usage-calendar";
 import { BrokerageUsageByYearPanel } from "@/components/brokerage-usage-by-year-panel";
 import { ArchivesRfpModal } from "@/components/archives-rfp-modal";
+import { googleOAuthConnectUrl } from "@/lib/google-connect";
 
 type ContractIncomeRow = {
   id: string;
@@ -215,6 +216,11 @@ export function DashboardToolbarSettings() {
             <Link href="/email-templates" className="no-underline">
               Email templates
             </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href={googleOAuthConnectUrl(loadBrokerProfile().email)} className="no-underline">
+              Reconnect Google…
+            </a>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setArchivesOpen(true)}>Archives</DropdownMenuItem>
         </DropdownMenuContent>

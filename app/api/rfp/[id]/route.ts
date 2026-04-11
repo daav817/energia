@@ -14,7 +14,7 @@ export async function GET(
       include: {
         customer: { select: { id: true, name: true, company: true } },
         customerContact: {
-          select: { id: true, name: true, email: true, phone: true, company: true },
+          select: { id: true, name: true, email: true, phone: true, company: true, label: true },
         },
         suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
@@ -118,7 +118,7 @@ export async function PATCH(
       include: {
         customer: { select: { id: true, name: true, company: true } },
         customerContact: {
-          select: { id: true, name: true, email: true, phone: true, company: true },
+          select: { id: true, name: true, email: true, phone: true, company: true, label: true },
         },
         suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },

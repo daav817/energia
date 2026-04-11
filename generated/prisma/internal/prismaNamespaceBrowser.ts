@@ -332,6 +332,8 @@ export const RfpRequestScalarFieldEnum = {
   billDocumentId: 'billDocumentId',
   termMonths: 'termMonths',
   googleDriveFolderUrl: 'googleDriveFolderUrl',
+  billDriveItems: 'billDriveItems',
+  electricPricingOptions: 'electricPricingOptions',
   summarySpreadsheetUrl: 'summarySpreadsheetUrl',
   quoteDueDate: 'quoteDueDate',
   contractStartMonth: 'contractStartMonth',

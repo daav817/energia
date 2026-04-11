@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { BrokerProfile } from "@/lib/broker-profile";
+import { googleOAuthConnectUrl } from "@/lib/google-connect";
 import { BrokerageUsageByYearPanel } from "@/components/brokerage-usage-by-year-panel";
 import type { UsageYearBreakdownRow } from "@/lib/broker-usage-calendar";
 
@@ -112,6 +113,22 @@ export function BrokerOverviewModal(props: {
                 </a>
               </p>
             ) : null}
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 px-3 py-3 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Google</p>
+            <p className="text-xs text-muted-foreground leading-snug">
+              If email or Drive sharing fails with a permission error, sign in again to refresh OAuth scopes (for example
+              after updating app permissions).
+            </p>
+            <p>
+              <a
+                href={googleOAuthConnectUrl(profile.email)}
+                className="text-sm font-medium text-primary no-underline hover:underline"
+              >
+                Reconnect Google…
+              </a>
+            </p>
           </div>
 
           <div className="rounded-lg border px-3 py-3 space-y-3">

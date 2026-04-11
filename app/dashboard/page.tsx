@@ -35,6 +35,7 @@ import { ContractRenewalEmailDialog } from "@/components/contracts/contract-rene
 import { formatGoogleTasksSyncMessage } from "@/lib/google-tasks-sync-message";
 import { persistTasksOrder, reorderIdList } from "@/lib/tasks-reorder";
 import { cn } from "@/lib/utils";
+import { rfpCustomerFacingLabel } from "@/lib/rfp-request-label";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -631,9 +632,11 @@ export default function DashboardPage() {
         quoteSummarySentAt?: string | null;
         refreshSequence?: number;
         energyType?: string;
-        customer?: { name?: string };
+        customer?: { name?: string | null; company?: string | null } | null;
+        customerContact?: { name?: string | null; company?: string | null } | null;
       }>) {
         const st = raw.status;
+        const customerLabel = rfpCustomerFacingLabel(raw);
         if (raw.sentAt && st !== "completed" && st !== "cancelled") {
           const energy = raw.energyType === "ELECTRIC" ? "Electric" : "Natural gas";
           const refresh =
@@ -641,7 +644,7 @@ export default function DashboardPage() {
           pending.push({
             kind: "rfp",
             id: raw.id,
-            label: raw.customer?.name ?? "Customer",
+            label: customerLabel,
             sub: `${energy} · ${st}${refresh}`,
             at: String(raw.sentAt),
           });
@@ -651,7 +654,7 @@ export default function DashboardPage() {
           pending.push({
             kind: "quote",
             id: raw.id,
-            label: raw.customer?.name ?? "Customer",
+            label: customerLabel,
             sub: `${energy} · Quote summary emailed`,
             at: String(raw.quoteSummarySentAt),
           });

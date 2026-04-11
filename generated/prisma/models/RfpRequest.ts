@@ -111,6 +111,8 @@ export type RfpRequestCountAggregateOutputType = {
   billDocumentId: number
   termMonths: number
   googleDriveFolderUrl: number
+  billDriveItems: number
+  electricPricingOptions: number
   summarySpreadsheetUrl: number
   quoteDueDate: number
   contractStartMonth: number
@@ -224,6 +226,8 @@ export type RfpRequestCountAggregateInputType = {
   billDocumentId?: true
   termMonths?: true
   googleDriveFolderUrl?: true
+  billDriveItems?: true
+  electricPricingOptions?: true
   summarySpreadsheetUrl?: true
   quoteDueDate?: true
   contractStartMonth?: true
@@ -346,6 +350,8 @@ export type RfpRequestGroupByOutputType = {
   billDocumentId: string | null
   termMonths: number | null
   googleDriveFolderUrl: string | null
+  billDriveItems: runtime.JsonValue | null
+  electricPricingOptions: runtime.JsonValue | null
   summarySpreadsheetUrl: string | null
   quoteDueDate: Date | null
   contractStartMonth: number | null
@@ -404,6 +410,8 @@ export type RfpRequestWhereInput = {
   billDocumentId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   termMonths?: Prisma.IntNullableFilter<"RfpRequest"> | number | null
   googleDriveFolderUrl?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  billDriveItems?: Prisma.JsonNullableFilter<"RfpRequest">
+  electricPricingOptions?: Prisma.JsonNullableFilter<"RfpRequest">
   summarySpreadsheetUrl?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteDueDate?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   contractStartMonth?: Prisma.IntNullableFilter<"RfpRequest"> | number | null
@@ -447,6 +455,8 @@ export type RfpRequestOrderByWithRelationInput = {
   billDocumentId?: Prisma.SortOrderInput | Prisma.SortOrder
   termMonths?: Prisma.SortOrderInput | Prisma.SortOrder
   googleDriveFolderUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  billDriveItems?: Prisma.SortOrderInput | Prisma.SortOrder
+  electricPricingOptions?: Prisma.SortOrderInput | Prisma.SortOrder
   summarySpreadsheetUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteDueDate?: Prisma.SortOrderInput | Prisma.SortOrder
   contractStartMonth?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -493,6 +503,8 @@ export type RfpRequestWhereUniqueInput = Prisma.AtLeast<{
   billDocumentId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   termMonths?: Prisma.IntNullableFilter<"RfpRequest"> | number | null
   googleDriveFolderUrl?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  billDriveItems?: Prisma.JsonNullableFilter<"RfpRequest">
+  electricPricingOptions?: Prisma.JsonNullableFilter<"RfpRequest">
   summarySpreadsheetUrl?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteDueDate?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   contractStartMonth?: Prisma.IntNullableFilter<"RfpRequest"> | number | null
@@ -536,6 +548,8 @@ export type RfpRequestOrderByWithAggregationInput = {
   billDocumentId?: Prisma.SortOrderInput | Prisma.SortOrder
   termMonths?: Prisma.SortOrderInput | Prisma.SortOrder
   googleDriveFolderUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  billDriveItems?: Prisma.SortOrderInput | Prisma.SortOrder
+  electricPricingOptions?: Prisma.SortOrderInput | Prisma.SortOrder
   summarySpreadsheetUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteDueDate?: Prisma.SortOrderInput | Prisma.SortOrder
   contractStartMonth?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -579,6 +593,8 @@ export type RfpRequestScalarWhereWithAggregatesInput = {
   billDocumentId?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
   termMonths?: Prisma.IntNullableWithAggregatesFilter<"RfpRequest"> | number | null
   googleDriveFolderUrl?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
+  billDriveItems?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
+  electricPricingOptions?: Prisma.JsonNullableWithAggregatesFilter<"RfpRequest">
   summarySpreadsheetUrl?: Prisma.StringNullableWithAggregatesFilter<"RfpRequest"> | string | null
   quoteDueDate?: Prisma.DateTimeNullableWithAggregatesFilter<"RfpRequest"> | Date | string | null
   contractStartMonth?: Prisma.IntNullableWithAggregatesFilter<"RfpRequest"> | number | null
@@ -613,6 +629,8 @@ export type RfpRequestCreateInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -654,6 +672,8 @@ export type RfpRequestUncheckedCreateInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -693,6 +713,8 @@ export type RfpRequestUpdateInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -734,6 +756,8 @@ export type RfpRequestUncheckedUpdateInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -774,6 +798,8 @@ export type RfpRequestCreateManyInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -808,6 +834,8 @@ export type RfpRequestUpdateManyMutationInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -841,6 +869,8 @@ export type RfpRequestUncheckedUpdateManyInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -899,6 +929,8 @@ export type RfpRequestCountOrderByAggregateInput = {
   billDocumentId?: Prisma.SortOrder
   termMonths?: Prisma.SortOrder
   googleDriveFolderUrl?: Prisma.SortOrder
+  billDriveItems?: Prisma.SortOrder
+  electricPricingOptions?: Prisma.SortOrder
   summarySpreadsheetUrl?: Prisma.SortOrder
   quoteDueDate?: Prisma.SortOrder
   contractStartMonth?: Prisma.SortOrder
@@ -1253,6 +1285,8 @@ export type RfpRequestCreateWithoutCustomerInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1292,6 +1326,8 @@ export type RfpRequestUncheckedCreateWithoutCustomerInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1361,6 +1397,8 @@ export type RfpRequestScalarWhereInput = {
   billDocumentId?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   termMonths?: Prisma.IntNullableFilter<"RfpRequest"> | number | null
   googleDriveFolderUrl?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
+  billDriveItems?: Prisma.JsonNullableFilter<"RfpRequest">
+  electricPricingOptions?: Prisma.JsonNullableFilter<"RfpRequest">
   summarySpreadsheetUrl?: Prisma.StringNullableFilter<"RfpRequest"> | string | null
   quoteDueDate?: Prisma.DateTimeNullableFilter<"RfpRequest"> | Date | string | null
   contractStartMonth?: Prisma.IntNullableFilter<"RfpRequest"> | number | null
@@ -1395,6 +1433,8 @@ export type RfpRequestCreateWithoutSuppliersInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1435,6 +1475,8 @@ export type RfpRequestUncheckedCreateWithoutSuppliersInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1494,6 +1536,8 @@ export type RfpRequestCreateWithoutCalendarEventsInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1534,6 +1578,8 @@ export type RfpRequestUncheckedCreateWithoutCalendarEventsInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1588,6 +1634,8 @@ export type RfpRequestUpdateWithoutCalendarEventsInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1628,6 +1676,8 @@ export type RfpRequestUncheckedUpdateWithoutCalendarEventsInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1666,6 +1716,8 @@ export type RfpRequestCreateWithoutChildReissuesInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1706,6 +1758,8 @@ export type RfpRequestUncheckedCreateWithoutChildReissuesInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1749,6 +1803,8 @@ export type RfpRequestCreateWithoutParentRfpInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1789,6 +1845,8 @@ export type RfpRequestUncheckedCreateWithoutParentRfpInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1848,6 +1906,8 @@ export type RfpRequestUpdateWithoutChildReissuesInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1888,6 +1948,8 @@ export type RfpRequestUncheckedUpdateWithoutChildReissuesInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1942,6 +2004,8 @@ export type RfpRequestCreateWithoutAccountLinesInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -1982,6 +2046,8 @@ export type RfpRequestUncheckedCreateWithoutAccountLinesInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2036,6 +2102,8 @@ export type RfpRequestUpdateWithoutAccountLinesInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2076,6 +2144,8 @@ export type RfpRequestUncheckedUpdateWithoutAccountLinesInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2114,6 +2184,8 @@ export type RfpRequestCreateWithoutQuotesInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2154,6 +2226,8 @@ export type RfpRequestUncheckedCreateWithoutQuotesInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2208,6 +2282,8 @@ export type RfpRequestUpdateWithoutQuotesInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2248,6 +2324,8 @@ export type RfpRequestUncheckedUpdateWithoutQuotesInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2286,6 +2364,8 @@ export type RfpRequestCreateWithoutCustomerContactInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2326,6 +2406,8 @@ export type RfpRequestUncheckedCreateWithoutCustomerContactInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2390,6 +2472,8 @@ export type RfpRequestCreateManyCustomerInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2424,6 +2508,8 @@ export type RfpRequestUpdateWithoutCustomerInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2463,6 +2549,8 @@ export type RfpRequestUncheckedUpdateWithoutCustomerInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2502,6 +2590,8 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2536,6 +2626,8 @@ export type RfpRequestUpdateWithoutSuppliersInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2576,6 +2668,8 @@ export type RfpRequestUncheckedUpdateWithoutSuppliersInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2615,6 +2709,8 @@ export type RfpRequestUncheckedUpdateManyWithoutSuppliersInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2650,6 +2746,8 @@ export type RfpRequestCreateManyParentRfpInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2683,6 +2781,8 @@ export type RfpRequestUpdateWithoutParentRfpInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2723,6 +2823,8 @@ export type RfpRequestUncheckedUpdateWithoutParentRfpInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2762,6 +2864,8 @@ export type RfpRequestUncheckedUpdateManyWithoutParentRfpInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2796,6 +2900,8 @@ export type RfpRequestCreateManyCustomerContactInput = {
   billDocumentId?: string | null
   termMonths?: number | null
   googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: string | null
   quoteDueDate?: Date | string | null
   contractStartMonth?: number | null
@@ -2829,6 +2935,8 @@ export type RfpRequestUpdateWithoutCustomerContactInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2869,6 +2977,8 @@ export type RfpRequestUncheckedUpdateWithoutCustomerContactInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2908,6 +3018,8 @@ export type RfpRequestUncheckedUpdateManyWithoutCustomerContactInput = {
   billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -3009,6 +3121,8 @@ export type RfpRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   billDocumentId?: boolean
   termMonths?: boolean
   googleDriveFolderUrl?: boolean
+  billDriveItems?: boolean
+  electricPricingOptions?: boolean
   summarySpreadsheetUrl?: boolean
   quoteDueDate?: boolean
   contractStartMonth?: boolean
@@ -3053,6 +3167,8 @@ export type RfpRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   billDocumentId?: boolean
   termMonths?: boolean
   googleDriveFolderUrl?: boolean
+  billDriveItems?: boolean
+  electricPricingOptions?: boolean
   summarySpreadsheetUrl?: boolean
   quoteDueDate?: boolean
   contractStartMonth?: boolean
@@ -3091,6 +3207,8 @@ export type RfpRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   billDocumentId?: boolean
   termMonths?: boolean
   googleDriveFolderUrl?: boolean
+  billDriveItems?: boolean
+  electricPricingOptions?: boolean
   summarySpreadsheetUrl?: boolean
   quoteDueDate?: boolean
   contractStartMonth?: boolean
@@ -3129,6 +3247,8 @@ export type RfpRequestSelectScalar = {
   billDocumentId?: boolean
   termMonths?: boolean
   googleDriveFolderUrl?: boolean
+  billDriveItems?: boolean
+  electricPricingOptions?: boolean
   summarySpreadsheetUrl?: boolean
   quoteDueDate?: boolean
   contractStartMonth?: boolean
@@ -3155,7 +3275,7 @@ export type RfpRequestSelectScalar = {
   updatedAt?: boolean
 }
 
-export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "supplierContactSelections" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "quoteSummarySentAt" | "sentAt" | "status" | "notes" | "enrollmentDetails" | "parentRfpId" | "refreshSequence" | "archivedAt" | "archivedQuoteWorkspace" | "quoteComparisonPicks" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
+export type RfpRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "energyType" | "annualUsage" | "avgMonthlyUsage" | "billDocumentId" | "termMonths" | "googleDriveFolderUrl" | "billDriveItems" | "electricPricingOptions" | "summarySpreadsheetUrl" | "quoteDueDate" | "contractStartMonth" | "contractStartYear" | "brokerMargin" | "brokerMarginUnit" | "ldcUtility" | "requestedTerms" | "supplierContactSelections" | "customerContactId" | "quoteSummaryCcContactIds" | "quoteSummaryContactIds" | "quoteSummarySentAt" | "sentAt" | "status" | "notes" | "enrollmentDetails" | "parentRfpId" | "refreshSequence" | "archivedAt" | "archivedQuoteWorkspace" | "quoteComparisonPicks" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpRequest"]>
 export type RfpRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.RfpRequest$customerArgs<ExtArgs>
   customerContact?: boolean | Prisma.RfpRequest$customerContactArgs<ExtArgs>
@@ -3202,6 +3322,14 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
     billDocumentId: string | null
     termMonths: number | null
     googleDriveFolderUrl: string | null
+    /**
+     * Multiple bill PDFs from Google Drive: JSON array of { fileId?, webViewLink, filename? }.
+     */
+    billDriveItems: runtime.JsonValue | null
+    /**
+     * Electric RFP only: { selectedIds: string[], fixedRateCapacityAdjustNote?: string }.
+     */
+    electricPricingOptions: runtime.JsonValue | null
     summarySpreadsheetUrl: string | null
     quoteDueDate: Date | null
     contractStartMonth: number | null
@@ -3692,6 +3820,8 @@ export interface RfpRequestFieldRefs {
   readonly billDocumentId: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly termMonths: Prisma.FieldRef<"RfpRequest", 'Int'>
   readonly googleDriveFolderUrl: Prisma.FieldRef<"RfpRequest", 'String'>
+  readonly billDriveItems: Prisma.FieldRef<"RfpRequest", 'Json'>
+  readonly electricPricingOptions: Prisma.FieldRef<"RfpRequest", 'Json'>
   readonly summarySpreadsheetUrl: Prisma.FieldRef<"RfpRequest", 'String'>
   readonly quoteDueDate: Prisma.FieldRef<"RfpRequest", 'DateTime'>
   readonly contractStartMonth: Prisma.FieldRef<"RfpRequest", 'Int'>

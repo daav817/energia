@@ -4,6 +4,18 @@ import { getGmailClient, getGoogleDriveClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { flattenDeliverableSupplierContacts } from "@/lib/supplier-rfp-contacts";
 import { localDateFromDayInput } from "@/lib/calendar-date";
+import {
+  type RfpBillDriveItem,
+  normalizeRfpBillDriveItemsFromBody,
+  formatBillLinksForEmailHtml,
+  formatBillLinksForEmailText,
+} from "@/lib/rfp-bill-drive-items";
+import {
+  type RfpElectricPricingOptionsState,
+  formatElectricPricingForEmailHtml,
+  formatElectricPricingForEmailText,
+  normalizeElectricPricingFromBody,
+} from "@/lib/rfp-electric-pricing-options";
 
 type SendMode = "preview" | "test" | "send";
 type Attachment = { filename: string; content: Buffer; mimeType: string };
@@ -162,6 +174,18 @@ export async function POST(request: NextRequest) {
         avgMonthlyUsage: new Prisma.Decimal(payload.totals.avgMonthlyUsage),
         termMonths: primaryTermMonths,
         googleDriveFolderUrl: payload.billDocumentUrl,
+        billDriveItems:
+          payload.billDriveItems.length > 0
+            ? (payload.billDriveItems as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+        electricPricingOptions:
+          payload.electricPricing && payload.electricPricing.selectedIds.length > 0
+            ? ({
+                selectedIds: payload.electricPricing.selectedIds,
+                fixedRateCapacityAdjustNote:
+                  payload.electricPricing.fixedRateCapacityAdjustNote.trim() || undefined,
+              } as Prisma.InputJsonValue)
+            : Prisma.DbNull,
         summarySpreadsheetUrl: payload.usageSummaryUrl,
         quoteDueDate: quoteDue,
         contractStartMonth: payload.contractStartMonth,
@@ -201,7 +225,11 @@ export async function POST(request: NextRequest) {
             `Energy type: ${formatEnergyType(payload.energyType)}`,
             payload.ldcUtility ? `Utility: ${payload.ldcUtility}` : "",
             `Suppliers: ${payload.suppliers.map((supplier) => supplier.name).join(", ")}`,
-            payload.billDocumentUrl ? `Bills folder: ${payload.billDocumentUrl}` : "",
+            payload.billDriveItems.length > 0
+              ? `Bill PDF links:\n${payload.billDriveItems.map((i) => i.webViewLink).join("\n")}`
+              : payload.billDocumentUrl
+                ? `Bills folder: ${payload.billDocumentUrl}`
+                : "",
           ]
             .filter(Boolean)
             .join("\n"),
@@ -400,7 +428,7 @@ function buildRfpEmailBody(opts: {
   quoteDueDate?: string;
   contractStartMonth?: number;
   contractStartYear?: number;
-  billDocumentUrl?: string | null;
+  billDriveItems?: RfpBillDriveItem[];
   usageSummaryUrl?: string | null;
   billAttachmentName?: string | null;
   usageSummaryAttachmentName?: string | null;
@@ -415,6 +443,7 @@ function buildRfpEmailBody(opts: {
   }>;
   notes?: string;
   brokerProfile?: RfpBrokerEmailSignature | null;
+  electricPricing?: RfpElectricPricingOptionsState | null;
 }): { text: string; html: string } {
   const contractStart = formatContractStart(opts.contractStartMonth, opts.contractStartYear);
   const usageSummaryLines = opts.accountLines.map((line) =>
@@ -449,11 +478,15 @@ function buildRfpEmailBody(opts: {
     opts.brokerMargin != null
       ? `${marginCore} (please include this into the quoted price)`
       : marginCore;
-  const billReference = opts.billDocumentUrl
-    ? `<a href="${escapeHtml(opts.billDocumentUrl)}" style="font-weight:700;text-decoration:underline;">Bill Link</a>`
-    : opts.billAttachmentName
-      ? `Attached file: ${escapeHtml(opts.billAttachmentName)}`
-      : "—";
+  const hasDriveBills = Boolean(opts.billDriveItems && opts.billDriveItems.length > 0);
+  const driveHtml = hasDriveBills ? formatBillLinksForEmailHtml(opts.billDriveItems!) : "";
+  const attachHtml = opts.billAttachmentName
+    ? `Attached file: ${escapeHtml(opts.billAttachmentName)}`
+    : "";
+  let billReference = "—";
+  if (hasDriveBills && attachHtml) billReference = `${driveHtml}<br />${attachHtml}`;
+  else if (hasDriveBills) billReference = driveHtml;
+  else if (attachHtml) billReference = attachHtml;
   /** Spreadsheet link / attachment replaces the in-email usage table. */
   const externalUsageOnly = Boolean(opts.usageSummaryUrl || opts.usageSummaryAttachmentName);
 
@@ -508,6 +541,8 @@ function buildRfpEmailBody(opts: {
       </table>`.trim()
       : "";
 
+  const electricPricingHtml = formatElectricPricingForEmailHtml(opts.electricPricing ?? null);
+
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #111; line-height: 1.4;">
       <p style="font-size: 28px; margin: 0 0 8px;"><strong>${escapeHtml(opts.customer.name)} | ${escapeHtml(energyLabel)} Quote</strong></p>
@@ -530,6 +565,7 @@ function buildRfpEmailBody(opts: {
         </tbody>
       </table>
       ${utilityAccountsTableHtml}
+      ${electricPricingHtml ? `${electricPricingHtml}\n      ` : ""}
       ${opts.notes ? `<p style="margin-top: 18px;">${escapeHtml(opts.notes)}</p>` : ""}
       <p style="margin-top: 18px;">If you have any questions about this request, please contact me.</p>
       <p>Thank you!</p>
@@ -552,7 +588,14 @@ function buildRfpEmailBody(opts: {
     `Contract Length Requested: ${opts.requestedTerms.map(formatRequestedTerm).join(", ")}`,
     `Contract Starting Month/Year: ${contractStart || "—"}`,
     `Broker Margin: ${marginCore}`,
-    `Customer’s ${energyLabel} Bills for pricing: ${opts.billDocumentUrl || (opts.billAttachmentName ? `Attached file: ${opts.billAttachmentName}` : "—")}`,
+    `Customer’s ${energyLabel} Bills for pricing: ${
+      hasDriveBills || opts.billAttachmentName
+        ? [
+            ...(hasDriveBills ? [formatBillLinksForEmailText(opts.billDriveItems!)] : []),
+            ...(opts.billAttachmentName ? [`Attached file: ${opts.billAttachmentName}`] : []),
+          ].join("\n")
+        : "—"
+    }`,
   ];
   if (!externalUsageOnly) {
     textLines.push(
@@ -565,6 +608,10 @@ function buildRfpEmailBody(opts: {
       ),
       ""
     );
+  }
+  const electricPricingText = formatElectricPricingForEmailText(opts.electricPricing ?? null);
+  if (electricPricingText) {
+    textLines.push(electricPricingText, "");
   }
   textLines.push(
     opts.notes || "",
@@ -752,7 +799,7 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
   }
 
   const usageSummaryUrl = nonEmptyString(body.summarySpreadsheetUrl);
-  const billDriveFileId = nonEmptyString(body.billDriveFileId);
+  const billDriveItems = normalizeRfpBillDriveItemsFromBody(body);
   const summaryDriveFileId = nonEmptyString(body.summaryDriveFileId);
   const usageSummaryAttachmentName = nonEmptyString(body.summaryAttachmentName);
   if (accountLines.length > 1) {
@@ -858,12 +905,12 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
   const contractStartMonth = parseOptionalInteger(body.contractStartMonth);
   const contractStartYear = parseOptionalInteger(body.contractStartYear);
   const quoteDueDate = nonEmptyString(body.quoteDueDate);
-  const billDocumentUrl = nonEmptyString(body.googleDriveFolderUrl);
+  const billDocumentUrl = billDriveItems[0]?.webViewLink ?? nonEmptyString(body.googleDriveFolderUrl);
   const billAttachmentName = nonEmptyString(body.billAttachmentName);
   const ldcUtility = nonEmptyString(body.ldcUtility);
   const notes = nonEmptyString(body.notes);
 
-  if (!billDocumentUrl && !billAttachmentName) {
+  if (billDriveItems.length === 0 && !billAttachmentName) {
     throw new Error("A bill PDF link or local file is required");
   }
   if (!ldcUtility) {
@@ -877,6 +924,18 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
   }
   if (brokerMargin === null || brokerMarginUnit === null) {
     throw new Error("Enter a broker margin and unit");
+  }
+
+  const electricPricing =
+    energyType === "ELECTRIC" ? normalizeElectricPricingFromBody(body, energyType) : null;
+  if (
+    electricPricing &&
+    electricPricing.selectedIds.includes("fixed_rate_capacity_adjust") &&
+    !electricPricing.fixedRateCapacityAdjustNote.trim()
+  ) {
+    throw new Error(
+      'When "Fixed rate capacity adjust" is selected, enter the note for that pricing option.'
+    );
   }
 
   const baseSubject = `${customer.name} | ${formatEnergyType(energyType)} | Quote`;
@@ -894,7 +953,7 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
     quoteDueDate,
     contractStartMonth,
     contractStartYear,
-    billDocumentUrl,
+    billDriveItems,
     usageSummaryUrl,
     billAttachmentName,
     usageSummaryAttachmentName,
@@ -904,6 +963,7 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
     accountLines,
     notes: notes || undefined,
     brokerProfile: brokerForEmail,
+    electricPricing,
   });
 
   return {
@@ -918,7 +978,7 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
     brokerMargin,
     brokerMarginUnit,
     attachments,
-    billDriveFileId,
+    billDriveItems,
     summaryDriveFileId,
     billAttachmentName,
     usageSummaryAttachmentName,
@@ -932,6 +992,7 @@ export async function buildRfpPayload(body: Record<string, unknown>, attachments
     subject,
     emailText: emailContent.text,
     emailHtml: emailContent.html,
+    electricPricing,
   };
 }
 
@@ -961,14 +1022,23 @@ export async function sendMimeEmail(
   });
 }
 
+/**
+ * Grants each RFP recipient **view-only** access to the specific Drive **files** linked in this send
+ * (bill PDFs with `fileId` and optional summary spreadsheet). Uses `role: "reader"` only — no edit,
+ * commenter, or writer roles. Does not share parent folders or anything beyond those file IDs.
+ */
 async function ensureDriveFilesAccessible(
   payload: {
-    billDriveFileId?: string | null;
+    billDriveItems?: RfpBillDriveItem[];
     summaryDriveFileId?: string | null;
   },
   recipientEmails: string[]
 ) {
-  const fileIds = [payload.billDriveFileId, payload.summaryDriveFileId].filter(Boolean) as string[];
+  const billIds = (payload.billDriveItems ?? [])
+    .map((i) => i.fileId)
+    .filter((id): id is string => Boolean(id && String(id).trim()));
+  const fileIds = [...billIds, payload.summaryDriveFileId].filter(Boolean) as string[];
+  const uniqueFileIds = [...new Set(fileIds)];
   const emails = Array.from(
     new Set(
       recipientEmails
@@ -976,17 +1046,23 @@ async function ensureDriveFilesAccessible(
         .filter(Boolean)
     )
   );
-  if (fileIds.length === 0 || emails.length === 0) return;
+  if (uniqueFileIds.length === 0 || emails.length === 0) return;
 
   const drive = await getGoogleDriveClient();
-  for (const fileId of fileIds) {
+  for (const fileId of uniqueFileIds) {
     for (const email of emails) {
       try {
         await drive.permissions.create({
           fileId,
-          sendNotificationEmail: false,
+          /**
+           * Must be true when the address has no Google account: Drive requires an invite email
+           * (same as "Notify people" in the share UI). `false` causes 400 for those recipients.
+           * Gmail RFP delivery is separate; this only affects Drive's permission invite.
+           */
+          sendNotificationEmail: true,
           requestBody: {
             type: "user",
+            /** Drive API: `reader` = view-only (cannot edit the file). */
             role: "reader",
             emailAddress: email,
           },
@@ -1240,12 +1316,14 @@ export async function resendStoredRfpSupplierEmails(
     contractStartMonth: row.contractStartMonth ?? undefined,
     contractStartYear: row.contractStartYear ?? undefined,
     googleDriveFolderUrl: row.googleDriveFolderUrl ?? "",
+    billDriveItems: row.billDriveItems ?? undefined,
     summarySpreadsheetUrl: row.summarySpreadsheetUrl ?? "",
     ldcUtility: row.ldcUtility ?? "",
     brokerMargin: row.brokerMargin != null ? String(row.brokerMargin) : "",
     brokerMarginUnit: row.brokerMarginUnit ?? "MCF",
     notes: row.notes ?? "",
     enrollmentDetails: row.enrollmentDetails ?? undefined,
+    electricPricingOptions: row.electricPricingOptions ?? undefined,
     rfpSubjectPrefix: "RFP Refresh",
   };
 

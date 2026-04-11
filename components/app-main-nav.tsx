@@ -12,6 +12,7 @@ import {
   type BrokerProfile,
 } from "@/lib/broker-profile";
 import { BrokerOverviewModal } from "@/components/broker-overview-modal";
+import { AppNavAccountMenu } from "@/components/app-nav-account-menu";
 
 const MAIN_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -64,38 +65,41 @@ export function AppMainNav() {
         className="shrink-0 z-40 min-h-0 border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
         aria-label="Main"
       >
-        <div className="container flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2">
-          <button
-            type="button"
-            onClick={() => setOverviewOpen(true)}
-            className={cn(
-              LINK_CLASS,
-              "mr-2 shrink-0 rounded-md text-left text-sm font-semibold text-primary hover:opacity-90 px-1 -mx-1"
-            )}
-          >
-            {brandLabel}
-          </button>
-          {MAIN_LINKS.map(({ href, label }) => {
-            const active =
-              href === "/dashboard"
-                ? pathname === "/dashboard" || pathname === "/"
-                : pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  LINK_CLASS,
-                  "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {label}
-              </Link>
-            );
-          })}
+        <div className="container flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setOverviewOpen(true)}
+              className={cn(
+                LINK_CLASS,
+                "mr-2 shrink-0 rounded-md text-left text-sm font-semibold text-primary hover:opacity-90 px-1 -mx-1"
+              )}
+            >
+              {brandLabel}
+            </button>
+            {MAIN_LINKS.map(({ href, label }) => {
+              const active =
+                href === "/dashboard"
+                  ? pathname === "/dashboard" || pathname === "/"
+                  : pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    LINK_CLASS,
+                    "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+          <AppNavAccountMenu />
         </div>
       </nav>
       <BrokerOverviewModal open={overviewOpen} onOpenChange={setOverviewOpen} profile={brokerProfile} />

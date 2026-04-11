@@ -3,6 +3,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { EnergyType, PriceUnit } from "@/generated/prisma/client";
 import { localDateFromDayInput } from "@/lib/calendar-date";
+import { normalizeRfpBillDriveItemsFromBody } from "@/lib/rfp-bill-drive-items";
+import { normalizeElectricPricingFromBody } from "@/lib/rfp-electric-pricing-options";
 
 /**
  * POST /api/rfp/draft — Create or replace a draft RFP (no email). Pass draftId to update the same draft.
@@ -94,6 +96,21 @@ export async function POST(request: NextRequest) {
         ? supplierContactSelections
         : null;
 
+    const billItems = normalizeRfpBillDriveItemsFromBody(body as Record<string, unknown>);
+    const electricPricingState =
+      energyType === "ELECTRIC"
+        ? normalizeElectricPricingFromBody(body as Record<string, unknown>, String(energyType))
+        : null;
+
+    const electricPricingJson: Prisma.InputJsonValue | typeof Prisma.DbNull =
+      energyType === "ELECTRIC" && electricPricingState
+        ? ({
+            selectedIds: electricPricingState.selectedIds,
+            fixedRateCapacityAdjustNote:
+              electricPricingState.fixedRateCapacityAdjustNote.trim() || undefined,
+          } as Prisma.InputJsonValue)
+        : Prisma.DbNull;
+
     const baseData = {
       customerId: resolvedCustomerId,
       customerContactId: customerContactId ? String(customerContactId) : null,
@@ -108,7 +125,10 @@ export async function POST(request: NextRequest) {
           ? new Prisma.Decimal(totals.avgMonthlyUsage)
           : new Prisma.Decimal(0),
       termMonths: primaryTermMonths,
-      googleDriveFolderUrl: nonEmptyString(googleDriveFolderUrl),
+      googleDriveFolderUrl: billItems[0]?.webViewLink ?? nonEmptyString(googleDriveFolderUrl),
+      billDriveItems:
+        billItems.length > 0 ? (billItems as Prisma.InputJsonValue) : Prisma.DbNull,
+      electricPricingOptions: electricPricingJson,
       summarySpreadsheetUrl: nonEmptyString(summarySpreadsheetUrl),
       quoteDueDate: quoteDue,
       contractStartMonth: parseOptionalInteger(contractStartMonth),

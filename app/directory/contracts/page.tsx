@@ -57,7 +57,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { displayMainContactForContract, getPrimaryContactPromptKind } from "@/lib/contract-main-contact";
 import {
-  expirationDateToRfpContractStartMonth,
+  buildRfpFromContractPrefillPayload,
   RFP_FROM_CONTRACT_SESSION_KEY,
 } from "@/lib/rfp-from-contract-prefill";
 import {
@@ -1011,17 +1011,42 @@ export default function ContractsPage() {
       ];
     }
 
-    const payload = {
-      version: 1 as const,
-      customerId: c.customer.id,
-      customerContactId: contactId,
-      energyType: c.energyType,
-      ldcUtility: (c.customerUtility ?? "").trim(),
-      contractStartValue: expirationDateToRfpContractStartMonth(c.expirationDate),
-      accountLines,
-    };
-    sessionStorage.setItem(RFP_FROM_CONTRACT_SESSION_KEY, JSON.stringify(payload));
-    window.open("/rfp?fromContract=1", "_blank", "noopener,noreferrer");
+    const payload = buildRfpFromContractPrefillPayload(
+      {
+        id: c.id,
+        customer: { id: c.customer.id, company: c.customer.company, name: c.customer.name },
+        mainContactId: c.mainContactId,
+        mainContact: c.mainContact ? { id: c.mainContact.id, company: c.mainContact.company } : null,
+        resolvedCustomerContactId: contactId,
+        energyType: c.energyType,
+        expirationDate: c.expirationDate,
+        termMonths: c.termMonths,
+        annualUsage: c.annualUsage,
+        avgMonthlyUsage: c.avgMonthlyUsage,
+        brokerMargin: c.brokerMargin,
+        customerUtility: c.customerUtility,
+        priceUnit: c.priceUnit,
+        notes: c.notes,
+      },
+      accountLines
+    );
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    let stored = false;
+    try {
+      localStorage.setItem(RFP_FROM_CONTRACT_SESSION_KEY, JSON.stringify(payload));
+      stored = true;
+    } catch {
+      /* private mode / blocked storage — RFP will use prefillContractId */
+    }
+    const q = new URLSearchParams({
+      fromContract: "1",
+      prefillNonce: nonce,
+      prefillContractId: c.id,
+    });
+    if (!stored) {
+      q.set("storage", "0");
+    }
+    window.open(`/rfp?${q.toString()}`, "_blank", "noopener,noreferrer");
   }
 
   const handleLinkDocument = async (e: React.FormEvent) => {
