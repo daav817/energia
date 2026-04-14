@@ -3,6 +3,7 @@ import { CalendarEventType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { localDateFromDayInput } from "@/lib/calendar-date";
 import { resendStoredRfpSupplierEmails } from "@/app/api/rfp/send/route";
+import { quoteDueCalendarTitle } from "@/lib/rfp-quote-due-calendar-title";
 
 export async function POST(
   request: NextRequest,
@@ -28,7 +29,7 @@ export async function POST(
         customerContactId: true,
         ldcUtility: true,
         energyType: true,
-        customer: { select: { name: true } },
+        customer: { select: { name: true, company: true } },
         suppliers: { select: { name: true } },
       },
     });
@@ -41,7 +42,12 @@ export async function POST(
       data: { quoteDueDate },
     });
 
-    const custName = row.customer?.name ?? "Customer";
+    const cust = row.customer;
+    const customerForTitle = {
+      name: cust?.name ?? "Customer",
+      company: cust?.company ?? null,
+    };
+    const eventTitle = quoteDueCalendarTitle(customerForTitle, row.energyType);
     const supplierNames = row.suppliers.map((s) => s.name).join(", ");
     const energyLabel = row.energyType === "ELECTRIC" ? "Electric" : "Natural gas";
     const updated = await prisma.calendarEvent.updateMany({
@@ -52,7 +58,7 @@ export async function POST(
       data: {
         startAt: quoteDueDate,
         allDay: true,
-        title: `Supplier quote due — RFP (${custName})`,
+        title: eventTitle,
         description: [
           `Energy type: ${energyLabel}`,
           row.ldcUtility ? `Utility: ${row.ldcUtility}` : "",
@@ -66,7 +72,7 @@ export async function POST(
     if (updated.count === 0) {
       await prisma.calendarEvent.create({
         data: {
-          title: `Supplier quote due — RFP (${custName})`,
+          title: eventTitle,
           description: [
             `Energy type: ${energyLabel}`,
             row.ldcUtility ? `Utility: ${row.ldcUtility}` : "",

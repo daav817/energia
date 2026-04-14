@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { enqueueGoogleContactDeletion } from "@/lib/google-contact-deletion-queue";
 
 /**
  * POST /api/contacts/delete-multiple
@@ -11,6 +12,13 @@ export async function POST(request: NextRequest) {
     const ids = Array.isArray(body.ids) ? body.ids.filter((id: unknown) => typeof id === "string") : [];
     if (ids.length === 0) {
       return NextResponse.json({ deleted: 0 });
+    }
+    const toRemove = await prisma.contact.findMany({
+      where: { id: { in: ids } },
+      select: { googleResourceName: true },
+    });
+    for (const row of toRemove) {
+      await enqueueGoogleContactDeletion(row.googleResourceName);
     }
     const result = await prisma.contact.deleteMany({
       where: { id: { in: ids } },

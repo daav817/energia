@@ -270,3 +270,17 @@ export function buildCustomerOverviewRows(
   rows.sort((a, b) => a.companyDisplay.localeCompare(b.companyDisplay, undefined, { sensitivity: "base" }));
   return rows;
 }
+
+/** Legacy `Contact.email` or first row in `emails` — matches Contacts UI / RFP cards. */
+export function effectiveContactEmailFromRecord(row: {
+  email?: string | null;
+  emails?: Array<{ email?: string | null }> | null;
+}): string | null {
+  const legacy = row.email != null ? String(row.email).trim() : "";
+  if (legacy) return legacy;
+  for (const e of row.emails ?? []) {
+    const em = e?.email != null ? String(e.email).trim() : "";
+    if (em) return em;
+  }
+  return null;
+}

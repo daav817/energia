@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { TaskStatus } from "@/generated/prisma/client";
+import { Prisma, TaskStatus } from "@/generated/prisma/client";
 
 export async function GET(
   _request: NextRequest,
@@ -10,7 +10,18 @@ export async function GET(
     const { id } = await context.params;
     const task = await prisma.task.findUnique({
       where: { id },
-      include: { taskList: { select: { id: true, name: true } } },
+      include: {
+        taskList: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true, company: true } },
+        linkedContract: {
+          select: {
+            id: true,
+            energyType: true,
+            customer: { select: { name: true, company: true } },
+            supplier: { select: { name: true } },
+          },
+        },
+      },
     });
     if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(task);
@@ -38,9 +49,11 @@ export async function PATCH(
       status,
       taskListId,
       listSortOrder,
+      contactId,
+      contractId,
     } = body;
 
-    const data: Record<string, unknown> = {};
+    const data: Prisma.TaskUncheckedUpdateInput = {};
 
     if (title != null) {
       if (typeof title !== "string" || !title.trim()) {
@@ -98,12 +111,29 @@ export async function PATCH(
       data.taskListId = taskListId === null || taskListId === "" ? null : taskListId;
     }
     if (listSortOrder != null) data.listSortOrder = Number(listSortOrder);
+    if (contactId !== undefined) {
+      data.contactId =
+        contactId === null || contactId === "" ? null : String(contactId).trim() || null;
+    }
+    if (contractId !== undefined) {
+      data.contractId =
+        contractId === null || contractId === "" ? null : String(contractId).trim() || null;
+    }
 
     const task = await prisma.task.update({
       where: { id },
       data,
       include: {
         taskList: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true, company: true } },
+        linkedContract: {
+          select: {
+            id: true,
+            energyType: true,
+            customer: { select: { name: true, company: true } },
+            supplier: { select: { name: true } },
+          },
+        },
       },
     });
     return NextResponse.json(task);

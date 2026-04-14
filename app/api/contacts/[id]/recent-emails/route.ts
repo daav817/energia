@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
+import { extractEmailFromHeader } from "@/lib/email-header";
 import { getGmailClient } from "@/lib/gmail";
+import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/contacts/[id]/recent-emails
- * Returns last 3 emails involving this contact (by email address match).
+ * Returns last 3 emails involving this contact (by parsed address match and supplier link).
  * Tries local DB first; if empty, fetches from Gmail API.
  */
 export async function GET(
@@ -15,44 +17,90 @@ export async function GET(
     const { id } = await params;
     const contact = await prisma.contact.findUnique({
       where: { id },
-      include: { emails: true },
+      include: { emails: true, supplier: { select: { email: true } } },
     });
     if (!contact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    const contactEmails = [
-      ...(contact.emails.map((e) => e.email.toLowerCase())),
-      ...(contact.email ? [contact.email.toLowerCase()] : []),
-    ].filter(Boolean);
-    if (contactEmails.length === 0) {
-      return NextResponse.json([]);
+    const contactEmails = new Set<string>();
+    for (const e of contact.emails) {
+      const a = e.email.toLowerCase().trim();
+      if (a) contactEmails.add(a);
+    }
+    if (contact.email) {
+      const a = contact.email.toLowerCase().trim();
+      if (a) contactEmails.add(a);
+    }
+    if (contact.supplier?.email) {
+      const a = contact.supplier.email.toLowerCase().trim();
+      if (a) contactEmails.add(a);
+    }
+
+    const addrs = [...contactEmails];
+    const whereParts: Prisma.Sql[] = [];
+    if (addrs.length > 0) {
+      whereParts.push(Prisma.sql`(
+        LOWER(TRIM(COALESCE(NULLIF(TRIM(SUBSTRING(from_address FROM '<([^>]+)>')), ''), TRIM(from_address)))) IN (${Prisma.join(addrs)})
+        OR EXISTS (
+          SELECT 1 FROM unnest(to_addresses) AS u(addr)
+          WHERE LOWER(TRIM(COALESCE(NULLIF(TRIM(SUBSTRING(addr FROM '<([^>]+)>')), ''), TRIM(addr)))) IN (${Prisma.join(addrs)})
+        )
+      )`);
+    }
+    if (contact.supplierId) {
+      whereParts.push(Prisma.sql`supplier_id = ${contact.supplierId}`);
     }
 
     let emails: Array<{ id: string; subject: string; sentAt: string; direction?: string }> = [];
 
-    const dbEmails = await prisma.email.findMany({
-      where: {
-        OR: [
-          { fromAddress: { in: contactEmails } },
-          { toAddresses: { hasSome: contactEmails } },
-        ],
-      },
-      orderBy: { sentAt: "desc" },
-      take: 3,
-      select: { id: true, messageId: true, subject: true, sentAt: true, direction: true },
-    });
-    emails = dbEmails.map((e) => ({
-      id: e.messageId || e.id,
-      subject: e.subject || "(no subject)",
-      sentAt: e.sentAt.toISOString(),
-      direction: e.direction,
-    }));
+    if (whereParts.length > 0) {
+      const whereSql =
+        whereParts.length === 1 ? whereParts[0] : Prisma.sql`${whereParts[0]} OR ${whereParts[1]}`;
 
-    if (emails.length === 0) {
+      const dbRows = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          message_id: string | null;
+          subject: string | null;
+          sent_at: Date;
+          direction: string;
+          from_address: string;
+          to_addresses: string[];
+          supplier_id: string | null;
+        }>
+      >(Prisma.sql`
+        SELECT id, message_id, subject, sent_at, direction::text, from_address, to_addresses, supplier_id
+        FROM emails
+        WHERE ${whereSql}
+        ORDER BY sent_at DESC
+        LIMIT 50
+      `);
+
+      const want = contactEmails;
+      const filtered = dbRows.filter((row) => {
+        if (contact.supplierId && row.supplier_id === contact.supplierId) return true;
+        if (want.size === 0) return false;
+        const from = extractEmailFromHeader(row.from_address);
+        if (from && want.has(from)) return true;
+        for (const to of row.to_addresses || []) {
+          if (want.has(extractEmailFromHeader(to))) return true;
+        }
+        return false;
+      });
+
+      emails = filtered.slice(0, 3).map((e) => ({
+        id: e.message_id?.trim() || e.id,
+        subject: e.subject || "(no subject)",
+        sentAt: e.sent_at.toISOString(),
+        direction: e.direction,
+      }));
+    }
+
+    if (addrs.length > 0 && emails.length === 0) {
       try {
         const gmail = await getGmailClient();
-        const q = contactEmails.map((e) => "from:" + e + " OR to:" + e).join(" OR ");
+        const q = addrs.map((e) => "from:" + e + " OR to:" + e).join(" OR ");
         const res = await gmail.users.messages.list({
           userId: "me",
           maxResults: 3,

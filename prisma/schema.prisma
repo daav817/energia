@@ -33,6 +33,7 @@ model Customer {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   contracts        Contract[]
+  contractWorkflowRows ContractWorkflowRow[]
   tasks            Task[]
   documents        Document[]
   rfpRequests      RfpRequest[]
@@ -168,8 +169,54 @@ model Contract {
   rfpQuotes         RfpQuote[]
   calendarEvents    CalendarEvent[]
   accounts          ContractAccount[]
+  tasks             Task[]            @relation("TaskContract")
+  workflowRow       ContractWorkflowRow?
 
   @@map("contracts")
+}
+
+/// Broker renewal / new-business pipeline (one row per active contract or standalone customer pursuit).
+model ContractWorkflowRow {
+  id String @id @default(cuid())
+  /// Set for renewal rows tied to a directory contract (unique when present).
+  contractId String? @unique @map("contract_id")
+  /// For new-business rows before a contract exists.
+  customerId String? @map("customer_id")
+  energyType EnergyType? @map("energy_type")
+  displayLabel String? @map("display_label")
+
+  workflowArchived   Boolean   @default(false) @map("workflow_archived")
+  workflowArchivedAt DateTime? @map("workflow_archived_at")
+
+  receivedBillsAt DateTime? @map("received_bills_at")
+  rfpQuoteClosedAt    DateTime? @map("rfp_quote_closed_at")
+  newContractAmendedAt DateTime? @map("new_contract_amended_at")
+
+  /// Latest RFP tied to this pursuit (sent / quotes / archive).
+  linkedRfpRequestId String? @unique @map("linked_rfp_request_id")
+
+  /// blank | end_pursuit | refresh_rfp
+  contractOutcome String @default("") @map("contract_outcome")
+
+  /// When set, RFP/quote checks ignore linked RFP activity at or before this time (workflow “rewind”).
+  lastWorkflowRefreshAt DateTime? @map("last_workflow_refresh_at")
+
+  /// User marked renewal reminder as not applicable (no prior contract / no email needed).
+  renewalReminderNotApplicableAt DateTime? @map("renewal_reminder_not_applicable_at")
+  /// Manual “RFP sent” when linking or timestamps are insufficient.
+  rfpSentOverrideAt DateTime? @map("rfp_sent_override_at")
+  /// Manual “quote summary sent” override for the linked RFP.
+  quoteSummaryOverrideAt DateTime? @map("quote_summary_override_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  contract  Contract?   @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  customer  Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  linkedRfp RfpRequest? @relation("ContractWorkflowRfp", fields: [linkedRfpRequestId], references: [id], onDelete: SetNull)
+
+  @@index([workflowArchived])
+  @@map("contract_workflow_rows")
 }
 
 /// Utility / billing accounts tied to a contract (renewal emails, customer communications).
@@ -251,6 +298,8 @@ model Task {
   listSortOrder Int      @default(0) @map("list_sort_order")
   customerId  String?    @map("customer_id")
   prospectId  String?    @map("prospect_id")
+  contactId   String?    @map("contact_id")
+  contractId  String?    @map("contract_id")
   taskListId  String?    @map("task_list_id")
   completedAt DateTime?  @map("completed_at")
   createdAt   DateTime   @default(now()) @map("created_at")
@@ -258,10 +307,14 @@ model Task {
 
   customer Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
   prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  contact  Contact?   @relation("TaskContact", fields: [contactId], references: [id], onDelete: SetNull)
+  linkedContract Contract? @relation("TaskContract", fields: [contractId], references: [id], onDelete: SetNull)
   taskList TaskList?   @relation(fields: [taskListId], references: [id], onDelete: SetNull)
   calendarEvents CalendarEvent[]
 
   @@index([taskListId])
+  @@index([contactId])
+  @@index([contractId])
   @@index([dueDate])
   @@index([dueAt])
   @@map("tasks")
@@ -436,6 +489,7 @@ model RfpRequest {
   quotes           RfpQuote[]       @relation("RfpQuoteToRequest")
   accountLines     RfpAccountLine[]
   calendarEvents   CalendarEvent[]
+  contractWorkflowLink ContractWorkflowRow? @relation("ContractWorkflowRfp")
 
   @@index([parentRfpId])
   @@map("rfp_requests")
@@ -519,8 +573,18 @@ model Contact {
   supplier           Supplier? @relation("SupplierContactLinks", fields: [supplierId], references: [id], onDelete: SetNull)
   calendarEvents     CalendarEvent[]
   rfpRequestsAsCustomerContact RfpRequest[] @relation("RfpCustomerContact")
+  tasks                        Task[]       @relation("TaskContact")
 
   @@map("contacts")
+}
+
+/// Queued when a local Contact is deleted but had `googleResourceName` — removed from Google on next POST /api/contacts/sync.
+model GoogleContactDeletionQueue {
+  id                 String   @id @default(cuid())
+  googleResourceName String   @unique @map("google_resource_name")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@map("google_contact_deletion_queue")
 }
 
 model ContactEmail {
@@ -539,6 +603,7 @@ model ContactPhone {
   id        String  @id @default(cuid())
   contactId String  @map("contact_id")
   phone     String
+  extension String? @db.Text
   type      String? // work, home, mobile, fax, other
   order     Int     @default(0)
 

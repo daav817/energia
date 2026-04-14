@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createContractFromArchivedRfp } from "@/lib/create-contract-from-archived-rfp";
+import { applyWorkflowClosedFromArchivedRfp } from "@/lib/contract-workflow-sync";
 
 export async function GET(
   _request: NextRequest,
@@ -14,7 +15,18 @@ export async function GET(
       include: {
         customer: { select: { id: true, name: true, company: true } },
         customerContact: {
-          select: { id: true, name: true, email: true, phone: true, company: true, label: true },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            emails: { select: { email: true }, orderBy: { order: "asc" } },
+            phone: true,
+            company: true,
+            label: true,
+            customerId: true,
+          },
         },
         suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
@@ -118,7 +130,18 @@ export async function PATCH(
       include: {
         customer: { select: { id: true, name: true, company: true } },
         customerContact: {
-          select: { id: true, name: true, email: true, phone: true, company: true, label: true },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            emails: { select: { email: true }, orderBy: { order: "asc" } },
+            phone: true,
+            company: true,
+            label: true,
+            customerId: true,
+          },
         },
         suppliers: { select: { id: true, name: true, email: true } },
         accountLines: { orderBy: { sortOrder: "asc" } },
@@ -141,6 +164,7 @@ export async function PATCH(
           archiveSkippedContractReason = "Could not create a contract for this RFP.";
         }
       }
+      await applyWorkflowClosedFromArchivedRfp(id);
     }
 
     return NextResponse.json({

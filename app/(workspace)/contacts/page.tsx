@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/select";
 
 type ContactEmail = { id?: string; email: string; type?: string };
-type ContactPhone = { id?: string; phone: string; type?: string };
+type ContactPhone = { id?: string; phone: string; type?: string; extension?: string | null };
 type ContactAddress = { id?: string; street?: string; city?: string; state?: string; zip?: string; type?: string };
 type SignificantDate = { id?: string; label: string; date: string };
 type RelatedPerson = { id?: string; name: string; relation?: string };
@@ -392,7 +392,11 @@ export default function ContactsPage() {
             : form.email?.trim()
               ? [{ email: form.email.trim(), type: "work" }]
               : [],
-        phones: form.phones.length ? form.phones : form.phone ? [{ phone: form.phone, type: "work" }] : [],
+        phones: form.phones.length
+          ? form.phones
+          : form.phone
+            ? [{ phone: form.phone, type: "work", extension: "" }]
+            : [],
       };
       delete (payload as Record<string, unknown>).email;
       delete (payload as Record<string, unknown>).phone;
@@ -428,7 +432,11 @@ export default function ContactsPage() {
         ...form,
         name,
         emails: trimmedRows,
-        phones: form.phones.length ? form.phones : form.phone ? [{ phone: form.phone, type: "work" }] : [],
+        phones: form.phones.length
+          ? form.phones
+          : form.phone
+            ? [{ phone: form.phone, type: "work", extension: "" }]
+            : [],
       };
       delete (payload as Record<string, unknown>).email;
       delete (payload as Record<string, unknown>).phone;
@@ -581,17 +589,20 @@ export default function ContactsPage() {
       void refreshSupplierLabelGaps();
       setNeedsGoogleSync(false);
       const failureCount = Array.isArray(data.failures) ? data.failures.length : 0;
+      const deletedFromGoogle = typeof data.deletedFromGoogle === "number" ? data.deletedFromGoogle : 0;
       if (failureCount > 0) {
         const preview = data.failures
           .slice(0, 5)
           .map((item: { name?: string; stage: string; message: string }) => `${item.name || "Contact"} (${item.stage}): ${item.message}`)
           .join("\n");
         alert(
-          `Sync partially completed. Imported: ${data.imported}, Pushed: ${data.pushed}, Failed: ${failureCount}` +
+          `Sync partially completed. Imported: ${data.imported}, Pushed: ${data.pushed}, Removed from Google: ${deletedFromGoogle}, Failed: ${failureCount}` +
             (preview ? `\n\n${preview}` : "")
         );
       } else {
-        alert(`Sync complete. Imported: ${data.imported}, Pushed: ${data.pushed}`);
+        alert(
+          `Sync complete. Imported: ${data.imported}, Pushed: ${data.pushed}, Removed from Google: ${deletedFromGoogle}`
+        );
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Sync failed");
@@ -618,7 +629,11 @@ export default function ContactsPage() {
     const primaryPhone = c.phones?.[0]?.phone ?? c.phone ?? "";
     const emails = c.emails?.length ? c.emails : [];
     const phones = c.phones?.length ? c.phones : [];
-    const phonesNorm = phones.map((p) => ({ ...p, phone: formatUsPhoneDigits(p.phone || "") }));
+    const phonesNorm = phones.map((p) => ({
+      ...p,
+      phone: formatUsPhoneDigits(p.phone || ""),
+      extension: p.extension != null && String(p.extension).trim() ? String(p.extension).trim() : "",
+    }));
     setForm({
       firstName: c.firstName || "",
       lastName: c.lastName || "",
@@ -852,7 +867,13 @@ export default function ContactsPage() {
             {(() => {
               const lines = (
                 c.phones?.length
-                  ? c.phones.map((p) => p.phone + (p.type ? " (" + p.type + ")" : ""))
+                  ? c.phones.map((p) => {
+                      const ext =
+                        p.extension != null && String(p.extension).trim()
+                          ? ` ext ${String(p.extension).trim()}`
+                          : "";
+                      return p.phone + ext + (p.type ? " (" + p.type + ")" : "");
+                    })
                   : [c.phone]
               ).filter(Boolean) as string[];
               if (lines.length === 0) return "—";
@@ -1249,7 +1270,13 @@ export default function ContactsPage() {
         open={!!deleteContact}
         onOpenChange={(open) => !open && setDeleteContact(null)}
         title="Delete contact"
-        message={deleteContact ? "Are you sure you want to delete " + deleteContact.name + "?" : ""}
+        message={
+          deleteContact
+            ? "Are you sure you want to delete " +
+              deleteContact.name +
+              "? If this contact is linked to Google, it will be removed from Google Contacts on the next sync."
+            : ""
+        }
         confirmLabel="Delete"
         onConfirm={handleDelete}
       />
@@ -1258,7 +1285,11 @@ export default function ContactsPage() {
         open={deleteSelectedConfirm}
         onOpenChange={setDeleteSelectedConfirm}
         title="Delete selected contacts"
-        message={"Delete " + selectedIds.size + " selected contact(s)? This will not affect Google Contacts."}
+        message={
+          "Delete " +
+          selectedIds.size +
+          " selected contact(s)? Contacts linked to Google will be removed from Google Contacts on the next sync."
+        }
         confirmLabel="Delete"
         onConfirm={handleDeleteSelected}
       />
@@ -1664,8 +1695,11 @@ function ContactFormDialog({
       ...f,
       phones:
         f.phones.length === 0 && f.phone
-          ? [{ phone: f.phone, type: "work" }, { phone: "", type: "work" }]
-          : [...f.phones, { phone: "", type: "work" }],
+          ? [
+              { phone: f.phone, type: "work", extension: "" },
+              { phone: "", type: "work", extension: "" },
+            ]
+          : [...f.phones, { phone: "", type: "work", extension: "" }],
       phone: f.phones.length > 0 ? f.phone : "",
     }));
   const addAddress = () => setForm((f) => ({ ...f, addresses: [...f.addresses, {}] }));
@@ -1789,10 +1823,10 @@ function ContactFormDialog({
               />
             ) : (
               form.phones.map((p, i) => (
-                <div key={i} className="flex gap-2 mt-1">
+                <div key={i} className="flex flex-wrap items-center gap-2 mt-1">
                   <PhoneInput
                     showFieldHint={false}
-                    className="min-w-0 flex-1"
+                    className="min-w-0 flex-1 basis-[10rem]"
                     value={p.phone}
                     onChange={(v) =>
                       setForm((f) => ({
@@ -1801,6 +1835,20 @@ function ContactFormDialog({
                       }))
                     }
                     placeholder="Phone"
+                  />
+                  <Input
+                    className="h-9 w-24 shrink-0"
+                    placeholder="Ext"
+                    value={p.extension ?? ""}
+                    onChange={(ev) =>
+                      setForm((f) => ({
+                        ...f,
+                        phones: f.phones.map((ph, j) =>
+                          j === i ? { ...ph, extension: ev.target.value } : ph
+                        ),
+                      }))
+                    }
+                    aria-label="Extension"
                   />
                   <select
                     value={p.type || "work"}

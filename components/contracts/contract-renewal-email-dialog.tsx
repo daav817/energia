@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -56,6 +55,14 @@ async function fetchContractAccountRowsForTemplate(contractId: string): Promise<
     avgMonthlyUsage: r.avgMonthlyUsage ?? "",
   }));
 }
+
+type ContractRenewalEmailDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contractId: string | null;
+  /** Called after a successful send (before the dialog closes). */
+  onAfterSend?: () => void;
+};
 
 type ContractApi = {
   id: string;
@@ -222,12 +229,8 @@ function applyStoredOrLegacyTemplate(
   return { to: toEmail, subject: builtLegacy.subject, html: builtLegacy.html };
 }
 
-export function ContractRenewalEmailDialog(props: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  contractId: string | null;
-}) {
-  const { open, onOpenChange, contractId } = props;
+export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProps) {
+  const { open, onOpenChange, contractId, onAfterSend } = props;
   const [contract, setContract] = useState<ContractApi | null>(null);
   const [contactDirectory, setContactDirectory] = useState<ContactLike[]>([]);
   const [loading, setLoading] = useState(false);
@@ -395,6 +398,7 @@ export function ContractRenewalEmailDialog(props: {
           body: JSON.stringify({ renewalReminderSentAt: new Date().toISOString() }),
         }).catch(() => {});
       }
+      onAfterSend?.();
       onOpenChange(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Send failed");
@@ -405,10 +409,21 @@ export function ContractRenewalEmailDialog(props: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Send renewal email</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden gap-0 p-0 sm:max-w-2xl">
+        <div className="shrink-0 space-y-3 border-b bg-background px-6 pt-6 pb-4">
+          <DialogHeader className="space-y-1 text-left">
+            <DialogTitle>Send renewal email</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={!canSend || sending || loading} onClick={() => void onSend()}>
+              {sending ? "Sending…" : "Send"}
+            </Button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading contract…</p>
         ) : error ? (
@@ -531,14 +546,7 @@ export function ContractRenewalEmailDialog(props: {
             </p>
           </div>
         ) : null}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="button" disabled={!canSend || sending || loading} onClick={() => void onSend()}>
-            {sending ? "Sending…" : "Send"}
-          </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -56,6 +56,7 @@ export const ModelName = {
   SupplierContact: 'SupplierContact',
   Prospect: 'Prospect',
   Contract: 'Contract',
+  ContractWorkflowRow: 'ContractWorkflowRow',
   ContractAccount: 'ContractAccount',
   CommissionPayment: 'CommissionPayment',
   TaskList: 'TaskList',
@@ -67,6 +68,7 @@ export const ModelName = {
   RfpAccountLine: 'RfpAccountLine',
   RfpQuote: 'RfpQuote',
   Contact: 'Contact',
+  GoogleContactDeletionQueue: 'GoogleContactDeletionQueue',
   ContactEmail: 'ContactEmail',
   ContactPhone: 'ContactPhone',
   ContactAddress: 'ContactAddress',
@@ -199,6 +201,30 @@ export const ContractScalarFieldEnum = {
 export type ContractScalarFieldEnum = (typeof ContractScalarFieldEnum)[keyof typeof ContractScalarFieldEnum]
 
 
+export const ContractWorkflowRowScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  customerId: 'customerId',
+  energyType: 'energyType',
+  displayLabel: 'displayLabel',
+  workflowArchived: 'workflowArchived',
+  workflowArchivedAt: 'workflowArchivedAt',
+  receivedBillsAt: 'receivedBillsAt',
+  rfpQuoteClosedAt: 'rfpQuoteClosedAt',
+  newContractAmendedAt: 'newContractAmendedAt',
+  linkedRfpRequestId: 'linkedRfpRequestId',
+  contractOutcome: 'contractOutcome',
+  lastWorkflowRefreshAt: 'lastWorkflowRefreshAt',
+  renewalReminderNotApplicableAt: 'renewalReminderNotApplicableAt',
+  rfpSentOverrideAt: 'rfpSentOverrideAt',
+  quoteSummaryOverrideAt: 'quoteSummaryOverrideAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractWorkflowRowScalarFieldEnum = (typeof ContractWorkflowRowScalarFieldEnum)[keyof typeof ContractWorkflowRowScalarFieldEnum]
+
+
 export const ContractAccountScalarFieldEnum = {
   id: 'id',
   contractId: 'contractId',
@@ -256,6 +282,8 @@ export const TaskScalarFieldEnum = {
   listSortOrder: 'listSortOrder',
   customerId: 'customerId',
   prospectId: 'prospectId',
+  contactId: 'contactId',
+  contractId: 'contractId',
   taskListId: 'taskListId',
   completedAt: 'completedAt',
   createdAt: 'createdAt',
@@ -424,6 +452,15 @@ export const ContactScalarFieldEnum = {
 export type ContactScalarFieldEnum = (typeof ContactScalarFieldEnum)[keyof typeof ContactScalarFieldEnum]
 
 
+export const GoogleContactDeletionQueueScalarFieldEnum = {
+  id: 'id',
+  googleResourceName: 'googleResourceName',
+  createdAt: 'createdAt'
+} as const
+
+export type GoogleContactDeletionQueueScalarFieldEnum = (typeof GoogleContactDeletionQueueScalarFieldEnum)[keyof typeof GoogleContactDeletionQueueScalarFieldEnum]
+
+
 export const ContactEmailScalarFieldEnum = {
   id: 'id',
   contactId: 'contactId',
@@ -439,6 +476,7 @@ export const ContactPhoneScalarFieldEnum = {
   id: 'id',
   contactId: 'contactId',
   phone: 'phone',
+  extension: 'extension',
   type: 'type',
   order: 'order'
 } as const

@@ -80,6 +80,7 @@ import { formatContactLabels, parseContactLabels } from "@/lib/contact-labels";
 import { loadBrokerProfile } from "@/lib/broker-profile";
 import { googleOAuthConnectUrl, isGoogleReconnectSuggestedMessage } from "@/lib/google-connect";
 import {
+  buildRfpWorkflowNewRowPrefill,
   clearMemoryStagedContractPrefill,
   fetchRfpFromContractPrefillPayload,
   hasLocalContractPrefillPayload,
@@ -87,6 +88,7 @@ import {
   seedContractPrefillPayload,
   type RfpFromContractPrefillPayload,
 } from "@/lib/rfp-from-contract-prefill";
+import { linkPendingWorkflowRowToRfp } from "@/lib/workflow-rfp-pending";
 import {
   contactMatchesRfpEnergy,
   defaultRecipientSlotsForContacts,
@@ -94,7 +96,11 @@ import {
   isRetiredSupplierContact,
   type RfpSupplierRecipientSlot,
 } from "@/lib/supplier-rfp-contacts";
-import { isSupplierCandidateContact, normalizeCompanyKey } from "@/lib/customers-overview";
+import {
+  effectiveContactEmailFromRecord,
+  isSupplierCandidateContact,
+  normalizeCompanyKey,
+} from "@/lib/customers-overview";
 import { cn } from "@/lib/utils";
 import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
 import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
@@ -115,6 +121,8 @@ type CustomerCompanyOption = {
     id: string;
     customerId: string | null;
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
     email: string | null;
     phone: string | null;
     label: string | null;
@@ -322,6 +330,8 @@ type RecentRfp = {
   customerContact?: {
     id: string;
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
     email: string | null;
     company?: string | null;
   } | null;
@@ -420,6 +430,38 @@ function rfpListCustomerTitle(rfp: RecentRfp): string {
   if (company && contact) return `${company} — ${contact}`;
   if (company) return company;
   return contact || "Customer";
+}
+
+function rfpListCompanyLine(rfp: RecentRfp): string {
+  return (
+    rfp.customer?.company?.trim() ||
+    rfp.customer?.name?.trim() ||
+    rfp.customerContact?.company?.trim() ||
+    ""
+  ).trim() || "—";
+}
+
+function rfpContactPersonLine(rfp: RecentRfp): string {
+  const c = rfp.customerContact;
+  if (!c) return "—";
+  const fn = (c.firstName && String(c.firstName).trim()) || "";
+  const ln = (c.lastName && String(c.lastName).trim()) || "";
+  const fromParts = [fn, ln].filter(Boolean).join(" ").trim();
+  if (fromParts) return fromParts;
+  return (c.name || "").trim() || "—";
+}
+
+function formatCustomerContactSelectLine(c: {
+  name: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email: string | null;
+}): string {
+  const fn = (c.firstName && String(c.firstName).trim()) || "";
+  const ln = (c.lastName && String(c.lastName).trim()) || "";
+  const person = [fn, ln].filter(Boolean).join(" ").trim() || (c.name && c.name.trim()) || "Contact";
+  const em = c.email ? ` — ${c.email}` : "";
+  return `${person}${em}`;
 }
 
 function defaultCustomerContactLabels(energy: EnergyChoice): string {
@@ -615,12 +657,24 @@ type LoadedRfpCustomerPayload = {
   customerContact?: {
     id?: string;
     name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
     email?: string | null;
+    emails?: Array<{ email?: string | null }> | null;
     phone?: string | null;
     company?: string | null;
     label?: string | null;
+    customerId?: string | null;
   } | null;
 };
+
+function resolvedLoadedRfpCustomerContactId(data: LoadedRfpCustomerPayload): string {
+  return (
+    (data.customerContactId && String(data.customerContactId).trim()) ||
+    (data.customerContact?.id && String(data.customerContact.id).trim()) ||
+    ""
+  );
+}
 
 type LoadedRfpApiResponse = LoadedRfpCustomerPayload & {
   error?: string;
@@ -696,10 +750,7 @@ function hydrateAccountLinesFromRfpApi(
 }
 
 function fingerprintFromLoadedRfp(data: LoadedRfpApiResponse, customerCompanyRowId: string): string {
-  const contactId =
-    data.customerContactId && String(data.customerContactId).trim()
-      ? String(data.customerContactId).trim()
-      : "";
+  const contactId = resolvedLoadedRfpCustomerContactId(data);
   const supIds = Array.isArray(data.suppliers) ? data.suppliers.map((s: { id: string }) => s.id) : [];
   const selections = normalizeSupplierRecipientSelectionsFromApi(data.supplierContactSelections);
   const edObj =
@@ -807,10 +858,7 @@ function resolveSavedRfpCompanyRow(
     const byCust = companies.find((c) => c.customerId === cid);
     if (byCust) return byCust;
   }
-  const contactId =
-    data.customerContactId && String(data.customerContactId).trim()
-      ? String(data.customerContactId).trim()
-      : "";
+  const contactId = resolvedLoadedRfpCustomerContactId(data);
   if (contactId) {
     const byContact = companies.find((c) => c.contacts?.some((ct) => ct.id === contactId));
     if (byContact) return byContact;
@@ -857,6 +905,9 @@ export default function RfpGeneratorPage() {
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [recentRfqs, setRecentRfqs] = useState<RecentRfp[]>([]);
   const [archivedRfqs, setArchivedRfqs] = useState<RecentRfp[]>([]);
+  const [recentUnsubmittedExpanded, setRecentUnsubmittedExpanded] = useState(true);
+  const [recentSubmittedExpanded, setRecentSubmittedExpanded] = useState(true);
+  const [recentArchivedExpanded, setRecentArchivedExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
   const [baselineFingerprint, setBaselineFingerprint] = useState<string | null>(null);
   const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
@@ -975,6 +1026,9 @@ export default function RfpGeneratorPage() {
   const [contractPrefillHydrateTick, setContractPrefillHydrateTick] = useState(0);
   /** After contract prefill, skip auto-setting broker margin unit from energy type so contract priceUnit wins. */
   const skipNextBrokerMarginUnitDefaultRef = useRef(false);
+  /** Contract→RFP prefill may include supplier ids before `eligibleSuppliers` is ready. */
+  const contractPrefillSupplierIdsRef = useRef<string[] | null>(null);
+  const contractPrefillSuppliersAppliedRef = useRef(false);
 
   useEffect(() => {
     void loadPageData();
@@ -992,13 +1046,32 @@ export default function RfpGeneratorPage() {
     if (u.searchParams.get("fromContract") !== "1") return;
     if (hasLocalContractPrefillPayload()) return;
     const cid = u.searchParams.get("prefillContractId")?.trim();
-    if (!cid) return;
+    const pc = u.searchParams.get("prefillCustomerId")?.trim();
+    const pe = u.searchParams.get("prefillEnergy");
+    const wid = u.searchParams.get("workflowRowId")?.trim();
     let cancelled = false;
     void (async () => {
-      const p = await fetchRfpFromContractPrefillPayload(cid);
-      if (cancelled || !p) return;
-      seedContractPrefillPayload(p);
-      setContractPrefillHydrateTick((t) => t + 1);
+      if (cid) {
+        const p = await fetchRfpFromContractPrefillPayload(cid);
+        if (cancelled || !p) return;
+        seedContractPrefillPayload(p);
+        setContractPrefillHydrateTick((t) => t + 1);
+        return;
+      }
+      if (
+        pc &&
+        (pe === "ELECTRIC" || pe === "NATURAL_GAS") &&
+        wid
+      ) {
+        const p = await buildRfpWorkflowNewRowPrefill({
+          workflowRowId: wid,
+          customerId: pc,
+          energyType: pe,
+        });
+        if (cancelled || !p) return;
+        seedContractPrefillPayload(p);
+        setContractPrefillHydrateTick((t) => t + 1);
+      }
     })();
     return () => {
       cancelled = true;
@@ -1267,6 +1340,12 @@ export default function RfpGeneratorPage() {
     localStorage.removeItem(RFP_WIP_STORAGE_KEY);
     suppressContactCompanySyncRef.current = true;
 
+    contractPrefillSupplierIdsRef.current =
+      payload.prefillSupplierIds && payload.prefillSupplierIds.length > 0
+        ? [...payload.prefillSupplierIds]
+        : null;
+    contractPrefillSuppliersAppliedRef.current = false;
+
     setCustomerCompanyId(companyRow.id);
     setCustomerCompanySearch(companyRow.displayName);
     setRfpExtraCustomerContact(null);
@@ -1277,19 +1356,34 @@ export default function RfpGeneratorPage() {
     } else if (cid) {
       void fetch(`/api/contacts/${encodeURIComponent(cid)}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((row: { id?: string; name?: string; email?: string | null; phone?: string | null; label?: string | null } | null) => {
+        .then(
+          (
+            row: {
+              id?: string;
+              name?: string | null;
+              firstName?: string | null;
+              lastName?: string | null;
+              email?: string | null;
+              emails?: Array<{ email?: string | null }> | null;
+              phone?: string | null;
+              label?: string | null;
+            } | null
+          ) => {
           if (row && String(row.id) === cid) {
             setRfpExtraCustomerContact({
               id: String(row.id),
               customerId: companyRow.customerId ?? null,
               name: (row.name && String(row.name).trim()) || "Customer contact",
-              email: row.email != null ? String(row.email) : null,
+              firstName: row.firstName != null ? String(row.firstName) : null,
+              lastName: row.lastName != null ? String(row.lastName) : null,
+              email: effectiveContactEmailFromRecord(row),
               phone: row.phone != null ? String(row.phone) : null,
               label: row.label != null ? String(row.label) : null,
             });
           }
           setCustomerContactId(cid);
-        })
+        }
+        )
         .catch(() => {
           setCustomerContactId(companyRow.primaryContactId || companyRow.contacts?.[0]?.id || "");
         });
@@ -1338,6 +1432,9 @@ export default function RfpGeneratorPage() {
     cleanUrl.searchParams.delete("fromContract");
     cleanUrl.searchParams.delete("prefillNonce");
     cleanUrl.searchParams.delete("prefillContractId");
+    cleanUrl.searchParams.delete("prefillCustomerId");
+    cleanUrl.searchParams.delete("prefillEnergy");
+    cleanUrl.searchParams.delete("workflowRowId");
     cleanUrl.searchParams.delete("storage");
     window.history.replaceState(
       {},
@@ -1383,6 +1480,23 @@ export default function RfpGeneratorPage() {
       return prev.filter((id) => setEl.has(id));
     });
   }, [eligibleSuppliers, suppliers.length]);
+
+  useEffect(() => {
+    if (loading || !energyType) return;
+    if (suppliers.length === 0) return;
+    const want = contractPrefillSupplierIdsRef.current;
+    if (!want?.length) return;
+    if (contractPrefillSuppliersAppliedRef.current) return;
+    const setEl = new Set(eligibleSuppliers.map((s) => s.id));
+    const toAdd = want.filter((id) => setEl.has(id));
+    if (toAdd.length === 0) return;
+    contractPrefillSuppliersAppliedRef.current = true;
+    setSelectedSupplierIds((prev) => {
+      const next = new Set(prev);
+      for (const id of toAdd) next.add(id);
+      return [...next];
+    });
+  }, [loading, energyType, suppliers.length, eligibleSuppliers]);
 
   useEffect(() => {
     if (!energyType) {
@@ -1541,14 +1655,28 @@ export default function RfpGeneratorPage() {
   const selectedCustomer = customerCompanies.find((customer) => customer.id === customerCompanyId) ?? null;
   const customerContacts = selectedCustomer?.contacts ?? [];
   const customerContactsForSelect = useMemo(() => {
-    if (
-      rfpExtraCustomerContact &&
-      customerContactId === rfpExtraCustomerContact.id &&
-      !customerContacts.some((c) => c.id === rfpExtraCustomerContact.id)
-    ) {
-      return [...customerContacts, rfpExtraCustomerContact];
+    const base = customerContacts;
+    const cid = customerContactId.trim();
+    if (!cid) return base;
+    const extra = rfpExtraCustomerContact;
+    const idx = base.findIndex((c) => c.id === cid);
+    if (extra && extra.id === cid) {
+      if (idx >= 0) {
+        const cur = base[idx];
+        return base.map((c, i) =>
+          i === idx
+            ? {
+                ...cur,
+                ...extra,
+                customerId: extra.customerId ?? cur.customerId,
+                label: extra.label ?? cur.label,
+              }
+            : c
+        );
+      }
+      return [...base, extra];
     }
-    return customerContacts;
+    return base;
   }, [customerContacts, rfpExtraCustomerContact, customerContactId]);
   const selectedCustomerHasContacts = customerContactsForSelect.length > 0;
   const selectedCustomerNeedsSetup = Boolean(selectedCustomer && !selectedCustomerHasContacts);
@@ -2123,8 +2251,8 @@ export default function RfpGeneratorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           draftId: activeDraftId || undefined,
-          ...(resolvedCustomerIdForValidation ? { customerId: resolvedCustomerIdForValidation } : {}),
-          customerContactId: customerContactId || undefined,
+          customerId: resolvedCustomerIdForValidation.trim() ? resolvedCustomerIdForValidation.trim() : null,
+          customerContactId: customerContactId.trim() ? customerContactId.trim() : null,
           energyType,
           supplierIds: selectedSupplierIds,
           supplierContactSelections: contactSelections,
@@ -2160,6 +2288,7 @@ export default function RfpGeneratorPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save draft");
       setActiveDraftId(data.id);
+      await linkPendingWorkflowRowToRfp(String(data.id));
       setBaselineFingerprint(
         computeRfpFingerprint({
           customerCompanyId,
@@ -2237,10 +2366,7 @@ export default function RfpGeneratorPage() {
       setCustomerCompanies(companyOptions);
 
       const companyRow = resolveSavedRfpCompanyRow(companyOptions, data);
-      const contactId =
-        data.customerContactId && String(data.customerContactId).trim()
-          ? String(data.customerContactId).trim()
-          : "";
+      const contactId = resolvedLoadedRfpCustomerContactId(data);
 
       if (companyRow) {
         setCustomerCompanyId(companyRow.id);
@@ -2260,20 +2386,23 @@ export default function RfpGeneratorPage() {
         setCustomerCompanySearch("");
       }
 
-      const inList = Boolean(
-        companyRow && contactId && companyRow.contacts?.some((ct) => ct.id === contactId)
-      );
-
-      let cc = data.customerContact;
-      let contactRowCustomerId: string | null = null;
-      if (contactId && !inList && (!cc || String(cc.id) !== contactId)) {
+      let cc: LoadedRfpCustomerPayload["customerContact"] = null;
+      if (contactId && data.customerContact && String(data.customerContact.id ?? "") === contactId) {
+        cc = data.customerContact;
+      }
+      let contactRowCustomerId: string | null =
+        cc?.customerId != null && String(cc.customerId).trim() ? String(cc.customerId).trim() : null;
+      if (contactId && (!cc || String(cc.id) !== contactId)) {
         try {
           const r = await fetch(`/api/contacts/${encodeURIComponent(contactId)}`);
           if (r.ok) {
             const row = (await r.json()) as {
               id?: string;
               name?: string | null;
+              firstName?: string | null;
+              lastName?: string | null;
               email?: string | null;
+              emails?: Array<{ email?: string | null }> | null;
               phone?: string | null;
               company?: string | null;
               label?: string | null;
@@ -2284,10 +2413,14 @@ export default function RfpGeneratorPage() {
               cc = {
                 id: String(row.id),
                 name: row.name,
-                email: row.email,
+                firstName: row.firstName,
+                lastName: row.lastName,
+                email: effectiveContactEmailFromRecord(row),
+                emails: row.emails,
                 phone: row.phone,
                 company: row.company,
                 label: row.label,
+                customerId: row.customerId,
               };
             }
           }
@@ -2297,23 +2430,22 @@ export default function RfpGeneratorPage() {
       }
 
       let extraContact: NonNullable<CustomerCompanyOption["contacts"]>[number] | null = null;
-      if (contactId && !inList && cc && String(cc.id) === contactId) {
+      if (contactId && cc && String(cc.id) === contactId) {
+        const displayEmail = effectiveContactEmailFromRecord(cc);
         extraContact = {
           id: String(cc.id),
           customerId: companyRow?.customerId ?? contactRowCustomerId,
           name: (cc.name && String(cc.name).trim()) || "Customer contact",
-          email: cc.email != null ? String(cc.email) : null,
+          firstName: cc.firstName != null ? String(cc.firstName) : null,
+          lastName: cc.lastName != null ? String(cc.lastName) : null,
+          email: displayEmail,
           phone: cc.phone != null ? String(cc.phone) : null,
           label: cc.label != null ? String(cc.label) : null,
         };
       }
 
       setRfpExtraCustomerContact(extraContact);
-      setCustomerContactId(
-        data.customerContactId && String(data.customerContactId).trim()
-          ? String(data.customerContactId).trim()
-          : ""
-      );
+      setCustomerContactId(contactId);
       if (data.energyType === "ELECTRIC" || data.energyType === "NATURAL_GAS") {
         setEnergyType(data.energyType);
       }
@@ -2370,6 +2502,7 @@ export default function RfpGeneratorPage() {
       if (options?.showCustomerRfpLoaded) {
         revealCustomerRfpLoadedBanner();
       }
+      await linkPendingWorkflowRowToRfp(String(data.id));
       window.setTimeout(() => {
         suppressContactCompanySyncRef.current = false;
       }, 50);
@@ -2513,6 +2646,9 @@ export default function RfpGeneratorPage() {
       const newRfpId = typeof data.rfpRequestId === "string" ? data.rfpRequestId : null;
       if (draftIdToDelete && newRfpId !== draftIdToDelete) {
         await fetch(`/api/rfp/${encodeURIComponent(draftIdToDelete)}`, { method: "DELETE" }).catch(() => {});
+      }
+      if (newRfpId) {
+        await linkPendingWorkflowRowToRfp(newRfpId);
       }
 
       setResult({ success: true, sentTo: data.sentTo });
@@ -3057,7 +3193,7 @@ export default function RfpGeneratorPage() {
                   <div className="grid min-w-0 gap-2">
                     <Label>Customer contact *</Label>
                     <Select
-                      value={customerContactId}
+                      value={customerContactId.trim() || undefined}
                       onValueChange={setCustomerContactId}
                       disabled={customerContactsForSelect.length === 0}
                     >
@@ -3067,8 +3203,7 @@ export default function RfpGeneratorPage() {
                       <SelectContent>
                         {customerContactsForSelect.map((contact) => (
                           <SelectItem key={contact.id} value={contact.id}>
-                            {contact.name}
-                            {contact.email ? ` — ${contact.email}` : ""}
+                            {formatCustomerContactSelectLine(contact)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3856,9 +3991,8 @@ export default function RfpGeneratorPage() {
           >
             <Panel defaultSize={38} minSize={18} className="min-h-0 flex flex-col">
               <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="shrink-0">
-              <CardTitle>Quick checklist</CardTitle>
-              <CardDescription>Before sending, make sure the package is complete.</CardDescription>
+            <CardHeader className="shrink-0 py-3">
+              <CardTitle className="text-lg font-bold tracking-tight sm:text-xl">Quick checklist</CardTitle>
             </CardHeader>
             <CardContent className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm">
               <ChecklistItem checked={Boolean(customerCompanyId && customerContactId)}>
@@ -3915,73 +4049,146 @@ export default function RfpGeneratorPage() {
             </CardHeader>
             <CardContent className="min-h-0 flex-1 space-y-8 overflow-y-auto overscroll-contain pr-1">
               <section className="space-y-3">
-                <div>
-                  <h3 className="text-sm font-semibold">Unsubmitted</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Saved with <span className="font-medium">Save RFP</span> before sending.
-                  </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">Unsubmitted</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Saved with <span className="font-medium">Save RFP</span> before sending.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1 text-xs"
+                    onClick={() => setRecentUnsubmittedExpanded((v) => !v)}
+                    aria-expanded={recentUnsubmittedExpanded}
+                  >
+                    {recentUnsubmittedExpanded ? (
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" aria-hidden />
+                    )}
+                    {recentUnsubmittedExpanded ? "Collapse" : "Expand"}
+                  </Button>
                 </div>
                 {draftRfqs.length === 0 && (
                   <p className="text-sm text-muted-foreground">No saved RFPs yet.</p>
                 )}
-                {draftRfqs.map((rfp) => (
-                  <div
-                    key={rfp.id}
-                    className={`rounded-lg border p-4 ${focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · Draft
-                        </p>
+                {recentUnsubmittedExpanded
+                  ? draftRfqs.map((rfp) => (
+                      <div
+                        key={rfp.id}
+                        className={`rounded-lg border p-4 ${focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · Draft
+                            </p>
+                          </div>
+                          <span className="text-right text-xs text-muted-foreground">
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/85">
+                              Quote due
+                            </span>
+                            {rfp.quoteDueDate ? new Date(rfp.quoteDueDate).toLocaleDateString() : "Not set"}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void loadSavedRfpIntoForm(rfp.id, { showCustomerRfpLoaded: true })}
+                          >
+                            Continue editing
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                            onClick={() =>
+                              setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
+                            }
+                          >
+                            <Trash2 className="mr-1 h-4 w-4 shrink-0" />
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-                      <span className="text-right text-xs text-muted-foreground">
-                        <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/85">
-                          Quote due
-                        </span>
-                        {rfp.quoteDueDate ? new Date(rfp.quoteDueDate).toLocaleDateString() : "Not set"}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => void loadSavedRfpIntoForm(rfp.id, { showCustomerRfpLoaded: true })}
+                    ))
+                  : draftRfqs.map((rfp) => (
+                      <div
+                        key={rfp.id}
+                        className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between ${focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""}`}
                       >
-                        Continue editing
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                        onClick={() =>
-                          setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
-                        }
-                      >
-                        <Trash2 className="mr-1 h-4 w-4 shrink-0" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <span className="font-medium">{rfpListCompanyLine(rfp)}</span>
+                          <span className="text-muted-foreground">{rfpContactPersonLine(rfp)}</span>
+                          <span>{rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}</span>
+                          <span className="text-muted-foreground">
+                            Due: {rfp.quoteDueDate ? new Date(rfp.quoteDueDate).toLocaleDateString() : "—"}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 text-xs"
+                            onClick={() => void loadSavedRfpIntoForm(rfp.id, { showCustomerRfpLoaded: true })}
+                          >
+                            Continue editing
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-destructive border-destructive/40"
+                            onClick={() =>
+                              setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
               </section>
 
               <section className="space-y-3">
-                <div>
-                  <h3 className="text-sm font-semibold">Submitted</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Active supplier outreach. <span className="font-medium">Edit as re-issue</span> copies this RFP into
-                    the form as a new send. <span className="font-medium">Supplier email refresh</span> resends the
-                    same supplier email with an &quot;RFP Refresh&quot; subject line.
-                  </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">Submitted</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Active supplier outreach. <span className="font-medium">Edit as re-issue</span> copies this RFP into
+                      the form as a new send. <span className="font-medium">Supplier email refresh</span> resends the
+                      same supplier email with an &quot;RFP Refresh&quot; subject line.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1 text-xs"
+                    onClick={() => setRecentSubmittedExpanded((v) => !v)}
+                    aria-expanded={recentSubmittedExpanded}
+                  >
+                    {recentSubmittedExpanded ? (
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" aria-hidden />
+                    )}
+                    {recentSubmittedExpanded ? "Collapse" : "Expand"}
+                  </Button>
                 </div>
                 {submittedRfqs.length === 0 && (
                   <p className="text-sm text-muted-foreground">No submitted RFPs yet.</p>
                 )}
-                {submittedRfqs.map((rfp) => (
+                {recentSubmittedExpanded
+                  ? submittedRfqs.map((rfp) => (
                   <div
                     key={rfp.id}
                     className={`rounded-lg border p-4 ${focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""}`}
@@ -4126,20 +4333,67 @@ export default function RfpGeneratorPage() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                  ))
+                  : submittedRfqs.map((rfp) => (
+                      <div
+                        key={rfp.id}
+                        className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between ${focusRfpId === rfp.id ? "border-primary bg-primary/5" : ""}`}
+                      >
+                        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <span className="font-medium">{rfpListCompanyLine(rfp)}</span>
+                          <span className="text-muted-foreground">{rfpContactPersonLine(rfp)}</span>
+                          <span>{rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}</span>
+                          <span className="text-muted-foreground">
+                            Due:{" "}
+                            {rfp.quoteDueDate ? formatLocaleDateFromStoredDay(rfp.quoteDueDate) : "—"}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => void loadSavedRfpIntoForm(rfp.id)}
+                          >
+                            Edit as re-issue
+                          </Button>
+                          <Button type="button" size="sm" variant="secondary" className="h-8 text-xs" asChild>
+                            <Link href={`/quotes?rfpRequestId=${rfp.id}`}>Quotes</Link>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
               </section>
 
               <section className="space-y-3">
-                <div>
-                  <h3 className="text-sm font-semibold">Archived</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Historical RFPs removed from the active list. Open one to review details when preparing a new contract
-                    cycle.
-                  </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">Archived</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Historical RFPs removed from the active list. Open one to review details when preparing a new contract
+                      cycle.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1 text-xs"
+                    onClick={() => setRecentArchivedExpanded((v) => !v)}
+                    aria-expanded={recentArchivedExpanded}
+                  >
+                    {recentArchivedExpanded ? (
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" aria-hidden />
+                    )}
+                    {recentArchivedExpanded ? "Collapse" : "Expand"}
+                  </Button>
                 </div>
                 {archivedRfqs.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No archived RFPs yet.</p>
-                ) : (
+                ) : recentArchivedExpanded ? (
                   archivedRfqs.map((rfp) => (
                     <div key={rfp.id} className="rounded-lg border border-dashed p-4 opacity-90">
                       <div className="flex items-start justify-between gap-2">
@@ -4169,6 +4423,50 @@ export default function RfpGeneratorPage() {
                           type="button"
                           size="sm"
                           variant="outline"
+                          onClick={async () => {
+                            await fetch(`/api/rfp/${rfp.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ archive: false }),
+                            });
+                            await loadPageData();
+                          }}
+                        >
+                          Unarchive
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  archivedRfqs.map((rfp) => (
+                    <div
+                      key={rfp.id}
+                      className="flex flex-col gap-2 rounded-md border border-dashed px-3 py-2 text-xs opacity-90 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="font-medium">{rfpListCompanyLine(rfp)}</span>
+                        <span className="text-muted-foreground">{rfpContactPersonLine(rfp)}</span>
+                        <span>{rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}</span>
+                        <span className="text-muted-foreground">
+                          Due:{" "}
+                          {rfp.quoteDueDate ? formatLocaleDateFromStoredDay(rfp.quoteDueDate) : "—"}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-8 text-xs"
+                          onClick={() => void loadSavedRfpIntoForm(rfp.id)}
+                        >
+                          Open in form
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs"
                           onClick={async () => {
                             await fetch(`/api/rfp/${rfp.id}`, {
                               method: "PATCH",

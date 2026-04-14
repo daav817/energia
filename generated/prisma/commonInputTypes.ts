@@ -290,6 +290,23 @@ export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedIntNullableFilter<$PrismaModel>
 }
 
+export type EnumEnergyTypeNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnergyType | Prisma.EnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEnergyTypeNullableFilter<$PrismaModel> | $Enums.EnergyType | null
+}
+
+export type EnumEnergyTypeNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnergyType | Prisma.EnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEnergyTypeNullableWithAggregatesFilter<$PrismaModel> | $Enums.EnergyType | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEnergyTypeNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEnergyTypeNullableFilter<$PrismaModel>
+}
+
 export type EnumTaskTypeFilter<$PrismaModel = never> = {
   equals?: $Enums.TaskType | Prisma.EnumTaskTypeFieldRefInput<$PrismaModel>
   in?: $Enums.TaskType[] | Prisma.ListEnumTaskTypeFieldRefInput<$PrismaModel>
@@ -747,6 +764,23 @@ export type NestedFloatNullableFilter<$PrismaModel = never> = {
   gt?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   gte?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   not?: Prisma.NestedFloatNullableFilter<$PrismaModel> | number | null
+}
+
+export type NestedEnumEnergyTypeNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnergyType | Prisma.EnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEnergyTypeNullableFilter<$PrismaModel> | $Enums.EnergyType | null
+}
+
+export type NestedEnumEnergyTypeNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnergyType | Prisma.EnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EnergyType[] | Prisma.ListEnumEnergyTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEnergyTypeNullableWithAggregatesFilter<$PrismaModel> | $Enums.EnergyType | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEnergyTypeNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEnergyTypeNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumTaskTypeFilter<$PrismaModel = never> = {

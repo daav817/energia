@@ -47,6 +47,11 @@ import {
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog";
+import {
+  TaskAssociationFields,
+  taskContactLine,
+  taskContractLine,
+} from "@/components/tasks/task-association-fields";
 
 type TaskListRow = {
   id: string;
@@ -68,6 +73,15 @@ type TaskRow = {
   listSortOrder: number;
   taskListId: string | null;
   taskList: { id: string; name: string } | null;
+  contactId?: string | null;
+  contractId?: string | null;
+  contact?: { id: string; name: string; company: string | null } | null;
+  linkedContract?: {
+    id: string;
+    energyType: string;
+    customer: { name: string; company: string | null };
+    supplier: { name: string };
+  } | null;
 };
 
 const VIS_KEY = "energia-tasklist-visibility";
@@ -110,7 +124,65 @@ function taskRowMatchesQuery(t: TaskRow, q: string): boolean {
   const s = q.trim().toLowerCase();
   if (!s) return true;
   if (t.title.toLowerCase().includes(s)) return true;
-  return (t.description ?? "").toLowerCase().includes(s);
+  if ((t.description ?? "").toLowerCase().includes(s)) return true;
+  const cl = taskContactLine(t.contact);
+  if (cl?.toLowerCase().includes(s)) return true;
+  const kl = taskContractLine(t.linkedContract);
+  if (kl?.toLowerCase().includes(s)) return true;
+  return false;
+}
+
+/** Group dated tasks by calendar day (YYYY-MM-DD); undated last. */
+function groupTasksByScheduleDay(tasks: TaskRow[]): {
+  undated: TaskRow[];
+  groups: { dateKey: string; label: string; tasks: TaskRow[] }[];
+} {
+  const undated: TaskRow[] = [];
+  const map = new Map<string, TaskRow[]>();
+  for (const t of tasks) {
+    if (!taskHasScheduleDate(t)) {
+      undated.push(t);
+      continue;
+    }
+    const k = taskScheduleFlashDateKey(t);
+    if (!k) {
+      undated.push(t);
+      continue;
+    }
+    const list = map.get(k) ?? [];
+    list.push(t);
+    map.set(k, list);
+  }
+  const keys = [...map.keys()].sort((a, b) => a.localeCompare(b));
+  const groups = keys.map((dateKey) => {
+    const list = map.get(dateKey)!;
+    list.sort((a, b) => {
+      const ta = a.dueAt
+        ? new Date(a.dueAt).getTime()
+        : a.dueDate
+          ? new Date(a.dueDate).getTime()
+          : 0;
+      const tb = b.dueAt
+        ? new Date(b.dueAt).getTime()
+        : b.dueDate
+          ? new Date(b.dueDate).getTime()
+          : 0;
+      if (ta !== tb) return ta - tb;
+      return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+    });
+    const d = new Date(dateKey + "T12:00:00");
+    const label = Number.isNaN(d.getTime())
+      ? dateKey
+      : d.toLocaleDateString(undefined, {
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+    return { dateKey, label, tasks: list };
+  });
+  undated.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+  return { undated, groups };
 }
 
 function sortTasks(tasks: TaskRow[], mode: SortMode): TaskRow[] {
@@ -169,7 +241,12 @@ export function TasksApp() {
     dueAt: "",
     repeat: "",
     starred: false,
+    contactId: "",
+    contractId: "",
   });
+  const [collapsedTaskDateGroups, setCollapsedTaskDateGroups] = useState<Set<string>>(
+    () => new Set()
+  );
 
   const loadLists = useCallback(async () => {
     const res = await fetch("/api/task-lists");
@@ -287,6 +364,11 @@ export function TasksApp() {
         sortMode
       ),
     [tasks, sortMode, graceSet, taskQuery]
+  );
+  const useDateGrouping = sortMode === "date" || sortMode === "deadline";
+  const groupedOpenTasks = useMemo(
+    () => (useDateGrouping ? groupTasksByScheduleDay(openTasks) : null),
+    [openTasks, useDateGrouping]
   );
   const doneTasks = useMemo(
     () =>
@@ -431,6 +513,8 @@ export function TasksApp() {
       dueAt: dueAtStr,
       repeat: task.repeatRule ?? "",
       starred: task.starred,
+      contactId: task.contactId ?? task.contact?.id ?? "",
+      contractId: task.contractId ?? task.linkedContract?.id ?? "",
     });
     setEditTaskId(task.id);
     setEditOpen(true);
@@ -453,6 +537,8 @@ export function TasksApp() {
       payload.dueDate = null;
       payload.dueAt = editForm.dueAt || null;
     }
+    payload.contactId = editForm.contactId.trim() || null;
+    payload.contractId = editForm.contractId.trim() || null;
     const res = await fetch(`/api/tasks/${encodeURIComponent(editTaskId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -469,6 +555,131 @@ export function TasksApp() {
   const [googleMsg, setGoogleMsg] = useState<string | null>(null);
   const [deleteListOpen, setDeleteListOpen] = useState(false);
   const [deleteListTarget, setDeleteListTarget] = useState<TaskListRow | null>(null);
+
+  const renderOpenTaskRow = (task: TaskRow) => {
+    const canDragReorder = sortMode === "manual" && !taskQuery.trim();
+    const cLine = taskContactLine(task.contact);
+    const kLine = taskContractLine(task.linkedContract);
+    return (
+      <li
+        key={task.id}
+        id={`task-row-${task.id}`}
+        className="flex items-start gap-3 border-b border-[#f1f3f4] py-3 px-1 hover:bg-[#f8f9fa]"
+        onDragOver={
+          canDragReorder
+            ? (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }
+            : undefined
+        }
+        onDrop={canDragReorder ? (e) => void onTaskRowDrop(e, task) : undefined}
+      >
+        {canDragReorder ? (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="Drag to reorder task"
+            draggable
+            className="mt-0.5 shrink-0 cursor-grab text-[#9aa0a6] hover:text-[#5f6368] active:cursor-grabbing print:hidden"
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/task-id", task.id);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+          >
+            <GripVertical className="h-5 w-5" />
+          </span>
+        ) : null}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={task.status === "COMPLETED"}
+          className={cn(
+            "mt-1 h-5 w-5 shrink-0 rounded-full border-2 border-[#5f6368] hover:border-[#1a73e8]",
+            task.status === "COMPLETED" && "bg-[#1a73e8] border-[#1a73e8] hover:border-[#1a73e8]"
+          )}
+          onClick={() => toggleComplete(task)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {task.starred && <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />}
+            <span
+              className={cn(
+                "text-[#202124]",
+                task.status === "COMPLETED" && "line-through text-[#80868b]"
+              )}
+            >
+              {task.title}
+            </span>
+          </div>
+          {(task.dueDate || task.dueAt) && !useDateGrouping && (
+            <p className="text-xs text-[#5f6368] mt-0.5">
+              {task.allDay && task.dueDate
+                ? new Date(task.dueDate).toLocaleDateString()
+                : task.dueAt
+                  ? new Date(task.dueAt).toLocaleString()
+                  : task.dueDate
+                    ? new Date(task.dueDate).toLocaleDateString()
+                    : null}
+            </p>
+          )}
+          {(task.dueDate || task.dueAt) && useDateGrouping && (
+            <p className="text-xs text-[#5f6368] mt-0.5">
+              {task.allDay && task.dueDate
+                ? "All day"
+                : task.dueAt
+                  ? new Date(task.dueAt).toLocaleTimeString(undefined, {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })
+                  : null}
+            </p>
+          )}
+          {task.description && (
+            <p className="text-sm text-[#5f6368] mt-1 whitespace-pre-wrap">{task.description}</p>
+          )}
+          {(cLine || kLine) && (
+            <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-[#80868b]">
+              {cLine ? <span>Contact: {cLine}</span> : null}
+              {kLine ? (
+                <span>
+                  Contract:{" "}
+                  <Link className="text-[#1a73e8] hover:underline" href={`/directory/contracts?contractId=${encodeURIComponent(task.linkedContract?.id ?? "")}`}>
+                    {kLine}
+                  </Link>
+                </span>
+              ) : null}
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 print:hidden">
+          {(() => {
+            const flashKey = taskScheduleFlashDateKey(task);
+            if (!flashKey) return null;
+            return (
+              <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                <Link
+                  href={`/schedule?flashDate=${encodeURIComponent(flashKey)}`}
+                  title="View on Schedule"
+                >
+                  <CalendarDays className="h-4 w-4 text-[#5f6368]" />
+                </Link>
+              </Button>
+            );
+          })()}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Edit task"
+            onClick={() => openEditTask(task)}
+          >
+            <Pencil className="h-4 w-4 text-[#5f6368]" />
+          </Button>
+        </div>
+      </li>
+    );
+  };
 
   const runGoogleTasks = async (mode: "import" | "sync") => {
     setGoogleMsg(null);
@@ -716,106 +927,86 @@ export function TasksApp() {
                   : "Drag order is saved for this list. Use the grip beside each open task."}
               </p>
             )}
+            {(sortMode === "date" || sortMode === "deadline") && (
+              <p className="mb-3 text-xs text-[#5f6368] print:hidden">
+                Tasks with dates are grouped by day (earliest days first). Use the chevron to collapse a day.
+              </p>
+            )}
 
-            <ul className="space-y-0">
-              {openTasks.map((task) => {
-                const canDragReorder = sortMode === "manual" && !taskQuery.trim();
-                return (
-                <li
-                  key={task.id}
-                  id={`task-row-${task.id}`}
-                  className="flex items-start gap-3 border-b border-[#f1f3f4] py-3 px-1 hover:bg-[#f8f9fa]"
-                  onDragOver={
-                    canDragReorder
-                      ? (e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = "move";
+            {useDateGrouping && groupedOpenTasks ? (
+              <div className="space-y-1">
+                {groupedOpenTasks.groups.map((g) => {
+                  const collapsed = collapsedTaskDateGroups.has(g.dateKey);
+                  return (
+                    <div key={g.dateKey} className="rounded-lg border border-[#e8eaed] overflow-hidden">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 bg-[#f8f9fa] px-3 py-2 text-left text-sm font-medium text-[#202124] hover:bg-[#f1f3f4]"
+                        onClick={() =>
+                          setCollapsedTaskDateGroups((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(g.dateKey)) next.delete(g.dateKey);
+                            else next.add(g.dateKey);
+                            return next;
+                          })
                         }
-                      : undefined
-                  }
-                  onDrop={canDragReorder ? (e) => void onTaskRowDrop(e, task) : undefined}
-                >
-                  {canDragReorder ? (
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Drag to reorder task"
-                      draggable
-                      className="mt-0.5 shrink-0 cursor-grab text-[#9aa0a6] hover:text-[#5f6368] active:cursor-grabbing print:hidden"
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData("text/task-id", task.id);
-                        e.dataTransfer.effectAllowed = "move";
-                      }}
-                    >
-                      <GripVertical className="h-5 w-5" />
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={task.status === "COMPLETED"}
-                    className={cn(
-                      "mt-1 h-5 w-5 shrink-0 rounded-full border-2 border-[#5f6368] hover:border-[#1a73e8]",
-                      task.status === "COMPLETED" && "bg-[#1a73e8] border-[#1a73e8] hover:border-[#1a73e8]"
-                    )}
-                    onClick={() => toggleComplete(task)}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      {task.starred && <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />}
-                      <span
-                        className={cn(
-                          "text-[#202124]",
-                          task.status === "COMPLETED" && "line-through text-[#80868b]"
-                        )}
+                        aria-expanded={!collapsed}
                       >
-                        {task.title}
-                      </span>
+                        {collapsed ? (
+                          <ChevronRight className="h-4 w-4 shrink-0 text-[#5f6368]" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 shrink-0 text-[#5f6368]" />
+                        )}
+                        <span>
+                          {g.label}
+                          <span className="ml-2 font-normal text-[#5f6368]">({g.tasks.length})</span>
+                        </span>
+                      </button>
+                      {!collapsed && (
+                        <ul className="space-y-0 bg-white">{g.tasks.map((task) => renderOpenTaskRow(task))}</ul>
+                      )}
                     </div>
-                    {(task.dueDate || task.dueAt) && (
-                      <p className="text-xs text-[#5f6368] mt-0.5">
-                        {task.allDay && task.dueDate
-                          ? new Date(task.dueDate).toLocaleDateString()
-                          : task.dueAt
-                            ? new Date(task.dueAt).toLocaleString()
-                            : task.dueDate
-                              ? new Date(task.dueDate).toLocaleDateString()
-                              : null}
-                      </p>
-                    )}
-                    {task.description && (
-                      <p className="text-sm text-[#5f6368] mt-1 whitespace-pre-wrap">{task.description}</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-0.5 print:hidden">
-                    {(() => {
-                      const flashKey = taskScheduleFlashDateKey(task);
-                      if (!flashKey) return null;
-                      return (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                          <Link
-                            href={`/schedule?flashDate=${encodeURIComponent(flashKey)}`}
-                            title="View on Schedule"
-                          >
-                            <CalendarDays className="h-4 w-4 text-[#5f6368]" />
-                          </Link>
-                        </Button>
-                      );
-                    })()}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title="Edit task"
-                      onClick={() => openEditTask(task)}
+                  );
+                })}
+                {groupedOpenTasks.undated.length > 0 && (
+                  <div className="rounded-lg border border-[#e8eaed] overflow-hidden">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 bg-[#f8f9fa] px-3 py-2 text-left text-sm font-medium text-[#202124] hover:bg-[#f1f3f4]"
+                      onClick={() =>
+                        setCollapsedTaskDateGroups((prev) => {
+                          const next = new Set(prev);
+                          const k = "__undated__";
+                          if (next.has(k)) next.delete(k);
+                          else next.add(k);
+                          return next;
+                        })
+                      }
+                      aria-expanded={!collapsedTaskDateGroups.has("__undated__")}
                     >
-                      <Pencil className="h-4 w-4 text-[#5f6368]" />
-                    </Button>
+                      {collapsedTaskDateGroups.has("__undated__") ? (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-[#5f6368]" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-[#5f6368]" />
+                      )}
+                      <span>
+                        No date
+                        <span className="ml-2 font-normal text-[#5f6368]">
+                          ({groupedOpenTasks.undated.length})
+                        </span>
+                      </span>
+                    </button>
+                    {!collapsedTaskDateGroups.has("__undated__") && (
+                      <ul className="space-y-0 bg-white">
+                        {groupedOpenTasks.undated.map((task) => renderOpenTaskRow(task))}
+                      </ul>
+                    )}
                   </div>
-                </li>
-              );
-              })}
-            </ul>
+                )}
+              </div>
+            ) : (
+              <ul className="space-y-0">{openTasks.map((task) => renderOpenTaskRow(task))}</ul>
+            )}
 
             <button
               type="button"
@@ -966,6 +1157,12 @@ export function TasksApp() {
               />
               Starred
             </label>
+            <TaskAssociationFields
+              contactId={editForm.contactId}
+              contractId={editForm.contractId}
+              onContactId={(id) => setEditForm((f) => ({ ...f, contactId: id }))}
+              onContractId={(id) => setEditForm((f) => ({ ...f, contractId: id }))}
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
                 Cancel

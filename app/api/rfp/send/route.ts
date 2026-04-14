@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma, CalendarEventType, EnergyType, PriceUnit, type Customer } from "@/generated/prisma/client";
 import { getGmailClient, getGoogleDriveClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
+import { quoteDueCalendarTitle } from "@/lib/rfp-quote-due-calendar-title";
 import { flattenDeliverableSupplierContacts } from "@/lib/supplier-rfp-contacts";
 import { localDateFromDayInput } from "@/lib/calendar-date";
 import {
@@ -220,7 +221,7 @@ export async function POST(request: NextRequest) {
     if (quoteDue) {
       await prisma.calendarEvent.create({
         data: {
-          title: `Supplier quote due — RFP (${payload.customer.name})`,
+          title: quoteDueCalendarTitle(payload.customer, payload.energyType),
           description: [
             `Energy type: ${formatEnergyType(payload.energyType)}`,
             payload.ldcUtility ? `Utility: ${payload.ldcUtility}` : "",

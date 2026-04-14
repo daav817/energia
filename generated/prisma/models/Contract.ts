@@ -408,6 +408,8 @@ export type ContractWhereInput = {
   rfpQuotes?: Prisma.RfpQuoteListRelationFilter
   calendarEvents?: Prisma.CalendarEventListRelationFilter
   accounts?: Prisma.ContractAccountListRelationFilter
+  tasks?: Prisma.TaskListRelationFilter
+  workflowRow?: Prisma.XOR<Prisma.ContractWorkflowRowNullableScalarRelationFilter, Prisma.ContractWorkflowRowWhereInput> | null
 }
 
 export type ContractOrderByWithRelationInput = {
@@ -444,6 +446,8 @@ export type ContractOrderByWithRelationInput = {
   rfpQuotes?: Prisma.RfpQuoteOrderByRelationAggregateInput
   calendarEvents?: Prisma.CalendarEventOrderByRelationAggregateInput
   accounts?: Prisma.ContractAccountOrderByRelationAggregateInput
+  tasks?: Prisma.TaskOrderByRelationAggregateInput
+  workflowRow?: Prisma.ContractWorkflowRowOrderByWithRelationInput
 }
 
 export type ContractWhereUniqueInput = Prisma.AtLeast<{
@@ -483,6 +487,8 @@ export type ContractWhereUniqueInput = Prisma.AtLeast<{
   rfpQuotes?: Prisma.RfpQuoteListRelationFilter
   calendarEvents?: Prisma.CalendarEventListRelationFilter
   accounts?: Prisma.ContractAccountListRelationFilter
+  tasks?: Prisma.TaskListRelationFilter
+  workflowRow?: Prisma.XOR<Prisma.ContractWorkflowRowNullableScalarRelationFilter, Prisma.ContractWorkflowRowWhereInput> | null
 }, "id">
 
 export type ContractOrderByWithAggregationInput = {
@@ -580,6 +586,8 @@ export type ContractCreateInput = {
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateInput = {
@@ -613,6 +621,8 @@ export type ContractUncheckedCreateInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractUpdateInput = {
@@ -646,6 +656,8 @@ export type ContractUpdateInput = {
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateInput = {
@@ -679,6 +691,8 @@ export type ContractUncheckedUpdateInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractCreateManyInput = {
@@ -876,14 +890,14 @@ export type ContractSumOrderByAggregateInput = {
   totalMeters?: Prisma.SortOrder
 }
 
-export type ContractScalarRelationFilter = {
-  is?: Prisma.ContractWhereInput
-  isNot?: Prisma.ContractWhereInput
-}
-
 export type ContractNullableScalarRelationFilter = {
   is?: Prisma.ContractWhereInput | null
   isNot?: Prisma.ContractWhereInput | null
+}
+
+export type ContractScalarRelationFilter = {
+  is?: Prisma.ContractWhereInput
+  isNot?: Prisma.ContractWhereInput
 }
 
 export type ContractCreateNestedManyWithoutCustomerInput = {
@@ -1010,6 +1024,22 @@ export type NullableIntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type ContractCreateNestedOneWithoutWorkflowRowInput = {
+  create?: Prisma.XOR<Prisma.ContractCreateWithoutWorkflowRowInput, Prisma.ContractUncheckedCreateWithoutWorkflowRowInput>
+  connectOrCreate?: Prisma.ContractCreateOrConnectWithoutWorkflowRowInput
+  connect?: Prisma.ContractWhereUniqueInput
+}
+
+export type ContractUpdateOneWithoutWorkflowRowNestedInput = {
+  create?: Prisma.XOR<Prisma.ContractCreateWithoutWorkflowRowInput, Prisma.ContractUncheckedCreateWithoutWorkflowRowInput>
+  connectOrCreate?: Prisma.ContractCreateOrConnectWithoutWorkflowRowInput
+  upsert?: Prisma.ContractUpsertWithoutWorkflowRowInput
+  disconnect?: Prisma.ContractWhereInput | boolean
+  delete?: Prisma.ContractWhereInput | boolean
+  connect?: Prisma.ContractWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ContractUpdateToOneWithWhereWithoutWorkflowRowInput, Prisma.ContractUpdateWithoutWorkflowRowInput>, Prisma.ContractUncheckedUpdateWithoutWorkflowRowInput>
+}
+
 export type ContractCreateNestedOneWithoutAccountsInput = {
   create?: Prisma.XOR<Prisma.ContractCreateWithoutAccountsInput, Prisma.ContractUncheckedCreateWithoutAccountsInput>
   connectOrCreate?: Prisma.ContractCreateOrConnectWithoutAccountsInput
@@ -1036,6 +1066,22 @@ export type ContractUpdateOneRequiredWithoutCommissionPaymentsNestedInput = {
   upsert?: Prisma.ContractUpsertWithoutCommissionPaymentsInput
   connect?: Prisma.ContractWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.ContractUpdateToOneWithWhereWithoutCommissionPaymentsInput, Prisma.ContractUpdateWithoutCommissionPaymentsInput>, Prisma.ContractUncheckedUpdateWithoutCommissionPaymentsInput>
+}
+
+export type ContractCreateNestedOneWithoutTasksInput = {
+  create?: Prisma.XOR<Prisma.ContractCreateWithoutTasksInput, Prisma.ContractUncheckedCreateWithoutTasksInput>
+  connectOrCreate?: Prisma.ContractCreateOrConnectWithoutTasksInput
+  connect?: Prisma.ContractWhereUniqueInput
+}
+
+export type ContractUpdateOneWithoutTasksNestedInput = {
+  create?: Prisma.XOR<Prisma.ContractCreateWithoutTasksInput, Prisma.ContractUncheckedCreateWithoutTasksInput>
+  connectOrCreate?: Prisma.ContractCreateOrConnectWithoutTasksInput
+  upsert?: Prisma.ContractUpsertWithoutTasksInput
+  disconnect?: Prisma.ContractWhereInput | boolean
+  delete?: Prisma.ContractWhereInput | boolean
+  connect?: Prisma.ContractWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ContractUpdateToOneWithWhereWithoutTasksInput, Prisma.ContractUpdateWithoutTasksInput>, Prisma.ContractUncheckedUpdateWithoutTasksInput>
 }
 
 export type ContractCreateNestedOneWithoutDocumentsInput = {
@@ -1158,6 +1204,8 @@ export type ContractCreateWithoutCustomerInput = {
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutCustomerInput = {
@@ -1190,6 +1238,8 @@ export type ContractUncheckedCreateWithoutCustomerInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutCustomerInput = {
@@ -1279,6 +1329,8 @@ export type ContractCreateWithoutSupplierInput = {
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutSupplierInput = {
@@ -1311,6 +1363,8 @@ export type ContractUncheckedCreateWithoutSupplierInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutSupplierInput = {
@@ -1337,6 +1391,158 @@ export type ContractUpdateWithWhereUniqueWithoutSupplierInput = {
 export type ContractUpdateManyWithWhereWithoutSupplierInput = {
   where: Prisma.ContractScalarWhereInput
   data: Prisma.XOR<Prisma.ContractUpdateManyMutationInput, Prisma.ContractUncheckedUpdateManyWithoutSupplierInput>
+}
+
+export type ContractCreateWithoutWorkflowRowInput = {
+  id?: string
+  energyType: $Enums.EnergyType
+  priceUnit: $Enums.PriceUnit
+  pricePerUnit: runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate: Date | string
+  expirationDate: Date | string
+  termMonths: number
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: string | null
+  signedDate?: Date | string | null
+  totalMeters?: number | null
+  status?: string
+  notes?: string | null
+  signedContractDriveUrl?: string | null
+  renewalReminderSentAt?: Date | string | null
+  sourceRfpRequestId?: string | null
+  needsContractDetail?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
+  supplier: Prisma.SupplierCreateNestedOneWithoutContractsInput
+  mainContact?: Prisma.ContactCreateNestedOneWithoutContractsAsMainInput
+  commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
+  documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
+  rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
+  accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+}
+
+export type ContractUncheckedCreateWithoutWorkflowRowInput = {
+  id?: string
+  customerId: string
+  supplierId: string
+  mainContactId?: string | null
+  energyType: $Enums.EnergyType
+  priceUnit: $Enums.PriceUnit
+  pricePerUnit: runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate: Date | string
+  expirationDate: Date | string
+  termMonths: number
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: string | null
+  signedDate?: Date | string | null
+  totalMeters?: number | null
+  status?: string
+  notes?: string | null
+  signedContractDriveUrl?: string | null
+  renewalReminderSentAt?: Date | string | null
+  sourceRfpRequestId?: string | null
+  needsContractDetail?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
+  documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
+  rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
+  accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+}
+
+export type ContractCreateOrConnectWithoutWorkflowRowInput = {
+  where: Prisma.ContractWhereUniqueInput
+  create: Prisma.XOR<Prisma.ContractCreateWithoutWorkflowRowInput, Prisma.ContractUncheckedCreateWithoutWorkflowRowInput>
+}
+
+export type ContractUpsertWithoutWorkflowRowInput = {
+  update: Prisma.XOR<Prisma.ContractUpdateWithoutWorkflowRowInput, Prisma.ContractUncheckedUpdateWithoutWorkflowRowInput>
+  create: Prisma.XOR<Prisma.ContractCreateWithoutWorkflowRowInput, Prisma.ContractUncheckedCreateWithoutWorkflowRowInput>
+  where?: Prisma.ContractWhereInput
+}
+
+export type ContractUpdateToOneWithWhereWithoutWorkflowRowInput = {
+  where?: Prisma.ContractWhereInput
+  data: Prisma.XOR<Prisma.ContractUpdateWithoutWorkflowRowInput, Prisma.ContractUncheckedUpdateWithoutWorkflowRowInput>
+}
+
+export type ContractUpdateWithoutWorkflowRowInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
+  pricePerUnit?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  renewalReminderSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceRfpRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  needsContractDetail?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
+  supplier?: Prisma.SupplierUpdateOneRequiredWithoutContractsNestedInput
+  mainContact?: Prisma.ContactUpdateOneWithoutContractsAsMainNestedInput
+  commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
+  documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
+  rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
+  accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+}
+
+export type ContractUncheckedUpdateWithoutWorkflowRowInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierId?: Prisma.StringFieldUpdateOperationsInput | string
+  mainContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
+  pricePerUnit?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  renewalReminderSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceRfpRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  needsContractDetail?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
+  documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
+  rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
+  accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
 }
 
 export type ContractCreateWithoutAccountsInput = {
@@ -1369,6 +1575,8 @@ export type ContractCreateWithoutAccountsInput = {
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutAccountsInput = {
@@ -1401,6 +1609,8 @@ export type ContractUncheckedCreateWithoutAccountsInput = {
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutAccountsInput = {
@@ -1449,6 +1659,8 @@ export type ContractUpdateWithoutAccountsInput = {
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutAccountsInput = {
@@ -1481,6 +1693,8 @@ export type ContractUncheckedUpdateWithoutAccountsInput = {
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutCommissionPaymentsInput = {
@@ -1513,6 +1727,8 @@ export type ContractCreateWithoutCommissionPaymentsInput = {
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutCommissionPaymentsInput = {
@@ -1545,6 +1761,8 @@ export type ContractUncheckedCreateWithoutCommissionPaymentsInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutCommissionPaymentsInput = {
@@ -1593,6 +1811,8 @@ export type ContractUpdateWithoutCommissionPaymentsInput = {
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutCommissionPaymentsInput = {
@@ -1625,6 +1845,160 @@ export type ContractUncheckedUpdateWithoutCommissionPaymentsInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
+}
+
+export type ContractCreateWithoutTasksInput = {
+  id?: string
+  energyType: $Enums.EnergyType
+  priceUnit: $Enums.PriceUnit
+  pricePerUnit: runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate: Date | string
+  expirationDate: Date | string
+  termMonths: number
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: string | null
+  signedDate?: Date | string | null
+  totalMeters?: number | null
+  status?: string
+  notes?: string | null
+  signedContractDriveUrl?: string | null
+  renewalReminderSentAt?: Date | string | null
+  sourceRfpRequestId?: string | null
+  needsContractDetail?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer: Prisma.CustomerCreateNestedOneWithoutContractsInput
+  supplier: Prisma.SupplierCreateNestedOneWithoutContractsInput
+  mainContact?: Prisma.ContactCreateNestedOneWithoutContractsAsMainInput
+  commissionPayments?: Prisma.CommissionPaymentCreateNestedManyWithoutContractInput
+  documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
+  rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
+  accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
+}
+
+export type ContractUncheckedCreateWithoutTasksInput = {
+  id?: string
+  customerId: string
+  supplierId: string
+  mainContactId?: string | null
+  energyType: $Enums.EnergyType
+  priceUnit: $Enums.PriceUnit
+  pricePerUnit: runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate: Date | string
+  expirationDate: Date | string
+  termMonths: number
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: string | null
+  signedDate?: Date | string | null
+  totalMeters?: number | null
+  status?: string
+  notes?: string | null
+  signedContractDriveUrl?: string | null
+  renewalReminderSentAt?: Date | string | null
+  sourceRfpRequestId?: string | null
+  needsContractDetail?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionPayments?: Prisma.CommissionPaymentUncheckedCreateNestedManyWithoutContractInput
+  documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
+  rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
+  accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
+}
+
+export type ContractCreateOrConnectWithoutTasksInput = {
+  where: Prisma.ContractWhereUniqueInput
+  create: Prisma.XOR<Prisma.ContractCreateWithoutTasksInput, Prisma.ContractUncheckedCreateWithoutTasksInput>
+}
+
+export type ContractUpsertWithoutTasksInput = {
+  update: Prisma.XOR<Prisma.ContractUpdateWithoutTasksInput, Prisma.ContractUncheckedUpdateWithoutTasksInput>
+  create: Prisma.XOR<Prisma.ContractCreateWithoutTasksInput, Prisma.ContractUncheckedCreateWithoutTasksInput>
+  where?: Prisma.ContractWhereInput
+}
+
+export type ContractUpdateToOneWithWhereWithoutTasksInput = {
+  where?: Prisma.ContractWhereInput
+  data: Prisma.XOR<Prisma.ContractUpdateWithoutTasksInput, Prisma.ContractUncheckedUpdateWithoutTasksInput>
+}
+
+export type ContractUpdateWithoutTasksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
+  pricePerUnit?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  renewalReminderSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceRfpRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  needsContractDetail?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneRequiredWithoutContractsNestedInput
+  supplier?: Prisma.SupplierUpdateOneRequiredWithoutContractsNestedInput
+  mainContact?: Prisma.ContactUpdateOneWithoutContractsAsMainNestedInput
+  commissionPayments?: Prisma.CommissionPaymentUpdateManyWithoutContractNestedInput
+  documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
+  rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
+  accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
+}
+
+export type ContractUncheckedUpdateWithoutTasksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.StringFieldUpdateOperationsInput | string
+  supplierId?: Prisma.StringFieldUpdateOperationsInput | string
+  mainContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
+  pricePerUnit?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expirationDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  contractIncome?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  customerUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalMeters?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  signedContractDriveUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  renewalReminderSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceRfpRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  needsContractDetail?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionPayments?: Prisma.CommissionPaymentUncheckedUpdateManyWithoutContractNestedInput
+  documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
+  rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
+  accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutDocumentsInput = {
@@ -1657,6 +2031,8 @@ export type ContractCreateWithoutDocumentsInput = {
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutDocumentsInput = {
@@ -1689,6 +2065,8 @@ export type ContractUncheckedCreateWithoutDocumentsInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutDocumentsInput = {
@@ -1737,6 +2115,8 @@ export type ContractUpdateWithoutDocumentsInput = {
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutDocumentsInput = {
@@ -1769,6 +2149,8 @@ export type ContractUncheckedUpdateWithoutDocumentsInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutCalendarEventsInput = {
@@ -1801,6 +2183,8 @@ export type ContractCreateWithoutCalendarEventsInput = {
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutCalendarEventsInput = {
@@ -1833,6 +2217,8 @@ export type ContractUncheckedCreateWithoutCalendarEventsInput = {
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutCalendarEventsInput = {
@@ -1881,6 +2267,8 @@ export type ContractUpdateWithoutCalendarEventsInput = {
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutCalendarEventsInput = {
@@ -1913,6 +2301,8 @@ export type ContractUncheckedUpdateWithoutCalendarEventsInput = {
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutRfpQuotesInput = {
@@ -1945,6 +2335,8 @@ export type ContractCreateWithoutRfpQuotesInput = {
   documents?: Prisma.DocumentCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutRfpQuotesInput = {
@@ -1977,6 +2369,8 @@ export type ContractUncheckedCreateWithoutRfpQuotesInput = {
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutRfpQuotesInput = {
@@ -2025,6 +2419,8 @@ export type ContractUpdateWithoutRfpQuotesInput = {
   documents?: Prisma.DocumentUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutRfpQuotesInput = {
@@ -2057,6 +2453,8 @@ export type ContractUncheckedUpdateWithoutRfpQuotesInput = {
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractCreateWithoutMainContactInput = {
@@ -2089,6 +2487,8 @@ export type ContractCreateWithoutMainContactInput = {
   rfpQuotes?: Prisma.RfpQuoteCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowCreateNestedOneWithoutContractInput
 }
 
 export type ContractUncheckedCreateWithoutMainContactInput = {
@@ -2121,6 +2521,8 @@ export type ContractUncheckedCreateWithoutMainContactInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutContractInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutContractInput
   accounts?: Prisma.ContractAccountUncheckedCreateNestedManyWithoutContractInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutLinkedContractInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutContractInput
 }
 
 export type ContractCreateOrConnectWithoutMainContactInput = {
@@ -2206,6 +2608,8 @@ export type ContractUpdateWithoutCustomerInput = {
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutCustomerInput = {
@@ -2238,6 +2642,8 @@ export type ContractUncheckedUpdateWithoutCustomerInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateManyWithoutCustomerInput = {
@@ -2324,6 +2730,8 @@ export type ContractUpdateWithoutSupplierInput = {
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutSupplierInput = {
@@ -2356,6 +2764,8 @@ export type ContractUncheckedUpdateWithoutSupplierInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateManyWithoutSupplierInput = {
@@ -2442,6 +2852,8 @@ export type ContractUpdateWithoutMainContactInput = {
   rfpQuotes?: Prisma.RfpQuoteUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateWithoutMainContactInput = {
@@ -2474,6 +2886,8 @@ export type ContractUncheckedUpdateWithoutMainContactInput = {
   rfpQuotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutContractNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutContractNestedInput
   accounts?: Prisma.ContractAccountUncheckedUpdateManyWithoutContractNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutLinkedContractNestedInput
+  workflowRow?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutContractNestedInput
 }
 
 export type ContractUncheckedUpdateManyWithoutMainContactInput = {
@@ -2514,6 +2928,7 @@ export type ContractCountOutputType = {
   rfpQuotes: number
   calendarEvents: number
   accounts: number
+  tasks: number
 }
 
 export type ContractCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2522,6 +2937,7 @@ export type ContractCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensio
   rfpQuotes?: boolean | ContractCountOutputTypeCountRfpQuotesArgs
   calendarEvents?: boolean | ContractCountOutputTypeCountCalendarEventsArgs
   accounts?: boolean | ContractCountOutputTypeCountAccountsArgs
+  tasks?: boolean | ContractCountOutputTypeCountTasksArgs
 }
 
 /**
@@ -2569,6 +2985,13 @@ export type ContractCountOutputTypeCountAccountsArgs<ExtArgs extends runtime.Typ
   where?: Prisma.ContractAccountWhereInput
 }
 
+/**
+ * ContractCountOutputType without action
+ */
+export type ContractCountOutputTypeCountTasksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TaskWhereInput
+}
+
 
 export type ContractSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2604,6 +3027,8 @@ export type ContractSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   rfpQuotes?: boolean | Prisma.Contract$rfpQuotesArgs<ExtArgs>
   calendarEvents?: boolean | Prisma.Contract$calendarEventsArgs<ExtArgs>
   accounts?: boolean | Prisma.Contract$accountsArgs<ExtArgs>
+  tasks?: boolean | Prisma.Contract$tasksArgs<ExtArgs>
+  workflowRow?: boolean | Prisma.Contract$workflowRowArgs<ExtArgs>
   _count?: boolean | Prisma.ContractCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contract"]>
 
@@ -2707,6 +3132,8 @@ export type ContractInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   rfpQuotes?: boolean | Prisma.Contract$rfpQuotesArgs<ExtArgs>
   calendarEvents?: boolean | Prisma.Contract$calendarEventsArgs<ExtArgs>
   accounts?: boolean | Prisma.Contract$accountsArgs<ExtArgs>
+  tasks?: boolean | Prisma.Contract$tasksArgs<ExtArgs>
+  workflowRow?: boolean | Prisma.Contract$workflowRowArgs<ExtArgs>
   _count?: boolean | Prisma.ContractCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ContractIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2731,6 +3158,8 @@ export type $ContractPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     rfpQuotes: Prisma.$RfpQuotePayload<ExtArgs>[]
     calendarEvents: Prisma.$CalendarEventPayload<ExtArgs>[]
     accounts: Prisma.$ContractAccountPayload<ExtArgs>[]
+    tasks: Prisma.$TaskPayload<ExtArgs>[]
+    workflowRow: Prisma.$ContractWorkflowRowPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3172,6 +3601,8 @@ export interface Prisma__ContractClient<T, Null = never, ExtArgs extends runtime
   rfpQuotes<T extends Prisma.Contract$rfpQuotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$rfpQuotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpQuotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   calendarEvents<T extends Prisma.Contract$calendarEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$calendarEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CalendarEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   accounts<T extends Prisma.Contract$accountsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$accountsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContractAccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  tasks<T extends Prisma.Contract$tasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  workflowRow<T extends Prisma.Contract$workflowRowArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Contract$workflowRowArgs<ExtArgs>>): Prisma.Prisma__ContractWorkflowRowClient<runtime.Types.Result.GetResult<Prisma.$ContractWorkflowRowPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3763,6 +4194,49 @@ export type Contract$accountsArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.ContractAccountScalarFieldEnum | Prisma.ContractAccountScalarFieldEnum[]
+}
+
+/**
+ * Contract.tasks
+ */
+export type Contract$tasksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Task
+   */
+  select?: Prisma.TaskSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Task
+   */
+  omit?: Prisma.TaskOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TaskInclude<ExtArgs> | null
+  where?: Prisma.TaskWhereInput
+  orderBy?: Prisma.TaskOrderByWithRelationInput | Prisma.TaskOrderByWithRelationInput[]
+  cursor?: Prisma.TaskWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TaskScalarFieldEnum | Prisma.TaskScalarFieldEnum[]
+}
+
+/**
+ * Contract.workflowRow
+ */
+export type Contract$workflowRowArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContractWorkflowRow
+   */
+  select?: Prisma.ContractWorkflowRowSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContractWorkflowRow
+   */
+  omit?: Prisma.ContractWorkflowRowOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContractWorkflowRowInclude<ExtArgs> | null
+  where?: Prisma.ContractWorkflowRowWhereInput
 }
 
 /**

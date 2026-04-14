@@ -9,6 +9,14 @@ type SyncChoices = {
   conflicts: Record<string, Record<string, "local" | "google" | "skip">>; // localId -> fieldKey -> choice
 };
 
+function isPreconditionFailed(e: unknown): boolean {
+  const g = e as { code?: number; response?: { status?: number }; message?: string };
+  const status = g.response?.status ?? g.code;
+  if (status === 412) return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return /412|precondition failed|failed precondition/i.test(msg);
+}
+
 function normalizeLabelTokens(raw: unknown): string[] {
   if (typeof raw !== "string") return [];
   return raw
@@ -307,7 +315,42 @@ export async function POST(request: NextRequest) {
     const people = google.people({ version: "v1", auth: oauth2 });
     let imported = 0;
     let pushed = 0;
+    let deletedFromGoogle = 0;
     const failures: Array<{ id: string; name?: string; stage: string; message: string }> = [];
+
+    // Remove contacts from Google that were deleted locally (queued in `GoogleContactDeletionQueue`).
+    const pendingDeletes = await prisma.googleContactDeletionQueue.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+    for (const row of pendingDeletes) {
+      try {
+        await people.people.deleteContact({
+          resourceName: row.googleResourceName,
+        });
+        await prisma.googleContactDeletionQueue.delete({ where: { id: row.id } });
+        deletedFromGoogle++;
+      } catch (e: unknown) {
+        const gaxios = e as { code?: number; response?: { status?: number }; message?: string };
+        const status = gaxios.response?.status ?? gaxios.code;
+        const msg = e instanceof Error ? e.message : String(e);
+        const notFound =
+          status === 404 ||
+          /404/.test(msg) ||
+          /not\s*found/i.test(msg) ||
+          /Requested entity was not found/i.test(msg);
+        if (notFound) {
+          await prisma.googleContactDeletionQueue.delete({ where: { id: row.id } }).catch(() => {});
+          deletedFromGoogle++;
+          continue;
+        }
+        console.error("Google delete contact error:", e);
+        failures.push({
+          id: row.googleResourceName,
+          stage: "delete_google",
+          message: msg,
+        });
+      }
+    }
 
     // Load all Google contact groups once so we can map labels <-> group resource names.
     const contactGroupDisplayNameByResourceName = new Map<string, string>();
@@ -470,26 +513,54 @@ export async function POST(request: NextRequest) {
       currentEtag?: string | null;
       currentMembershipResourceNames?: string[];
     }) => {
-      const etag = contact.currentEtag ?? null;
+      let etag = contact.currentEtag ?? null;
       if (!etag) {
         throw new Error(`Missing etag for Google contact ${contact.googleResourceName}`);
       }
 
-      await people.people.updateContact({
-        resourceName: contact.googleResourceName,
-        updatePersonFields:
-          "names,emailAddresses,phoneNumbers,organizations,addresses,biographies,memberships",
-        requestBody: {
-          resourceName: contact.googleResourceName,
-          etag,
-          ...buildLocalGooglePersonRequest(contact),
-          memberships: await buildGoogleMemberships(
-            contact.label ?? null,
-            !!contact.isPriority,
-            contact.currentMembershipResourceNames
-          ),
-        },
-      });
+      let membershipRNs = contact.currentMembershipResourceNames;
+      let membershipsPayload = await buildGoogleMemberships(
+        contact.label ?? null,
+        !!contact.isPriority,
+        membershipRNs
+      );
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await people.people.updateContact({
+            resourceName: contact.googleResourceName,
+            updatePersonFields:
+              "names,emailAddresses,phoneNumbers,organizations,addresses,biographies,memberships",
+            requestBody: {
+              resourceName: contact.googleResourceName,
+              etag,
+              ...buildLocalGooglePersonRequest(contact),
+              memberships: membershipsPayload,
+            },
+          });
+          return;
+        } catch (e) {
+          if (attempt === 0 && isPreconditionFailed(e)) {
+            const refreshed = await people.people.get({
+              resourceName: contact.googleResourceName,
+              personFields: "metadata,memberships",
+            });
+            etag =
+              refreshed.data?.etag ||
+              refreshed.data?.metadata?.sources?.[0]?.etag ||
+              null;
+            if (!etag) throw e;
+            membershipRNs = extractMembershipResourceNamesFromPerson(refreshed.data);
+            membershipsPayload = await buildGoogleMemberships(
+              contact.label ?? null,
+              !!contact.isPriority,
+              membershipRNs
+            );
+            continue;
+          }
+          throw e;
+        }
+      }
     };
 
     // Import selected from Google
@@ -552,7 +623,8 @@ export async function POST(request: NextRequest) {
       try {
         const person = await people.people.get({
           resourceName: contact.googleResourceName,
-          personFields: "names,emailAddresses,phoneNumbers,organizations,memberships,addresses,biographies",
+          personFields:
+            "names,emailAddresses,phoneNumbers,organizations,memberships,addresses,biographies,metadata",
         });
         const personEtag = person.data?.etag || person.data?.metadata?.sources?.[0]?.etag || null;
         const membershipResourceNames = extractMembershipResourceNamesFromPerson(person.data);
@@ -741,7 +813,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ imported, pushed, failures });
+    return NextResponse.json({ imported, pushed, deletedFromGoogle, failures });
   } catch (err) {
     console.error("Sync error:", err);
     return NextResponse.json(

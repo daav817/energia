@@ -38,6 +38,7 @@ export type ContactPhoneMinAggregateOutputType = {
   id: string | null
   contactId: string | null
   phone: string | null
+  extension: string | null
   type: string | null
   order: number | null
 }
@@ -46,6 +47,7 @@ export type ContactPhoneMaxAggregateOutputType = {
   id: string | null
   contactId: string | null
   phone: string | null
+  extension: string | null
   type: string | null
   order: number | null
 }
@@ -54,6 +56,7 @@ export type ContactPhoneCountAggregateOutputType = {
   id: number
   contactId: number
   phone: number
+  extension: number
   type: number
   order: number
   _all: number
@@ -72,6 +75,7 @@ export type ContactPhoneMinAggregateInputType = {
   id?: true
   contactId?: true
   phone?: true
+  extension?: true
   type?: true
   order?: true
 }
@@ -80,6 +84,7 @@ export type ContactPhoneMaxAggregateInputType = {
   id?: true
   contactId?: true
   phone?: true
+  extension?: true
   type?: true
   order?: true
 }
@@ -88,6 +93,7 @@ export type ContactPhoneCountAggregateInputType = {
   id?: true
   contactId?: true
   phone?: true
+  extension?: true
   type?: true
   order?: true
   _all?: true
@@ -183,6 +189,7 @@ export type ContactPhoneGroupByOutputType = {
   id: string
   contactId: string
   phone: string
+  extension: string | null
   type: string | null
   order: number
   _count: ContactPhoneCountAggregateOutputType | null
@@ -214,6 +221,7 @@ export type ContactPhoneWhereInput = {
   id?: Prisma.StringFilter<"ContactPhone"> | string
   contactId?: Prisma.StringFilter<"ContactPhone"> | string
   phone?: Prisma.StringFilter<"ContactPhone"> | string
+  extension?: Prisma.StringNullableFilter<"ContactPhone"> | string | null
   type?: Prisma.StringNullableFilter<"ContactPhone"> | string | null
   order?: Prisma.IntFilter<"ContactPhone"> | number
   contact?: Prisma.XOR<Prisma.ContactScalarRelationFilter, Prisma.ContactWhereInput>
@@ -223,6 +231,7 @@ export type ContactPhoneOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   phone?: Prisma.SortOrder
+  extension?: Prisma.SortOrderInput | Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
   order?: Prisma.SortOrder
   contact?: Prisma.ContactOrderByWithRelationInput
@@ -235,6 +244,7 @@ export type ContactPhoneWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.ContactPhoneWhereInput | Prisma.ContactPhoneWhereInput[]
   contactId?: Prisma.StringFilter<"ContactPhone"> | string
   phone?: Prisma.StringFilter<"ContactPhone"> | string
+  extension?: Prisma.StringNullableFilter<"ContactPhone"> | string | null
   type?: Prisma.StringNullableFilter<"ContactPhone"> | string | null
   order?: Prisma.IntFilter<"ContactPhone"> | number
   contact?: Prisma.XOR<Prisma.ContactScalarRelationFilter, Prisma.ContactWhereInput>
@@ -244,6 +254,7 @@ export type ContactPhoneOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   phone?: Prisma.SortOrder
+  extension?: Prisma.SortOrderInput | Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
   order?: Prisma.SortOrder
   _count?: Prisma.ContactPhoneCountOrderByAggregateInput
@@ -260,6 +271,7 @@ export type ContactPhoneScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"ContactPhone"> | string
   contactId?: Prisma.StringWithAggregatesFilter<"ContactPhone"> | string
   phone?: Prisma.StringWithAggregatesFilter<"ContactPhone"> | string
+  extension?: Prisma.StringNullableWithAggregatesFilter<"ContactPhone"> | string | null
   type?: Prisma.StringNullableWithAggregatesFilter<"ContactPhone"> | string | null
   order?: Prisma.IntWithAggregatesFilter<"ContactPhone"> | number
 }
@@ -267,6 +279,7 @@ export type ContactPhoneScalarWhereWithAggregatesInput = {
 export type ContactPhoneCreateInput = {
   id?: string
   phone: string
+  extension?: string | null
   type?: string | null
   order?: number
   contact: Prisma.ContactCreateNestedOneWithoutPhonesInput
@@ -276,6 +289,7 @@ export type ContactPhoneUncheckedCreateInput = {
   id?: string
   contactId: string
   phone: string
+  extension?: string | null
   type?: string | null
   order?: number
 }
@@ -283,6 +297,7 @@ export type ContactPhoneUncheckedCreateInput = {
 export type ContactPhoneUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
   contact?: Prisma.ContactUpdateOneRequiredWithoutPhonesNestedInput
@@ -292,6 +307,7 @@ export type ContactPhoneUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   contactId?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
 }
@@ -300,6 +316,7 @@ export type ContactPhoneCreateManyInput = {
   id?: string
   contactId: string
   phone: string
+  extension?: string | null
   type?: string | null
   order?: number
 }
@@ -307,6 +324,7 @@ export type ContactPhoneCreateManyInput = {
 export type ContactPhoneUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
 }
@@ -315,6 +333,7 @@ export type ContactPhoneUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   contactId?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
 }
@@ -333,6 +352,7 @@ export type ContactPhoneCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   phone?: Prisma.SortOrder
+  extension?: Prisma.SortOrder
   type?: Prisma.SortOrder
   order?: Prisma.SortOrder
 }
@@ -345,6 +365,7 @@ export type ContactPhoneMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   phone?: Prisma.SortOrder
+  extension?: Prisma.SortOrder
   type?: Prisma.SortOrder
   order?: Prisma.SortOrder
 }
@@ -353,6 +374,7 @@ export type ContactPhoneMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   contactId?: Prisma.SortOrder
   phone?: Prisma.SortOrder
+  extension?: Prisma.SortOrder
   type?: Prisma.SortOrder
   order?: Prisma.SortOrder
 }
@@ -406,6 +428,7 @@ export type ContactPhoneUncheckedUpdateManyWithoutContactNestedInput = {
 export type ContactPhoneCreateWithoutContactInput = {
   id?: string
   phone: string
+  extension?: string | null
   type?: string | null
   order?: number
 }
@@ -413,6 +436,7 @@ export type ContactPhoneCreateWithoutContactInput = {
 export type ContactPhoneUncheckedCreateWithoutContactInput = {
   id?: string
   phone: string
+  extension?: string | null
   type?: string | null
   order?: number
 }
@@ -450,6 +474,7 @@ export type ContactPhoneScalarWhereInput = {
   id?: Prisma.StringFilter<"ContactPhone"> | string
   contactId?: Prisma.StringFilter<"ContactPhone"> | string
   phone?: Prisma.StringFilter<"ContactPhone"> | string
+  extension?: Prisma.StringNullableFilter<"ContactPhone"> | string | null
   type?: Prisma.StringNullableFilter<"ContactPhone"> | string | null
   order?: Prisma.IntFilter<"ContactPhone"> | number
 }
@@ -457,6 +482,7 @@ export type ContactPhoneScalarWhereInput = {
 export type ContactPhoneCreateManyContactInput = {
   id?: string
   phone: string
+  extension?: string | null
   type?: string | null
   order?: number
 }
@@ -464,6 +490,7 @@ export type ContactPhoneCreateManyContactInput = {
 export type ContactPhoneUpdateWithoutContactInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
 }
@@ -471,6 +498,7 @@ export type ContactPhoneUpdateWithoutContactInput = {
 export type ContactPhoneUncheckedUpdateWithoutContactInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
 }
@@ -478,6 +506,7 @@ export type ContactPhoneUncheckedUpdateWithoutContactInput = {
 export type ContactPhoneUncheckedUpdateManyWithoutContactInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
+  extension?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   order?: Prisma.IntFieldUpdateOperationsInput | number
 }
@@ -488,6 +517,7 @@ export type ContactPhoneSelect<ExtArgs extends runtime.Types.Extensions.Internal
   id?: boolean
   contactId?: boolean
   phone?: boolean
+  extension?: boolean
   type?: boolean
   order?: boolean
   contact?: boolean | Prisma.ContactDefaultArgs<ExtArgs>
@@ -497,6 +527,7 @@ export type ContactPhoneSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   id?: boolean
   contactId?: boolean
   phone?: boolean
+  extension?: boolean
   type?: boolean
   order?: boolean
   contact?: boolean | Prisma.ContactDefaultArgs<ExtArgs>
@@ -506,6 +537,7 @@ export type ContactPhoneSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   id?: boolean
   contactId?: boolean
   phone?: boolean
+  extension?: boolean
   type?: boolean
   order?: boolean
   contact?: boolean | Prisma.ContactDefaultArgs<ExtArgs>
@@ -515,11 +547,12 @@ export type ContactPhoneSelectScalar = {
   id?: boolean
   contactId?: boolean
   phone?: boolean
+  extension?: boolean
   type?: boolean
   order?: boolean
 }
 
-export type ContactPhoneOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "contactId" | "phone" | "type" | "order", ExtArgs["result"]["contactPhone"]>
+export type ContactPhoneOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "contactId" | "phone" | "extension" | "type" | "order", ExtArgs["result"]["contactPhone"]>
 export type ContactPhoneInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   contact?: boolean | Prisma.ContactDefaultArgs<ExtArgs>
 }
@@ -539,6 +572,7 @@ export type $ContactPhonePayload<ExtArgs extends runtime.Types.Extensions.Intern
     id: string
     contactId: string
     phone: string
+    extension: string | null
     type: string | null
     order: number
   }, ExtArgs["result"]["contactPhone"]>
@@ -968,6 +1002,7 @@ export interface ContactPhoneFieldRefs {
   readonly id: Prisma.FieldRef<"ContactPhone", 'String'>
   readonly contactId: Prisma.FieldRef<"ContactPhone", 'String'>
   readonly phone: Prisma.FieldRef<"ContactPhone", 'String'>
+  readonly extension: Prisma.FieldRef<"ContactPhone", 'String'>
   readonly type: Prisma.FieldRef<"ContactPhone", 'String'>
   readonly order: Prisma.FieldRef<"ContactPhone", 'Int'>
 }

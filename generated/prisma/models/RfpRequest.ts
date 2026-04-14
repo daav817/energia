@@ -444,6 +444,7 @@ export type RfpRequestWhereInput = {
   quotes?: Prisma.RfpQuoteListRelationFilter
   accountLines?: Prisma.RfpAccountLineListRelationFilter
   calendarEvents?: Prisma.CalendarEventListRelationFilter
+  contractWorkflowLink?: Prisma.XOR<Prisma.ContractWorkflowRowNullableScalarRelationFilter, Prisma.ContractWorkflowRowWhereInput> | null
 }
 
 export type RfpRequestOrderByWithRelationInput = {
@@ -489,6 +490,7 @@ export type RfpRequestOrderByWithRelationInput = {
   quotes?: Prisma.RfpQuoteOrderByRelationAggregateInput
   accountLines?: Prisma.RfpAccountLineOrderByRelationAggregateInput
   calendarEvents?: Prisma.CalendarEventOrderByRelationAggregateInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowOrderByWithRelationInput
 }
 
 export type RfpRequestWhereUniqueInput = Prisma.AtLeast<{
@@ -537,6 +539,7 @@ export type RfpRequestWhereUniqueInput = Prisma.AtLeast<{
   quotes?: Prisma.RfpQuoteListRelationFilter
   accountLines?: Prisma.RfpAccountLineListRelationFilter
   calendarEvents?: Prisma.CalendarEventListRelationFilter
+  contractWorkflowLink?: Prisma.XOR<Prisma.ContractWorkflowRowNullableScalarRelationFilter, Prisma.ContractWorkflowRowWhereInput> | null
 }, "id">
 
 export type RfpRequestOrderByWithAggregationInput = {
@@ -661,6 +664,7 @@ export type RfpRequestCreateInput = {
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateInput = {
@@ -703,6 +707,7 @@ export type RfpRequestUncheckedCreateInput = {
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUpdateInput = {
@@ -745,6 +750,7 @@ export type RfpRequestUpdateInput = {
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateInput = {
@@ -787,6 +793,7 @@ export type RfpRequestUncheckedUpdateInput = {
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestCreateManyInput = {
@@ -1118,6 +1125,22 @@ export type RfpRequestUncheckedUpdateManyWithoutSuppliersNestedInput = {
   deleteMany?: Prisma.RfpRequestScalarWhereInput | Prisma.RfpRequestScalarWhereInput[]
 }
 
+export type RfpRequestCreateNestedOneWithoutContractWorkflowLinkInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutContractWorkflowLinkInput, Prisma.RfpRequestUncheckedCreateWithoutContractWorkflowLinkInput>
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutContractWorkflowLinkInput
+  connect?: Prisma.RfpRequestWhereUniqueInput
+}
+
+export type RfpRequestUpdateOneWithoutContractWorkflowLinkNestedInput = {
+  create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutContractWorkflowLinkInput, Prisma.RfpRequestUncheckedCreateWithoutContractWorkflowLinkInput>
+  connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutContractWorkflowLinkInput
+  upsert?: Prisma.RfpRequestUpsertWithoutContractWorkflowLinkInput
+  disconnect?: Prisma.RfpRequestWhereInput | boolean
+  delete?: Prisma.RfpRequestWhereInput | boolean
+  connect?: Prisma.RfpRequestWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RfpRequestUpdateToOneWithWhereWithoutContractWorkflowLinkInput, Prisma.RfpRequestUpdateWithoutContractWorkflowLinkInput>, Prisma.RfpRequestUncheckedUpdateWithoutContractWorkflowLinkInput>
+}
+
 export type RfpRequestCreateNestedOneWithoutCalendarEventsInput = {
   create?: Prisma.XOR<Prisma.RfpRequestCreateWithoutCalendarEventsInput, Prisma.RfpRequestUncheckedCreateWithoutCalendarEventsInput>
   connectOrCreate?: Prisma.RfpRequestCreateOrConnectWithoutCalendarEventsInput
@@ -1316,6 +1339,7 @@ export type RfpRequestCreateWithoutCustomerInput = {
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutCustomerInput = {
@@ -1357,6 +1381,7 @@ export type RfpRequestUncheckedCreateWithoutCustomerInput = {
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutCustomerInput = {
@@ -1464,6 +1489,7 @@ export type RfpRequestCreateWithoutSuppliersInput = {
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutSuppliersInput = {
@@ -1505,6 +1531,7 @@ export type RfpRequestUncheckedCreateWithoutSuppliersInput = {
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutSuppliersInput = {
@@ -1526,6 +1553,190 @@ export type RfpRequestUpdateWithWhereUniqueWithoutSuppliersInput = {
 export type RfpRequestUpdateManyWithWhereWithoutSuppliersInput = {
   where: Prisma.RfpRequestScalarWhereInput
   data: Prisma.XOR<Prisma.RfpRequestUpdateManyMutationInput, Prisma.RfpRequestUncheckedUpdateManyWithoutSuppliersInput>
+}
+
+export type RfpRequestCreateWithoutContractWorkflowLinkInput = {
+  id?: string
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  refreshSequence?: number
+  archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer?: Prisma.CustomerCreateNestedOneWithoutRfpRequestsInput
+  customerContact?: Prisma.ContactCreateNestedOneWithoutRfpRequestsAsCustomerContactInput
+  parentRfp?: Prisma.RfpRequestCreateNestedOneWithoutChildReissuesInput
+  childReissues?: Prisma.RfpRequestCreateNestedManyWithoutParentRfpInput
+  suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
+  quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
+  accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+}
+
+export type RfpRequestUncheckedCreateWithoutContractWorkflowLinkInput = {
+  id?: string
+  customerId?: string | null
+  energyType: $Enums.EnergyType
+  annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: string | null
+  termMonths?: number | null
+  googleDriveFolderUrl?: string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summarySpreadsheetUrl?: string | null
+  quoteDueDate?: Date | string | null
+  contractStartMonth?: number | null
+  contractStartYear?: number | null
+  brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: $Enums.PriceUnit | null
+  ldcUtility?: string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestCreatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Date | string | null
+  sentAt?: Date | string | null
+  status?: string
+  notes?: string | null
+  enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  parentRfpId?: string | null
+  refreshSequence?: number
+  archivedAt?: Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  childReissues?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutParentRfpInput
+  suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
+  quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
+  accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+}
+
+export type RfpRequestCreateOrConnectWithoutContractWorkflowLinkInput = {
+  where: Prisma.RfpRequestWhereUniqueInput
+  create: Prisma.XOR<Prisma.RfpRequestCreateWithoutContractWorkflowLinkInput, Prisma.RfpRequestUncheckedCreateWithoutContractWorkflowLinkInput>
+}
+
+export type RfpRequestUpsertWithoutContractWorkflowLinkInput = {
+  update: Prisma.XOR<Prisma.RfpRequestUpdateWithoutContractWorkflowLinkInput, Prisma.RfpRequestUncheckedUpdateWithoutContractWorkflowLinkInput>
+  create: Prisma.XOR<Prisma.RfpRequestCreateWithoutContractWorkflowLinkInput, Prisma.RfpRequestUncheckedCreateWithoutContractWorkflowLinkInput>
+  where?: Prisma.RfpRequestWhereInput
+}
+
+export type RfpRequestUpdateToOneWithWhereWithoutContractWorkflowLinkInput = {
+  where?: Prisma.RfpRequestWhereInput
+  data: Prisma.XOR<Prisma.RfpRequestUpdateWithoutContractWorkflowLinkInput, Prisma.RfpRequestUncheckedUpdateWithoutContractWorkflowLinkInput>
+}
+
+export type RfpRequestUpdateWithoutContractWorkflowLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneWithoutRfpRequestsNestedInput
+  customerContact?: Prisma.ContactUpdateOneWithoutRfpRequestsAsCustomerContactNestedInput
+  parentRfp?: Prisma.RfpRequestUpdateOneWithoutChildReissuesNestedInput
+  childReissues?: Prisma.RfpRequestUpdateManyWithoutParentRfpNestedInput
+  suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
+  quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
+  accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+}
+
+export type RfpRequestUncheckedUpdateWithoutContractWorkflowLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  energyType?: Prisma.EnumEnergyTypeFieldUpdateOperationsInput | $Enums.EnergyType
+  annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billDocumentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  termMonths?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  googleDriveFolderUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billDriveItems?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  electricPricingOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summarySpreadsheetUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteDueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contractStartMonth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractStartYear?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  brokerMarginUnit?: Prisma.NullableEnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit | null
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedTerms?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  supplierContactSelections?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  customerContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  quoteSummaryCcContactIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteSummaryContactIds?: Prisma.RfpRequestUpdatequoteSummaryContactIdsInput | string[]
+  quoteSummarySentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  enrollmentDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  parentRfpId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  archivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  archivedQuoteWorkspace?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  quoteComparisonPicks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  childReissues?: Prisma.RfpRequestUncheckedUpdateManyWithoutParentRfpNestedInput
+  suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
+  quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
+  accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
 }
 
 export type RfpRequestCreateWithoutCalendarEventsInput = {
@@ -1567,6 +1778,7 @@ export type RfpRequestCreateWithoutCalendarEventsInput = {
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutCalendarEventsInput = {
@@ -1608,6 +1820,7 @@ export type RfpRequestUncheckedCreateWithoutCalendarEventsInput = {
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutCalendarEventsInput = {
@@ -1665,6 +1878,7 @@ export type RfpRequestUpdateWithoutCalendarEventsInput = {
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutCalendarEventsInput = {
@@ -1706,6 +1920,7 @@ export type RfpRequestUncheckedUpdateWithoutCalendarEventsInput = {
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestCreateWithoutChildReissuesInput = {
@@ -1747,6 +1962,7 @@ export type RfpRequestCreateWithoutChildReissuesInput = {
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutChildReissuesInput = {
@@ -1788,6 +2004,7 @@ export type RfpRequestUncheckedCreateWithoutChildReissuesInput = {
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutChildReissuesInput = {
@@ -1834,6 +2051,7 @@ export type RfpRequestCreateWithoutParentRfpInput = {
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutParentRfpInput = {
@@ -1875,6 +2093,7 @@ export type RfpRequestUncheckedCreateWithoutParentRfpInput = {
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutParentRfpInput = {
@@ -1937,6 +2156,7 @@ export type RfpRequestUpdateWithoutChildReissuesInput = {
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutChildReissuesInput = {
@@ -1978,6 +2198,7 @@ export type RfpRequestUncheckedUpdateWithoutChildReissuesInput = {
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUpsertWithWhereUniqueWithoutParentRfpInput = {
@@ -2035,6 +2256,7 @@ export type RfpRequestCreateWithoutAccountLinesInput = {
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutAccountLinesInput = {
@@ -2076,6 +2298,7 @@ export type RfpRequestUncheckedCreateWithoutAccountLinesInput = {
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutAccountLinesInput = {
@@ -2133,6 +2356,7 @@ export type RfpRequestUpdateWithoutAccountLinesInput = {
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutAccountLinesInput = {
@@ -2174,6 +2398,7 @@ export type RfpRequestUncheckedUpdateWithoutAccountLinesInput = {
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestCreateWithoutQuotesInput = {
@@ -2215,6 +2440,7 @@ export type RfpRequestCreateWithoutQuotesInput = {
   suppliers?: Prisma.SupplierCreateNestedManyWithoutRfpRequestsInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutQuotesInput = {
@@ -2256,6 +2482,7 @@ export type RfpRequestUncheckedCreateWithoutQuotesInput = {
   suppliers?: Prisma.SupplierUncheckedCreateNestedManyWithoutRfpRequestsInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutQuotesInput = {
@@ -2313,6 +2540,7 @@ export type RfpRequestUpdateWithoutQuotesInput = {
   suppliers?: Prisma.SupplierUpdateManyWithoutRfpRequestsNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutQuotesInput = {
@@ -2354,6 +2582,7 @@ export type RfpRequestUncheckedUpdateWithoutQuotesInput = {
   suppliers?: Prisma.SupplierUncheckedUpdateManyWithoutRfpRequestsNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestCreateWithoutCustomerContactInput = {
@@ -2395,6 +2624,7 @@ export type RfpRequestCreateWithoutCustomerContactInput = {
   quotes?: Prisma.RfpQuoteCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestUncheckedCreateWithoutCustomerContactInput = {
@@ -2436,6 +2666,7 @@ export type RfpRequestUncheckedCreateWithoutCustomerContactInput = {
   quotes?: Prisma.RfpQuoteUncheckedCreateNestedManyWithoutRfpRequestInput
   accountLines?: Prisma.RfpAccountLineUncheckedCreateNestedManyWithoutRfpRequestInput
   calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutRfpRequestInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedCreateNestedOneWithoutLinkedRfpInput
 }
 
 export type RfpRequestCreateOrConnectWithoutCustomerContactInput = {
@@ -2539,6 +2770,7 @@ export type RfpRequestUpdateWithoutCustomerInput = {
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutCustomerInput = {
@@ -2580,6 +2812,7 @@ export type RfpRequestUncheckedUpdateWithoutCustomerInput = {
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateManyWithoutCustomerInput = {
@@ -2657,6 +2890,7 @@ export type RfpRequestUpdateWithoutSuppliersInput = {
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutSuppliersInput = {
@@ -2698,6 +2932,7 @@ export type RfpRequestUncheckedUpdateWithoutSuppliersInput = {
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateManyWithoutSuppliersInput = {
@@ -2812,6 +3047,7 @@ export type RfpRequestUpdateWithoutParentRfpInput = {
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutParentRfpInput = {
@@ -2853,6 +3089,7 @@ export type RfpRequestUncheckedUpdateWithoutParentRfpInput = {
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateManyWithoutParentRfpInput = {
@@ -2966,6 +3203,7 @@ export type RfpRequestUpdateWithoutCustomerContactInput = {
   quotes?: Prisma.RfpQuoteUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateWithoutCustomerContactInput = {
@@ -3007,6 +3245,7 @@ export type RfpRequestUncheckedUpdateWithoutCustomerContactInput = {
   quotes?: Prisma.RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput
   accountLines?: Prisma.RfpAccountLineUncheckedUpdateManyWithoutRfpRequestNestedInput
   calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutRfpRequestNestedInput
+  contractWorkflowLink?: Prisma.ContractWorkflowRowUncheckedUpdateOneWithoutLinkedRfpNestedInput
 }
 
 export type RfpRequestUncheckedUpdateManyWithoutCustomerContactInput = {
@@ -3155,6 +3394,7 @@ export type RfpRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   quotes?: boolean | Prisma.RfpRequest$quotesArgs<ExtArgs>
   accountLines?: boolean | Prisma.RfpRequest$accountLinesArgs<ExtArgs>
   calendarEvents?: boolean | Prisma.RfpRequest$calendarEventsArgs<ExtArgs>
+  contractWorkflowLink?: boolean | Prisma.RfpRequest$contractWorkflowLinkArgs<ExtArgs>
   _count?: boolean | Prisma.RfpRequestCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["rfpRequest"]>
 
@@ -3285,6 +3525,7 @@ export type RfpRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalA
   quotes?: boolean | Prisma.RfpRequest$quotesArgs<ExtArgs>
   accountLines?: boolean | Prisma.RfpRequest$accountLinesArgs<ExtArgs>
   calendarEvents?: boolean | Prisma.RfpRequest$calendarEventsArgs<ExtArgs>
+  contractWorkflowLink?: boolean | Prisma.RfpRequest$contractWorkflowLinkArgs<ExtArgs>
   _count?: boolean | Prisma.RfpRequestCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RfpRequestIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3309,6 +3550,7 @@ export type $RfpRequestPayload<ExtArgs extends runtime.Types.Extensions.Internal
     quotes: Prisma.$RfpQuotePayload<ExtArgs>[]
     accountLines: Prisma.$RfpAccountLinePayload<ExtArgs>[]
     calendarEvents: Prisma.$CalendarEventPayload<ExtArgs>[]
+    contractWorkflowLink: Prisma.$ContractWorkflowRowPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3783,6 +4025,7 @@ export interface Prisma__RfpRequestClient<T, Null = never, ExtArgs extends runti
   quotes<T extends Prisma.RfpRequest$quotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$quotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpQuotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   accountLines<T extends Prisma.RfpRequest$accountLinesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$accountLinesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpAccountLinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   calendarEvents<T extends Prisma.RfpRequest$calendarEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$calendarEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CalendarEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contractWorkflowLink<T extends Prisma.RfpRequest$contractWorkflowLinkArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RfpRequest$contractWorkflowLinkArgs<ExtArgs>>): Prisma.Prisma__ContractWorkflowRowClient<runtime.Types.Result.GetResult<Prisma.$ContractWorkflowRowPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4421,6 +4664,25 @@ export type RfpRequest$calendarEventsArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.CalendarEventScalarFieldEnum | Prisma.CalendarEventScalarFieldEnum[]
+}
+
+/**
+ * RfpRequest.contractWorkflowLink
+ */
+export type RfpRequest$contractWorkflowLinkArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContractWorkflowRow
+   */
+  select?: Prisma.ContractWorkflowRowSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContractWorkflowRow
+   */
+  omit?: Prisma.ContractWorkflowRowOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContractWorkflowRowInclude<ExtArgs> | null
+  where?: Prisma.ContractWorkflowRowWhereInput
 }
 
 /**

@@ -21,6 +21,8 @@ import {
   Search,
   X,
   FilePenLine,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +71,7 @@ import { cn } from "@/lib/utils";
 import { annualGasUsageToMcf } from "@/lib/energy-usage";
 import { ContactLabelsField } from "@/components/contact-labels-field";
 import { ComposeEmailModal } from "@/components/compose-email-modal";
+import { GoogleDriveBillFilePickerDialog } from "@/components/google-drive/google-drive-bill-file-picker-dialog";
 import Link from "next/link";
 import {
   DropdownMenu,
@@ -128,6 +131,7 @@ type Contract = {
   notes?: string | null;
   needsContractDetail?: boolean;
   sourceRfpRequestId?: string | null;
+  _count?: { accounts: number };
 };
 
 /** Default form when adding a new contract (shared state must be reset when opening Add Contract). */
@@ -154,6 +158,10 @@ const EMPTY_CONTRACT_FORM = {
 /** Customer notes for this contract row only (stored on Contract.notes). */
 function contractRowNotes(c: Contract): string {
   return (c.notes ?? "").trim() ? String(c.notes) : "";
+}
+
+function contractHasAccountRows(c: Contract): boolean {
+  return (c._count?.accounts ?? 0) > 0;
 }
 
 function escapeCsvCell(val: unknown): string {
@@ -1014,6 +1022,7 @@ export default function ContractsPage() {
     const payload = buildRfpFromContractPrefillPayload(
       {
         id: c.id,
+        supplierId: c.supplierId,
         customer: { id: c.customer.id, company: c.customer.company, name: c.customer.name },
         mainContactId: c.mainContactId,
         mainContact: c.mainContact ? { id: c.mainContact.id, company: c.mainContact.company } : null,
@@ -1528,6 +1537,7 @@ export default function ContractsPage() {
             : null
         }
         directory={Array.isArray(contacts) ? contacts : []}
+        customers={customers}
         onUpdated={() => {
           refetchContacts();
           void fetchContracts();
@@ -2118,14 +2128,16 @@ function ContractsTable({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="relative h-8 w-8"
+                              className="h-8 w-8"
                               onClick={() => onNotes(c)}
                               title={contractRowNotes(c) ? "View/edit contract notes" : "Add contract note"}
                             >
-                              <StickyNote className="h-4 w-4" />
-                              {contractRowNotes(c) && (
-                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-background animate-pulse" title="Has note" />
-                              )}
+                              <StickyNote
+                                className={cn(
+                                  "h-4 w-4",
+                                  contractRowNotes(c) ? "text-amber-500" : ""
+                                )}
+                              />
                             </Button>
                           )}
                         </TableCell>
@@ -2459,6 +2471,45 @@ function pickPrimaryContactIdForCustomer(customerId: string, contacts: Contact[]
     return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   });
   return pool[0].id;
+}
+
+function googleDriveFileIdFromUrl(url: string): string | null {
+  const u = url.trim();
+  const filePath = u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (filePath) return filePath[1];
+  if (/drive\.google\.com/i.test(u)) {
+    const idParam = u.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idParam) return idParam[1];
+  }
+  return null;
+}
+
+/**
+ * Drive /preview and /view URLs show a Google sign-in wall inside iframes.
+ * Stream the file through our API using the app's OAuth token instead (same as /drive downloads).
+ */
+function contractPdfPreviewSrc(rawUrl: string): string {
+  const u = rawUrl.trim();
+  if (!u) return u;
+  if (u.startsWith("blob:")) return u;
+  if (u.includes("/api/google-drive/files/") && u.includes("/download")) {
+    if (/\binline=(?:1|true)\b/i.test(u)) return u;
+    return u.includes("?") ? `${u}&inline=1` : `${u}?inline=1`;
+  }
+  const id = googleDriveFileIdFromUrl(u);
+  if (id) return `/api/google-drive/files/${encodeURIComponent(id)}/download?inline=1`;
+  return u;
+}
+
+function isContractPdfLike(url: string, previewFile: File | null): boolean {
+  if (previewFile?.type?.includes("pdf")) return true;
+  const name = (previewFile?.name || "").toLowerCase();
+  if (name.endsWith(".pdf")) return true;
+  const lower = url.toLowerCase();
+  if (lower.includes(".pdf")) return true;
+  if (/\/file\/d\/[^/]+/.test(lower)) return true;
+  if (/drive\.google\.com/.test(lower) && /[?&]id=/.test(lower)) return true;
+  return false;
 }
 
 type ContractFormState = {
@@ -2832,6 +2883,8 @@ function AddContractDialog({
   const [signedPreviewFile, setSignedPreviewFile] = useState<File | null>(null);
   const [signedObjectUrl, setSignedObjectUrl] = useState<string | null>(null);
   const [signedPreviewLarge, setSignedPreviewLarge] = useState(false);
+  const [signedDrivePickerOpen, setSignedDrivePickerOpen] = useState(false);
+  const [signedPdfZoom, setSignedPdfZoom] = useState(100);
 
   useEffect(() => {
     if (!signedPreviewFile) {
@@ -2847,8 +2900,14 @@ function AddContractDialog({
     if (!open) {
       setSignedPreviewFile(null);
       setSignedPreviewLarge(false);
+      setSignedPdfZoom(100);
     }
   }, [open]);
+
+  const signedPreviewSourceUrl = (signedObjectUrl || form.signedContractDriveUrl.trim()).trim();
+  useEffect(() => {
+    if (!signedPreviewSourceUrl) setSignedPdfZoom(100);
+  }, [signedPreviewSourceUrl]);
 
   useEffect(() => {
     const fromMerged = companiesMerged.find((x) => x.customerId === form.customerId);
@@ -3103,12 +3162,13 @@ function AddContractDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[min(96vw,72rem)] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[min(98vw,1400px)] w-full max-h-[95vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="grid lg:grid-cols-[1fr_minmax(280px,400px)] gap-4 lg:gap-6 items-start">
+        <div className="grid w-full gap-6 items-start xl:grid-cols-[minmax(0,480px)_minmax(520px,1fr)] xl:gap-8">
           <form onSubmit={onSubmit} className="space-y-4 py-2 min-w-0">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2 relative">
@@ -3525,12 +3585,12 @@ function AddContractDialog({
           </DialogFooter>
         </form>
 
-        <aside className="space-y-3 border-t lg:border-t-0 lg:border-l border-border/60 pt-4 lg:pt-0 lg:pl-4">
+        <aside className="min-w-0 space-y-3 border-t xl:border-t-0 xl:border-l border-border/60 pt-4 xl:pt-0 xl:pl-6">
           <div>
             <Label>Signed customer contract (preview)</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Choose a PDF or PNG from disk, paste a Google Drive link, or pick a file from the Drive page. The link is
-              saved on the contract for reference.
+              Choose a PDF or image from disk, paste a Google Drive link, or use <strong>Drive</strong> to search and
+              pick a file (same browser as RFP bill PDFs). The link is saved on the contract.
             </p>
           </div>
           <Input
@@ -3553,51 +3613,114 @@ function AddContractDialog({
                 if (v.trim()) setSignedPreviewFile(null);
               }}
             />
-            <Button type="button" variant="outline" size="sm" asChild>
-              <Link href="/drive" target="_blank" rel="noopener noreferrer">
-                Drive
-              </Link>
+            <Button type="button" variant="outline" size="sm" onClick={() => setSignedDrivePickerOpen(true)}>
+              Drive
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setSignedPreviewLarge((v) => !v)}
             >
-              {signedPreviewLarge ? "Smaller preview" : "Larger preview"}
+              {signedPreviewLarge ? "Shorter preview area" : "Taller preview area"}
             </Button>
+            {signedPreviewSourceUrl && isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile) ? (
+              <>
+                <span className="text-xs text-muted-foreground">Zoom</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Zoom out"
+                  onClick={() => setSignedPdfZoom((z) => Math.max(50, z - 25))}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="min-w-[3rem] text-center text-xs tabular-nums text-muted-foreground">
+                  {signedPdfZoom}%
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Zoom in"
+                  onClick={() => setSignedPdfZoom((z) => Math.min(200, z + 25))}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setSignedPdfZoom(100)}
+                >
+                  Reset
+                </Button>
+              </>
+            ) : null}
           </div>
           {(() => {
-            const url = (signedObjectUrl || form.signedContractDriveUrl.trim()) as string;
-            if (!url) return null;
-            const nameOrUrl = (signedPreviewFile?.name || form.signedContractDriveUrl || url).toLowerCase();
-            const isPdf =
-              nameOrUrl.endsWith(".pdf") ||
-              (signedPreviewFile?.type || "").includes("pdf") ||
-              url.toLowerCase().includes(".pdf");
-            if (isPdf) {
+            if (!signedPreviewSourceUrl) {
               return (
-                <iframe
-                  title="Contract PDF preview"
-                  className="w-full rounded-md border bg-muted/20"
-                  style={{
-                    height: signedPreviewLarge ? "min(88vh, 920px)" : "min(52vh, 520px)",
-                  }}
-                  src={url}
-                />
+                <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-8 text-center">
+                  No file selected. Add a Drive link, pick from Drive, or choose a PDF/image from disk to preview here.
+                </p>
               );
             }
+            const isPdf = isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile);
+            const iframeSrc = isPdf ? contractPdfPreviewSrc(signedPreviewSourceUrl) : signedPreviewSourceUrl;
+            const scale = signedPdfZoom / 100;
+            const previewScrollMaxHeight = signedPreviewLarge ? "min(85vh, 920px)" : "min(58vh, 640px)";
+            const baseIframeW = 920;
+            const baseIframeH = 1180;
+
+            if (isPdf) {
+              return (
+                <div
+                  className="rounded-md border bg-muted/30"
+                  style={{ maxHeight: previewScrollMaxHeight, height: previewScrollMaxHeight }}
+                >
+                  <div className="h-full w-full overflow-auto">
+                    <div
+                      style={{
+                        width: baseIframeW * scale,
+                        height: baseIframeH * scale,
+                        position: "relative",
+                      }}
+                    >
+                      <iframe
+                        title="Contract PDF preview"
+                        className="absolute left-0 top-0 block border-0"
+                        style={{
+                          width: baseIframeW,
+                          height: baseIframeH,
+                          transform: `scale(${scale})`,
+                          transformOrigin: "top left",
+                        }}
+                        src={iframeSrc}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <img
-                src={url}
-                alt="Contract preview"
-                className={cn(
-                  "w-full object-contain rounded-md border bg-muted/20",
-                  signedPreviewLarge ? "max-h-[min(88vh,920px)]" : "max-h-[min(52vh,520px)]"
-                )}
-              />
+              <div
+                className="flex justify-center overflow-auto rounded-md border bg-muted/30 p-2"
+                style={{ maxHeight: previewScrollMaxHeight, height: previewScrollMaxHeight }}
+              >
+                <img
+                  src={signedPreviewSourceUrl}
+                  alt="Contract preview"
+                  className="h-auto w-full max-w-full object-contain"
+                />
+              </div>
             );
           })()}
         </aside>
@@ -3630,5 +3753,19 @@ function AddContractDialog({
         )}
       </DialogContent>
     </Dialog>
+    <GoogleDriveBillFilePickerDialog
+      open={signedDrivePickerOpen}
+      onOpenChange={setSignedDrivePickerOpen}
+      title="Signed contract from Google Drive"
+      onPickLink={(url) => {
+        setSignedPreviewFile(null);
+        setForm((prev) => ({ ...prev, signedContractDriveUrl: url }));
+      }}
+      onPickLocalFile={(file) => {
+        setSignedPreviewFile(file);
+        setForm((prev) => ({ ...prev, signedContractDriveUrl: "" }));
+      }}
+    />
+    </>
   );
 }

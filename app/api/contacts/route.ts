@@ -97,7 +97,7 @@ function buildContactData(body: Record<string, unknown>) {
   const notes = (body.notes as string)?.trim() || null;
 
   const emails = (body.emails as Array<{ email: string; type?: string }>) || [];
-  const phones = (body.phones as Array<{ phone: string; type?: string }>) || [];
+  const phones = (body.phones as Array<{ phone: string; type?: string; extension?: string | null }>) || [];
   const addresses = (body.addresses as Array<{ street?: string; city?: string; state?: string; zip?: string; type?: string }>) || [];
   const significantDates = (body.significantDates as Array<{ label: string; date: string }>) || [];
   const relatedPersons = (body.relatedPersons as Array<{ name: string; relation?: string }>) || [];
@@ -165,7 +165,12 @@ export async function POST(request: NextRequest) {
         phones: {
           create: data.phones
             .filter((p) => p?.phone?.trim())
-            .map((p, i) => ({ phone: p.phone.trim(), type: p.type || "work", order: i })),
+            .map((p, i) => ({
+              phone: p.phone.trim(),
+              extension: p.extension != null && String(p.extension).trim() ? String(p.extension).trim() : null,
+              type: p.type || "work",
+              order: i,
+            })),
         },
         addresses: {
           create: data.addresses

@@ -2,9 +2,11 @@
 
 const NON_DIGIT = /\D/g;
 
-/** Strip to digits, cap at 10 (NANP). */
+/** Strip to digits; drop leading US country code 1 when present (11-digit NANP). */
 export function extractUsPhoneDigits(input: string): string {
-  return input.replace(NON_DIGIT, "").slice(0, 10);
+  let d = input.replace(NON_DIGIT, "");
+  if (d.length === 11 && d.startsWith("1")) d = d.slice(1);
+  return d.slice(0, 10);
 }
 
 /** Format digit string with hyphens while typing / after paste. */

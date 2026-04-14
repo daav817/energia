@@ -32,6 +32,7 @@ import { DayAgendaDialog } from "@/components/schedule/day-agenda-dialog";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog";
 import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
+import { ContractWorkflowPanel } from "@/components/contract-workflow/contract-workflow-panel";
 import { formatGoogleTasksSyncMessage } from "@/lib/google-tasks-sync-message";
 import { persistTasksOrder, reorderIdList } from "@/lib/tasks-reorder";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ const DASH_EMAIL_SEARCH_STORAGE_KEY = "energia-dash-email-search-v1";
 const DASH_TASK_ACC_STORAGE_KEY = "energia-dash-task-acc-v1";
 const DASH_TASK_COMPLETE_DELAY_MS = 2000;
 const DASH_EMAIL_DAY_COLLAPSED_KEY = "energia-dash-email-day-collapsed-v1";
+const DASH_PENDING_RFP_TAB_KEY = "energia-dash-pending-rfp-tab-v1";
 
 const SCHEDULE_NEON_DOT = {
   contract:
@@ -340,6 +342,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [emails, setEmails] = useState<EmailMsg[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  /** LICENSE_EXPIRY events across a wide range — license list panel must not depend on calendar zoom. */
+  const [licenseEventsForList, setLicenseEventsForList] = useState<CalendarEvent[]>([]);
   const [weekTasks, setWeekTasks] = useState<TaskDto[]>([]);
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [licenses, setLicenses] = useState<LicenseRow[]>([]);
@@ -365,6 +369,8 @@ export default function DashboardPage() {
   const [dashYear, setDashYear] = useState(() => new Date().getFullYear());
   const [dashCalRestored, setDashCalRestored] = useState(false);
   const [pendingRfpQuotes, setPendingRfpQuotes] = useState<PendingRfpQuoteRow[]>([]);
+  const [dashPendingRfpTab, setDashPendingRfpTab] = useState<"rfp" | "workflow">("rfp");
+  const [dashPendingTabHydrated, setDashPendingTabHydrated] = useState(false);
   const [contractExpSearch, setContractExpSearch] = useState("");
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractModalId, setContractModalId] = useState<string | null>(null);
@@ -381,6 +387,8 @@ export default function DashboardPage() {
   const [taskCompletingVisualIds, setTaskCompletingVisualIds] = useState<Record<string, boolean>>({});
   const taskCompletingGuardRef = useRef<Set<string>>(new Set());
   const taskAccHydratedRef = useRef(false);
+  /** After mount only — avoids SSR vs client "today" mismatch on schedule cells. */
+  const [dashTodayKey, setDashTodayKey] = useState<string | null>(null);
 
   const dashboardTaskSections = useMemo(() => {
     const sections: { id: string; name: string }[] = taskLists.map((l) => ({ id: l.id, name: l.name }));
@@ -392,6 +400,10 @@ export default function DashboardPage() {
     return sections;
   }, [taskLists, tasksByList, completedTasksByList]);
   const skipEmailDayPersistRef = useRef(true);
+
+  useEffect(() => {
+    setDashTodayKey(localDateKey(new Date()));
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -418,6 +430,26 @@ export default function DashboardPage() {
       /* ignore */
     }
   }, [emailDayCollapsed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const v = localStorage.getItem(DASH_PENDING_RFP_TAB_KEY);
+      if (v === "workflow" || v === "rfp") setDashPendingRfpTab(v);
+    } catch {
+      /* ignore */
+    }
+    setDashPendingTabHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !dashPendingTabHydrated) return;
+    try {
+      localStorage.setItem(DASH_PENDING_RFP_TAB_KEY, dashPendingRfpTab);
+    } catch {
+      /* ignore */
+    }
+  }, [dashPendingRfpTab, dashPendingTabHydrated]);
 
   useEffect(() => {
     if (typeof window === "undefined" || dashboardTaskSections.length === 0 || taskAccHydratedRef.current) return;
@@ -624,6 +656,31 @@ export default function DashboardPage() {
         const jr = await rfpRes.json();
         rfpList = Array.isArray(jr) ? jr : [];
       }
+
+      const licFrom = new Date();
+      licFrom.setFullYear(licFrom.getFullYear() - 5);
+      licFrom.setHours(0, 0, 0, 0);
+      const licTo = new Date();
+      licTo.setFullYear(licTo.getFullYear() + 15);
+      licTo.setHours(23, 59, 59, 999);
+      try {
+        const licCalRes = await fetch(
+          `/api/calendar/overview?from=${encodeURIComponent(licFrom.toISOString())}&to=${encodeURIComponent(licTo.toISOString())}`
+        );
+        if (licCalRes.ok) {
+          const lj = await licCalRes.json();
+          const evs = Array.isArray(lj.events) ? (lj.events as CalendarEvent[]) : [];
+          setLicenseEventsForList(
+            evs.filter(
+              (e) =>
+                String(e.eventType).toUpperCase().replace(/\s+/g, "_") === "LICENSE_EXPIRY"
+            )
+          );
+        } else setLicenseEventsForList([]);
+      } catch {
+        setLicenseEventsForList([]);
+      }
+
       const pending: PendingRfpQuoteRow[] = [];
       for (const raw of rfpList as Array<{
         id: string;
@@ -711,7 +768,7 @@ export default function DashboardPage() {
     const seen = new Set(fromApi.map((l) => l.id));
     const extras: LicenseRow[] = [];
 
-    for (const ev of events) {
+    for (const ev of licenseEventsForList) {
       const isLicenseExpiry =
         String(ev.eventType).toUpperCase().replace(/\s+/g, "_") === "LICENSE_EXPIRY";
       if (!isLicenseExpiry) continue;
@@ -739,7 +796,7 @@ export default function DashboardPage() {
       });
     }
     return [...fromApi, ...extras];
-  }, [licenses, events]);
+  }, [licenses, licenseEventsForList]);
 
   const contractsByExpirationDay = useMemo(() => {
     const map = new Map<string, ContractRow[]>();
@@ -1646,7 +1703,7 @@ export default function DashboardPage() {
                       const dayTasks = tasksByDay.get(key) ?? [];
                       const dayContracts = contractsByExpirationDay.get(key) ?? [];
                       const dayLicenses = licensesByExpirationDay.get(key) ?? [];
-                      const isToday = key === localDateKey(new Date());
+                      const isToday = dashTodayKey !== null && key === dashTodayKey;
                       const openDashAgenda = () => {
                         setDashAgendaDate(
                           new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0)
@@ -1810,7 +1867,7 @@ export default function DashboardPage() {
                     const tks = tasksByDay.get(key) ?? [];
                     const dayContracts = contractsByExpirationDay.get(key) ?? [];
                     const dayLicenses = licensesByExpirationDay.get(key) ?? [];
-                    const isToday = key === localDateKey(new Date());
+                    const isToday = dashTodayKey !== null && key === dashTodayKey;
                     const openDashAgenda = () => {
                       setDashAgendaDate(new Date(key + "T12:00:00"));
                       setDashAgendaOpen(true);
@@ -2171,48 +2228,96 @@ export default function DashboardPage() {
               <PanelResizeHandle className={resizeHandleClass} />
               <Panel defaultSize={45} minSize={18} className="min-h-0">
                 <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
-              <div className="min-w-0">
-                <CardTitle className="text-sm font-semibold">Pending RFPs and quotes</CardTitle>
-                <CardDescription className="text-[11px]">
-                  Open supplier sends and logged customer quote-summary emails.
-                </CardDescription>
+                       <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-col gap-2 space-y-0">
+              <div className="flex flex-row flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <CardTitle className="text-sm font-semibold">Pipeline</CardTitle>
+                  <CardDescription className="text-[11px]">
+                    Pending RFPs and quotes, or contract renewal workflow.
+                  </CardDescription>
+                </div>
+                {dashPendingRfpTab === "rfp" ? (
+                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
+                    <Link href="/rfp">RFP Generator</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
+                    <Link href="/directory/contracts/workflow">Full workflow</Link>
+                  </Button>
+                )}
               </div>
-              <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
-                <Link href="/rfp">RFP Generator</Link>
-              </Button>
+              <div
+                role="tablist"
+                aria-label="Pipeline section"
+                className="flex w-full rounded-md border border-border/60 bg-muted/40 p-0.5"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={dashPendingRfpTab === "rfp"}
+                  className={cn(
+                    "flex-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
+                    dashPendingRfpTab === "rfp"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDashPendingRfpTab("rfp")}
+                >
+                  Pending RFPs &amp; quotes
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={dashPendingRfpTab === "workflow"}
+                  className={cn(
+                    "flex-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
+                    dashPendingRfpTab === "workflow"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDashPendingRfpTab("workflow")}
+                >
+                  Contract workflow
+                </button>
+              </div>
             </CardHeader>
-            <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
-              {pendingRfpQuotes.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-1 py-2">Nothing pending in this category.</p>
+            <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1 flex flex-col">
+              {dashPendingRfpTab === "rfp" ? (
+                pendingRfpQuotes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-1 py-2">Nothing pending in this category.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {pendingRfpQuotes.map((row) => (
+                      <li
+                        key={`${row.kind}-${row.id}-${row.at}`}
+                        className="rounded-md border border-border/50 bg-background/60 px-2 py-1.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[11px] font-medium leading-tight">
+                            {row.kind === "rfp" ? "RFP sent" : "Quote summary"}{" "}
+                            <span className="text-foreground">— {row.label}</span>
+                          </p>
+                          <span className="text-[9px] text-muted-foreground tabular-nums shrink-0">
+                            {new Date(row.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{row.sub}</p>
+                        <div className="mt-1.5">
+                          <Link
+                            href={`/quotes?rfpRequestId=${encodeURIComponent(row.id)}`}
+                            className="text-[10px] font-medium text-primary hover:underline"
+                          >
+                            Open quotes
+                          </Link>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )
               ) : (
-                <ul className="space-y-1.5">
-                  {pendingRfpQuotes.map((row) => (
-                    <li
-                      key={`${row.kind}-${row.id}-${row.at}`}
-                      className="rounded-md border border-border/50 bg-background/60 px-2 py-1.5"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[11px] font-medium leading-tight">
-                          {row.kind === "rfp" ? "RFP sent" : "Quote summary"}{" "}
-                          <span className="text-foreground">— {row.label}</span>
-                        </p>
-                        <span className="text-[9px] text-muted-foreground tabular-nums shrink-0">
-                          {new Date(row.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{row.sub}</p>
-                      <div className="mt-1.5">
-                        <Link
-                          href={`/quotes?rfpRequestId=${encodeURIComponent(row.id)}`}
-                          className="text-[10px] font-medium text-primary hover:underline"
-                        >
-                          Open quotes
-                        </Link>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex min-h-0 flex-1 flex-col pt-1">
+                  <ContractWorkflowPanel compact showHeading={false} />
+                </div>
               )}
             </CardContent>
                 </Card>

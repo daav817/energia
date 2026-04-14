@@ -14,8 +14,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       draftId,
-      customerId,
-      customerContactId,
       energyType,
       supplierIds,
       supplierContactSelections,
@@ -38,17 +36,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "energyType is required to save a draft" }, { status: 400 });
     }
 
-    const resolvedCustomerId =
-      customerId != null && String(customerId).trim() ? String(customerId).trim() : null;
+    const bodyRecord = body as Record<string, unknown>;
 
+    let existing: { id: string; customerId: string | null; customerContactId: string | null } | null = null;
     if (draftId) {
-      const existing = await prisma.rfpRequest.findFirst({
+      existing = await prisma.rfpRequest.findFirst({
         where: { id: String(draftId), status: "draft" },
+        select: { id: true, customerId: true, customerContactId: true },
       });
       if (!existing) {
         return NextResponse.json({ error: "Draft not found or already submitted" }, { status: 404 });
       }
     }
+
+    /**
+     * JSON clients often omit keys with `undefined`; `customerContactId: x || undefined` drops the field.
+     * That made Prisma receive `undefined` → stored as null and wiped the saved contact on update.
+     * Preserve previous row values when the key is absent; only null/clear when explicitly sent.
+     */
+    const resolvedCustomerId = ((): string | null => {
+      if (Object.prototype.hasOwnProperty.call(bodyRecord, "customerId")) {
+        const v = bodyRecord.customerId;
+        return v != null && String(v).trim() !== "" ? String(v).trim() : null;
+      }
+      return existing?.customerId ?? null;
+    })();
+
+    const resolvedCustomerContactId = ((): string | null => {
+      if (Object.prototype.hasOwnProperty.call(bodyRecord, "customerContactId")) {
+        const v = bodyRecord.customerContactId;
+        return v != null && String(v).trim() !== "" ? String(v).trim() : null;
+      }
+      return existing?.customerContactId ?? null;
+    })();
 
     const normalizedAccountLines = normalizeAccountLines(accountLines);
     const termValues = normalizeRequestedTerms(requestedTerms, customTermMonths);
@@ -113,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     const baseData = {
       customerId: resolvedCustomerId,
-      customerContactId: customerContactId ? String(customerContactId) : null,
+      customerContactId: resolvedCustomerContactId,
       energyType: energyType as EnergyType,
       supplierContactSelections: (contactSelectionsRaw ?? {}) as Prisma.InputJsonValue,
       annualUsage:

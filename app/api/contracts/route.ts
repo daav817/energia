@@ -13,6 +13,7 @@ const contractInclude = {
     },
   },
   documents: true,
+  _count: { select: { accounts: true } },
 } as const;
 
 export async function GET(request: NextRequest) {

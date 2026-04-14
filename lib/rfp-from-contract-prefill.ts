@@ -25,6 +25,8 @@ export type RfpFromContractPrefillPayload = {
   /** For traceability in RFP notes */
   sourceContractId: string;
   customerId: string;
+  /** Pre-select suppliers on the RFP (e.g. current contract supplier). */
+  prefillSupplierIds?: string[];
   customerContactId: string | null;
   energyType: "ELECTRIC" | "NATURAL_GAS";
   ldcUtility: string;
@@ -98,10 +100,14 @@ export function parseRfpFromContractPrefillPayload(raw: string): RfpFromContract
       annualUsage: typeof line?.annualUsage === "string" ? line.annualUsage : "",
       avgMonthlyUsage: typeof line?.avgMonthlyUsage === "string" ? line.avgMonthlyUsage : "",
     }));
+    const prefillSupplierIds = Array.isArray(j.prefillSupplierIds)
+      ? j.prefillSupplierIds.map((x) => String(x)).filter(Boolean)
+      : undefined;
     return {
       version: 1,
       sourceContractId: typeof j.sourceContractId === "string" ? j.sourceContractId : "",
       customerId: j.customerId,
+      ...(prefillSupplierIds?.length ? { prefillSupplierIds } : {}),
       customerContactId:
         j.customerContactId === null || typeof j.customerContactId === "string" ? j.customerContactId ?? null : null,
       energyType: j.energyType === "ELECTRIC" || j.energyType === "NATURAL_GAS" ? j.energyType : "NATURAL_GAS",
@@ -213,6 +219,7 @@ export function customTermMonthsFromContractTerm(termMonths: number | null | und
 
 export type ContractRowForRfpPrefill = {
   id: string;
+  supplierId?: string | null;
   customer: { id: string; company?: string | null; name?: string | null };
   mainContactId: string | null;
   mainContact?: { id?: string; company?: string | null } | null;
@@ -257,10 +264,12 @@ export function buildRfpFromContractPrefillPayload(
       : fromIds;
   const brokerMargin =
     c.brokerMargin != null && String(c.brokerMargin).trim() !== "" ? String(c.brokerMargin) : "";
+  const sid = (c.supplierId ?? "").trim();
   return {
     version: 1,
     sourceContractId: c.id,
     customerId: c.customer.id,
+    ...(sid ? { prefillSupplierIds: [sid] } : {}),
     customerContactId,
     energyType: c.energyType,
     ldcUtility: (c.customerUtility ?? "").trim(),
@@ -328,8 +337,10 @@ export async function fetchRfpFromContractPrefillPayload(contractId: string): Pr
   }
 
   const mainContact = c.mainContact as { id?: string; company?: string | null } | null | undefined;
+  const supplierIdRaw = c.supplierId;
   const row: ContractRowForRfpPrefill = {
     id,
+    supplierId: typeof supplierIdRaw === "string" ? supplierIdRaw : null,
     customer: {
       id: customerId,
       company: typeof customerRaw?.company === "string" ? customerRaw.company : null,
@@ -348,4 +359,49 @@ export async function fetchRfpFromContractPrefillPayload(contractId: string): Pr
     notes: typeof c.notes === "string" ? c.notes : null,
   };
   return buildRfpFromContractPrefillPayload(row, lines);
+}
+
+/** New-business workflow row: minimal RFP prefill (customer + energy only). */
+export async function buildRfpWorkflowNewRowPrefill(opts: {
+  workflowRowId: string;
+  customerId: string;
+  energyType: "ELECTRIC" | "NATURAL_GAS";
+}): Promise<RfpFromContractPrefillPayload | null> {
+  const res = await fetch(`/api/customers/${encodeURIComponent(opts.customerId)}?contacts=1`);
+  if (!res.ok) return null;
+  const c = (await res.json()) as {
+    id?: string;
+    name?: string;
+    company?: string | null;
+    contacts?: Array<{ id: string; isPriority?: boolean }>;
+  };
+  const id = typeof c.id === "string" ? c.id : "";
+  if (!id) return null;
+  const contacts = Array.isArray(c.contacts) ? c.contacts : [];
+  const sorted = [...contacts].sort((a, b) => (a.isPriority === b.isPriority ? 0 : a.isPriority ? -1 : 1));
+  const customerContactId = sorted[0]?.id ?? null;
+  return {
+    version: 1,
+    sourceContractId: `workflow-row:${opts.workflowRowId}`,
+    customerId: id,
+    customerContactId,
+    energyType: opts.energyType,
+    ldcUtility: "",
+    contractStartValue: "",
+    accountLines: [
+      {
+        accountNumber: "",
+        serviceAddress: "",
+        annualUsage: "",
+        avgMonthlyUsage: "",
+      },
+    ],
+    brokerMargin: "",
+    brokerMarginUnit: null,
+    notesFromContract: "",
+    customTermMonths: "",
+    contractCustomerCompany: (c.company ?? "").trim(),
+    contractCustomerName: (c.name ?? "").trim(),
+    mainContactCompany: "",
+  };
 }

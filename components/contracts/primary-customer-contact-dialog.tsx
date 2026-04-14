@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,16 +12,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { cn } from "@/lib/utils";
 import {
   customerContactCandidatesForContract,
   getPrimaryContactPromptKind,
+  labelHasCustomerLabel,
   labelHasPrimaryLabel,
   mergePrimaryIntoCustomerLabel,
   stripPrimaryTokenFromLabel,
   type ContactLike,
 } from "@/lib/contract-main-contact";
+
+type CustomerMini = { id: string; name: string; company: string | null };
 
 type ContractMini = {
   id: string;
@@ -29,14 +34,73 @@ type ContractMini = {
   customer: { name: string; company: string | null };
 };
 
+function buildCustomerMap(customers: CustomerMini[]) {
+  return new Map(customers.map((x) => [x.id, x]));
+}
+
+/** Match if every whitespace-separated token appears somewhere in name, company, or linked customer fields. */
+function contactMatchesSearch(c: ContactLike, q: string, customerById: Map<string, CustomerMini>): boolean {
+  const raw = q.trim().toLowerCase();
+  if (!raw) return true;
+  const parts = raw.split(/\s+/).filter(Boolean);
+  const cust = c.customerId ? customerById.get(c.customerId) : undefined;
+  const hay = [
+    c.name,
+    c.company,
+    cust?.name,
+    cust?.company,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return parts.every((p) => hay.includes(p));
+}
+
+function PrimaryContactBadge({ selected }: { selected: boolean }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "shrink-0 px-1.5 py-0 text-[10px] font-semibold",
+        selected
+          ? "border-primary-foreground/50 bg-primary-foreground/15 text-primary-foreground"
+          : "border-amber-700/45 bg-amber-500/15 text-amber-950 dark:border-amber-400/50 dark:bg-amber-400/10 dark:text-amber-100"
+      )}
+    >
+      Primary
+    </Badge>
+  );
+}
+
+function contactsToStripPrimaryFrom(
+  contract: ContractMini,
+  directory: ContactLike[],
+  chosenId: string
+): ContactLike[] {
+  const fromCand = customerContactCandidatesForContract(contract, directory).filter(
+    (c) => c.id && c.id !== chosenId && labelHasPrimaryLabel(c.label)
+  );
+  const seen = new Set(fromCand.map((c) => c.id));
+  const byCust = directory.filter(
+    (c) =>
+      c.id &&
+      c.id !== chosenId &&
+      c.customerId === contract.customerId &&
+      labelHasPrimaryLabel(c.label) &&
+      !seen.has(c.id)
+  );
+  return [...fromCand, ...byCust];
+}
+
 export function PrimaryCustomerContactDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contract: ContractMini | null;
   directory: ContactLike[];
+  customers: CustomerMini[];
   onUpdated: () => void;
 }) {
-  const { open, onOpenChange, contract, directory, onUpdated } = props;
+  const { open, onOpenChange, contract, directory, customers, onUpdated } = props;
   const kind = useMemo(
     () => (contract ? getPrimaryContactPromptKind(contract, directory) : "none"),
     [contract, directory]
@@ -46,17 +110,36 @@ export function PrimaryCustomerContactDialog(props: {
     [contract, directory]
   );
 
+  const customerById = useMemo(() => buildCustomerMap(customers), [customers]);
+
+  const [contactSearch, setContactSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedAssignId, setSelectedAssignId] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const filteredCandidates = useMemo(
+    () => candidates.filter((c) => contactMatchesSearch(c, contactSearch, customerById)),
+    [candidates, contactSearch, customerById]
+  );
+
+  const assignableCustomerContacts = useMemo(
+    () =>
+      directory.filter(
+        (c) => c.id && labelHasCustomerLabel(c.label) && contactMatchesSearch(c, contactSearch, customerById)
+      ),
+    [directory, contactSearch, customerById]
+  );
+
   useEffect(() => {
     if (!open || !contract) return;
     setError(null);
     setBusy(false);
+    setContactSearch("");
+    setSelectedAssignId("");
     if (kind === "missing_primary" && candidates.length > 0) {
       const primaryFirst = candidates.find((c) => c.id && labelHasPrimaryLabel(c.label));
       setSelectedId(primaryFirst?.id ?? candidates[0]?.id ?? "");
@@ -68,46 +151,95 @@ export function PrimaryCustomerContactDialog(props: {
     setNewPhone("");
   }, [open, contract, kind, candidates]);
 
+  useEffect(() => {
+    if (kind !== "missing_primary") return;
+    if (filteredCandidates.length === 0) {
+      setSelectedId("");
+      return;
+    }
+    if (!selectedId || !filteredCandidates.some((c) => c.id === selectedId)) {
+      setSelectedId(filteredCandidates[0]?.id ?? "");
+    }
+  }, [kind, filteredCandidates, selectedId]);
+
+  useEffect(() => {
+    if (kind !== "no_customer_contacts") return;
+    if (assignableCustomerContacts.length === 0) {
+      setSelectedAssignId("");
+      return;
+    }
+    if (!selectedAssignId || !assignableCustomerContacts.some((c) => c.id === selectedAssignId)) {
+      setSelectedAssignId("");
+    }
+  }, [kind, assignableCustomerContacts, selectedAssignId]);
+
   const companyForContact = contract?.customer.company?.trim() || contract?.customer.name || "";
+
+  const finalizePrimaryAndLinkContract = async (chosen: ContactLike) => {
+    if (!contract) return;
+    if (!chosen?.id) throw new Error("Select a contact");
+    const companyVal = contract.customer.company?.trim() || contract.customer.name || null;
+
+    for (const c of contactsToStripPrimaryFrom(contract, directory, chosen.id)) {
+      if (!c.id) continue;
+      const nextLab = stripPrimaryTokenFromLabel(c.label);
+      const labelToSave = nextLab.trim() ? nextLab : "customer";
+      const res = await fetch(`/api/contacts/${encodeURIComponent(c.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: labelToSave }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to update contact label");
+    }
+
+    const merged = mergePrimaryIntoCustomerLabel(chosen.label);
+    const res2 = await fetch(`/api/contacts/${encodeURIComponent(chosen.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customerId: contract.customerId,
+        company: companyVal,
+        label: merged,
+      }),
+    });
+    const json2 = await res2.json().catch(() => ({}));
+    if (!res2.ok) throw new Error(typeof json2.error === "string" ? json2.error : "Failed to set primary label");
+
+    const res3 = await fetch(`/api/contracts/${encodeURIComponent(contract.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mainContactId: chosen.id }),
+    });
+    const json3 = await res3.json().catch(() => ({}));
+    if (!res3.ok) throw new Error(typeof json3.error === "string" ? json3.error : "Failed to link main contact");
+  };
 
   const applyPrimaryToSelected = async () => {
     if (!contract || !selectedId) return;
     setBusy(true);
     setError(null);
     try {
-      for (const c of candidates) {
-        if (!c.id || c.id === selectedId) continue;
-        if (!labelHasPrimaryLabel(c.label)) continue;
-        const nextLab = stripPrimaryTokenFromLabel(c.label);
-        const labelToSave = nextLab.trim() ? nextLab : "customer";
-        const res = await fetch(`/api/contacts/${encodeURIComponent(c.id)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: labelToSave }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to update contact label");
-      }
-
       const chosen = candidates.find((c) => c.id === selectedId);
       if (!chosen?.id) throw new Error("Select a contact");
-      const merged = mergePrimaryIntoCustomerLabel(chosen.label);
-      const res2 = await fetch(`/api/contacts/${encodeURIComponent(chosen.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: merged }),
-      });
-      const json2 = await res2.json().catch(() => ({}));
-      if (!res2.ok) throw new Error(typeof json2.error === "string" ? json2.error : "Failed to set primary label");
+      await finalizePrimaryAndLinkContract(chosen);
+      onUpdated();
+      onOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      const res3 = await fetch(`/api/contracts/${encodeURIComponent(contract.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mainContactId: chosen.id }),
-      });
-      const json3 = await res3.json().catch(() => ({}));
-      if (!res3.ok) throw new Error(typeof json3.error === "string" ? json3.error : "Failed to link main contact");
-
+  const assignExistingCustomerContact = async () => {
+    if (!contract || !selectedAssignId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const chosen = directory.find((c) => c.id === selectedAssignId);
+      if (!chosen?.id) throw new Error("Select a contact");
+      await finalizePrimaryAndLinkContract(chosen);
       onUpdated();
       onOpenChange(false);
     } catch (e) {
@@ -181,23 +313,55 @@ export function PrimaryCustomerContactDialog(props: {
               removed from their label so only one stays primary.
             </p>
             <div className="space-y-2">
+              <Label htmlFor="pc-search-missing">Search by contact name, company, or customer</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="pc-search-missing"
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  placeholder="Type to filter…"
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label>Select contact</Label>
               <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
-                {candidates.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => c.id && setSelectedId(c.id)}
-                      className={cn(
-                        "w-full rounded-md px-2 py-2 text-left text-sm transition-colors",
-                        selectedId === c.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                      )}
-                    >
-                      <span className="font-medium">{c.name}</span>
-                      <span className="block text-xs opacity-80">{(c.label || "(no label)").trim() || "—"}</span>
-                    </button>
-                  </li>
-                ))}
+                {filteredCandidates.length === 0 ? (
+                  <li className="px-2 py-3 text-center text-muted-foreground">No contacts match this search.</li>
+                ) : (
+                  filteredCandidates.map((c) => {
+                    const cust = c.customerId ? customerById.get(c.customerId) : undefined;
+                    const custLine =
+                      cust?.company?.trim() || cust?.name
+                        ? [cust.name, cust.company].filter(Boolean).join(" · ")
+                        : (c.company || "").trim() || null;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => c.id && setSelectedId(c.id)}
+                          className={cn(
+                            "w-full rounded-md px-2 py-2 text-left text-sm transition-colors",
+                            selectedId === c.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate font-medium">{c.name}</span>
+                            {labelHasPrimaryLabel(c.label) ? (
+                              <PrimaryContactBadge selected={selectedId === c.id} />
+                            ) : null}
+                          </div>
+                          {custLine ? (
+                            <span className="block text-xs opacity-80">{custLine}</span>
+                          ) : null}
+                          <span className="block text-xs opacity-80">{(c.label || "(no label)").trim() || "—"}</span>
+                        </button>
+                      </li>
+                    );
+                  })
+                )}
               </ul>
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -205,16 +369,83 @@ export function PrimaryCustomerContactDialog(props: {
         ) : kind === "no_customer_contacts" ? (
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              No contacts are tagged for this customer yet (label should include <strong>customer</strong>). Create a
-              contact linked to <strong>{contract.customer.name}</strong> with a{" "}
-              <strong className="text-foreground">customer, primary</strong> label.
+              No directory contacts match this customer yet. Search existing <strong>customer</strong>-labeled contacts
+              below (by person, company, or linked customer record), or create a new contact for{" "}
+              <strong>{contract.customer.name}</strong>.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="pc-search-assign">Search contacts</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="pc-search-assign"
+                  value={contactSearch}
+                  onChange={(e) => {
+                    setContactSearch(e.target.value);
+                    setSelectedAssignId("");
+                    setNewName("");
+                  }}
+                  placeholder="Name, company, or customer…"
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Assign existing contact</Label>
+              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+                {assignableCustomerContacts.length === 0 ? (
+                  <li className="px-2 py-3 text-center text-muted-foreground text-xs">
+                    No customer-tagged contacts match. Clear the search or add labels in Contacts.
+                  </li>
+                ) : (
+                  assignableCustomerContacts.map((c) => {
+                    const cust = c.customerId ? customerById.get(c.customerId) : undefined;
+                    const custLine =
+                      cust?.company?.trim() || cust?.name
+                        ? [cust.name, cust.company].filter(Boolean).join(" · ")
+                        : (c.company || "").trim() || null;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!c.id) return;
+                            setSelectedAssignId((prev) => (prev === c.id ? "" : (c.id ?? "")));
+                            setNewName("");
+                          }}
+                          className={cn(
+                            "w-full rounded-md px-2 py-2 text-left text-sm transition-colors",
+                            selectedAssignId === c.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate font-medium">{c.name}</span>
+                            {labelHasPrimaryLabel(c.label) ? (
+                              <PrimaryContactBadge selected={selectedAssignId === c.id} />
+                            ) : null}
+                          </div>
+                          {custLine ? (
+                            <span className="block text-xs opacity-80">{custLine}</span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </div>
+            <p className="text-xs text-muted-foreground border-t pt-3">
+              Or create a new contact (company on record: {companyForContact || "—"}).
             </p>
             <div className="grid gap-2">
               <Label htmlFor="pc-name">Name *</Label>
               <Input
                 id="pc-name"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  if (e.target.value.trim()) setSelectedAssignId("");
+                }}
                 placeholder="Contact name"
               />
             </div>
@@ -244,7 +475,7 @@ export function PrimaryCustomerContactDialog(props: {
           <p className="text-sm text-muted-foreground">Nothing to configure for this contract.</p>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
@@ -254,9 +485,23 @@ export function PrimaryCustomerContactDialog(props: {
             </Button>
           ) : null}
           {kind === "no_customer_contacts" ? (
-            <Button type="button" disabled={busy || !newName.trim()} onClick={() => void createPrimaryContact()}>
-              {busy ? "Creating…" : "Create & link"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy || !selectedAssignId}
+                onClick={() => void assignExistingCustomerContact()}
+              >
+                {busy ? "Saving…" : "Assign selected & link"}
+              </Button>
+              <Button
+                type="button"
+                disabled={busy || !newName.trim() || !!selectedAssignId}
+                onClick={() => void createPrimaryContact()}
+              >
+                {busy ? "Creating…" : "Create & link"}
+              </Button>
+            </>
           ) : null}
         </DialogFooter>
       </DialogContent>

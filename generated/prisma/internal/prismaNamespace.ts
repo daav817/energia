@@ -389,6 +389,7 @@ export const ModelName = {
   SupplierContact: 'SupplierContact',
   Prospect: 'Prospect',
   Contract: 'Contract',
+  ContractWorkflowRow: 'ContractWorkflowRow',
   ContractAccount: 'ContractAccount',
   CommissionPayment: 'CommissionPayment',
   TaskList: 'TaskList',
@@ -400,6 +401,7 @@ export const ModelName = {
   RfpAccountLine: 'RfpAccountLine',
   RfpQuote: 'RfpQuote',
   Contact: 'Contact',
+  GoogleContactDeletionQueue: 'GoogleContactDeletionQueue',
   ContactEmail: 'ContactEmail',
   ContactPhone: 'ContactPhone',
   ContactAddress: 'ContactAddress',
@@ -421,7 +423,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "customer" | "supplier" | "supplierContact" | "prospect" | "contract" | "contractAccount" | "commissionPayment" | "taskList" | "task" | "document" | "calendarEvent" | "license" | "rfpRequest" | "rfpAccountLine" | "rfpQuote" | "contact" | "contactEmail" | "contactPhone" | "contactAddress" | "contactSignificantDate" | "contactRelatedPerson" | "email"
+    modelProps: "customer" | "supplier" | "supplierContact" | "prospect" | "contract" | "contractWorkflowRow" | "contractAccount" | "commissionPayment" | "taskList" | "task" | "document" | "calendarEvent" | "license" | "rfpRequest" | "rfpAccountLine" | "rfpQuote" | "contact" | "googleContactDeletionQueue" | "contactEmail" | "contactPhone" | "contactAddress" | "contactSignificantDate" | "contactRelatedPerson" | "email"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -792,6 +794,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ContractCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ContractCountAggregateOutputType> | number
+        }
+      }
+    }
+    ContractWorkflowRow: {
+      payload: Prisma.$ContractWorkflowRowPayload<ExtArgs>
+      fields: Prisma.ContractWorkflowRowFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ContractWorkflowRowFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ContractWorkflowRowFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>
+        }
+        findFirst: {
+          args: Prisma.ContractWorkflowRowFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ContractWorkflowRowFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>
+        }
+        findMany: {
+          args: Prisma.ContractWorkflowRowFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>[]
+        }
+        create: {
+          args: Prisma.ContractWorkflowRowCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>
+        }
+        createMany: {
+          args: Prisma.ContractWorkflowRowCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ContractWorkflowRowCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>[]
+        }
+        delete: {
+          args: Prisma.ContractWorkflowRowDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>
+        }
+        update: {
+          args: Prisma.ContractWorkflowRowUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>
+        }
+        deleteMany: {
+          args: Prisma.ContractWorkflowRowDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ContractWorkflowRowUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ContractWorkflowRowUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>[]
+        }
+        upsert: {
+          args: Prisma.ContractWorkflowRowUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContractWorkflowRowPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractWorkflowRowAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractWorkflowRow>
+        }
+        groupBy: {
+          args: Prisma.ContractWorkflowRowGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractWorkflowRowGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ContractWorkflowRowCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractWorkflowRowCountAggregateOutputType> | number
         }
       }
     }
@@ -1609,6 +1685,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    GoogleContactDeletionQueue: {
+      payload: Prisma.$GoogleContactDeletionQueuePayload<ExtArgs>
+      fields: Prisma.GoogleContactDeletionQueueFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GoogleContactDeletionQueueFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GoogleContactDeletionQueueFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>
+        }
+        findFirst: {
+          args: Prisma.GoogleContactDeletionQueueFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GoogleContactDeletionQueueFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>
+        }
+        findMany: {
+          args: Prisma.GoogleContactDeletionQueueFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>[]
+        }
+        create: {
+          args: Prisma.GoogleContactDeletionQueueCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>
+        }
+        createMany: {
+          args: Prisma.GoogleContactDeletionQueueCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GoogleContactDeletionQueueCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>[]
+        }
+        delete: {
+          args: Prisma.GoogleContactDeletionQueueDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>
+        }
+        update: {
+          args: Prisma.GoogleContactDeletionQueueUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>
+        }
+        deleteMany: {
+          args: Prisma.GoogleContactDeletionQueueDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GoogleContactDeletionQueueUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GoogleContactDeletionQueueUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>[]
+        }
+        upsert: {
+          args: Prisma.GoogleContactDeletionQueueUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoogleContactDeletionQueuePayload>
+        }
+        aggregate: {
+          args: Prisma.GoogleContactDeletionQueueAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGoogleContactDeletionQueue>
+        }
+        groupBy: {
+          args: Prisma.GoogleContactDeletionQueueGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoogleContactDeletionQueueGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GoogleContactDeletionQueueCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoogleContactDeletionQueueCountAggregateOutputType> | number
+        }
+      }
+    }
     ContactEmail: {
       payload: Prisma.$ContactEmailPayload<ExtArgs>
       fields: Prisma.ContactEmailFieldRefs
@@ -2200,6 +2350,30 @@ export const ContractScalarFieldEnum = {
 export type ContractScalarFieldEnum = (typeof ContractScalarFieldEnum)[keyof typeof ContractScalarFieldEnum]
 
 
+export const ContractWorkflowRowScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  customerId: 'customerId',
+  energyType: 'energyType',
+  displayLabel: 'displayLabel',
+  workflowArchived: 'workflowArchived',
+  workflowArchivedAt: 'workflowArchivedAt',
+  receivedBillsAt: 'receivedBillsAt',
+  rfpQuoteClosedAt: 'rfpQuoteClosedAt',
+  newContractAmendedAt: 'newContractAmendedAt',
+  linkedRfpRequestId: 'linkedRfpRequestId',
+  contractOutcome: 'contractOutcome',
+  lastWorkflowRefreshAt: 'lastWorkflowRefreshAt',
+  renewalReminderNotApplicableAt: 'renewalReminderNotApplicableAt',
+  rfpSentOverrideAt: 'rfpSentOverrideAt',
+  quoteSummaryOverrideAt: 'quoteSummaryOverrideAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractWorkflowRowScalarFieldEnum = (typeof ContractWorkflowRowScalarFieldEnum)[keyof typeof ContractWorkflowRowScalarFieldEnum]
+
+
 export const ContractAccountScalarFieldEnum = {
   id: 'id',
   contractId: 'contractId',
@@ -2257,6 +2431,8 @@ export const TaskScalarFieldEnum = {
   listSortOrder: 'listSortOrder',
   customerId: 'customerId',
   prospectId: 'prospectId',
+  contactId: 'contactId',
+  contractId: 'contractId',
   taskListId: 'taskListId',
   completedAt: 'completedAt',
   createdAt: 'createdAt',
@@ -2425,6 +2601,15 @@ export const ContactScalarFieldEnum = {
 export type ContactScalarFieldEnum = (typeof ContactScalarFieldEnum)[keyof typeof ContactScalarFieldEnum]
 
 
+export const GoogleContactDeletionQueueScalarFieldEnum = {
+  id: 'id',
+  googleResourceName: 'googleResourceName',
+  createdAt: 'createdAt'
+} as const
+
+export type GoogleContactDeletionQueueScalarFieldEnum = (typeof GoogleContactDeletionQueueScalarFieldEnum)[keyof typeof GoogleContactDeletionQueueScalarFieldEnum]
+
+
 export const ContactEmailScalarFieldEnum = {
   id: 'id',
   contactId: 'contactId',
@@ -2440,6 +2625,7 @@ export const ContactPhoneScalarFieldEnum = {
   id: 'id',
   contactId: 'contactId',
   phone: 'phone',
+  extension: 'extension',
   type: 'type',
   order: 'order'
 } as const
@@ -2857,6 +3043,7 @@ export type GlobalOmitConfig = {
   supplierContact?: Prisma.SupplierContactOmit
   prospect?: Prisma.ProspectOmit
   contract?: Prisma.ContractOmit
+  contractWorkflowRow?: Prisma.ContractWorkflowRowOmit
   contractAccount?: Prisma.ContractAccountOmit
   commissionPayment?: Prisma.CommissionPaymentOmit
   taskList?: Prisma.TaskListOmit
@@ -2868,6 +3055,7 @@ export type GlobalOmitConfig = {
   rfpAccountLine?: Prisma.RfpAccountLineOmit
   rfpQuote?: Prisma.RfpQuoteOmit
   contact?: Prisma.ContactOmit
+  googleContactDeletionQueue?: Prisma.GoogleContactDeletionQueueOmit
   contactEmail?: Prisma.ContactEmailOmit
   contactPhone?: Prisma.ContactPhoneOmit
   contactAddress?: Prisma.ContactAddressOmit

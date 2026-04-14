@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  stripEnergySuffix,
-  normalizeCompanyKey,
-  isCustomerCandidateContact,
-} from "@/lib/customers-overview";
+import { stripEnergySuffix, normalizeCompanyKey, effectiveContactEmailFromRecord } from "@/lib/customers-overview";
 
 type Member = {
   id: string;
   customerId: string | null;
   isPriority: boolean;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
+  emails: Array<{ email: string }>;
   phone: string | null;
   label: string | null;
   company: string | null;
   updatedAt: Date;
 };
+
+/** RFP customer company list: only contacts whose label explicitly includes "customer" (case-insensitive). */
+function isExplicitCustomerLabeledContact(label: string | null | undefined): boolean {
+  const raw = label == null ? "" : String(label).trim().toLowerCase();
+  return raw.includes("customer");
+}
 
 function pickPrimaryContactId(members: Member[], aggregatedCustomerId: string | null): string | null {
   if (members.length === 0) return null;
@@ -44,7 +49,10 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        firstName: true,
+        lastName: true,
         email: true,
+        emails: { select: { email: true }, orderBy: { order: "asc" } },
         phone: true,
         company: true,
         customerId: true,
@@ -67,7 +75,7 @@ export async function GET() {
     for (const c of contacts) {
       const raw = c.company?.trim();
       if (!raw) continue;
-      if (!isCustomerCandidateContact(c.label)) continue;
+      if (!isExplicitCustomerLabeledContact(c.label)) continue;
 
       const displayName = stripEnergySuffix(raw);
       const key = normalizeCompanyKey(displayName);
@@ -91,7 +99,10 @@ export async function GET() {
           customerId: c.customerId,
           isPriority: c.isPriority,
           name: c.name,
+          firstName: c.firstName,
+          lastName: c.lastName,
           email: c.email,
+          emails: (c.emails ?? []).map((e) => ({ email: e.email })),
           phone: c.phone,
           label: c.label,
           company: c.company,
@@ -120,7 +131,9 @@ export async function GET() {
             id: member.id,
             customerId: member.customerId,
             name: member.name,
-            email: member.email,
+            firstName: member.firstName,
+            lastName: member.lastName,
+            email: effectiveContactEmailFromRecord(member),
             phone: member.phone,
             label: member.label,
             company: member.company,

@@ -43,6 +43,11 @@ export type Prospect = Prisma.ProspectModel
  */
 export type Contract = Prisma.ContractModel
 /**
+ * Model ContractWorkflowRow
+ * Broker renewal / new-business pipeline (one row per active contract or standalone customer pursuit).
+ */
+export type ContractWorkflowRow = Prisma.ContractWorkflowRowModel
+/**
  * Model ContractAccount
  * Utility / billing accounts tied to a contract (renewal emails, customer communications).
  */
@@ -97,6 +102,11 @@ export type RfpQuote = Prisma.RfpQuoteModel
  * 
  */
 export type Contact = Prisma.ContactModel
+/**
+ * Model GoogleContactDeletionQueue
+ * Queued when a local Contact is deleted but had `googleResourceName` — removed from Google on next POST /api/contacts/sync.
+ */
+export type GoogleContactDeletionQueue = Prisma.GoogleContactDeletionQueueModel
 /**
  * Model ContactEmail
  * 

@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TaskAssociationFields } from "@/components/tasks/task-association-fields";
 
 export type TaskCreateListOption = { id: string; name: string };
 
@@ -53,6 +54,8 @@ export function TaskCreateDialog({
     repeat: "",
     starred: false,
     taskListId: "",
+    contactId: "",
+    contractId: "",
   });
 
   useEffect(() => {
@@ -67,6 +70,8 @@ export function TaskCreateDialog({
       starred: false,
       taskListId:
         defaultListId && lists.some((l) => l.id === defaultListId) ? defaultListId : lists[0]?.id ?? "",
+      contactId: "",
+      contractId: "",
     });
   }, [open, defaultListId, lists]);
 
@@ -85,6 +90,8 @@ export function TaskCreateDialog({
         dueAt: !form.allDay && form.dueAt ? form.dueAt : null,
         repeatRule: form.repeat || null,
         starred: form.starred,
+        contactId: form.contactId.trim() || null,
+        contractId: form.contractId.trim() || null,
       }),
     });
     if (res.ok) {
@@ -187,6 +194,12 @@ export function TaskCreateDialog({
             />
             Starred
           </label>
+          <TaskAssociationFields
+            contactId={form.contactId}
+            contractId={form.contractId}
+            onContactId={(id) => setForm((f) => ({ ...f, contactId: id }))}
+            onContractId={(id) => setForm((f) => ({ ...f, contractId: id }))}
+          />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

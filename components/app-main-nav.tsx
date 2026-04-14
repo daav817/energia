@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   BROKER_PROFILE_STORAGE_KEY,
@@ -21,10 +21,15 @@ const MAIN_LINKS = [
   { href: "/contacts", label: "Contacts" },
   { href: "/schedule", label: "Calendar" },
   { href: "/tasks", label: "Tasks" },
-  { href: "/directory/contracts", label: "Contracts" },
+  /** Insert `Contracts` flyout before this entry in the nav markup. */
   { href: "/rfp", label: "RFP Generator" },
   { href: "/quotes", label: "Quotes" },
   { href: "/news", label: "News" },
+] as const;
+
+const CONTRACTS_SUBLINKS = [
+  { href: "/directory/contracts", label: "Management" },
+  { href: "/directory/contracts/workflow", label: "Workflow" },
 ] as const;
 
 const LINK_CLASS =
@@ -78,24 +83,72 @@ export function AppMainNav() {
               {brandLabel}
             </button>
             {MAIN_LINKS.map(({ href, label }) => {
+              const contractsFlyout =
+                href === "/rfp" ? (
+                  <div key="contracts-flyout" className="relative group">
+                    <span
+                      className={cn(
+                        LINK_CLASS,
+                        "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors inline-block cursor-default select-none",
+                        pathname.startsWith("/directory/contracts")
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      Contracts
+                    </span>
+                    <div
+                      className={cn(
+                        "pointer-events-none absolute left-0 top-full z-50 pt-1 opacity-0 transition-opacity",
+                        "group-hover:opacity-100 group-hover:pointer-events-auto",
+                        "group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+                      )}
+                    >
+                      <div className="min-w-[11rem] rounded-md border border-border/80 bg-popover py-1 shadow-md">
+                        {CONTRACTS_SUBLINKS.map(({ href: subHref, label: subLabel }) => {
+                          const subActive =
+                            pathname === subHref || pathname.startsWith(subHref + "/");
+                          return (
+                            <Link
+                              key={subHref}
+                              href={subHref}
+                              className={cn(
+                                LINK_CLASS,
+                                "block px-3 py-2 text-sm transition-colors",
+                                subActive
+                                  ? "bg-primary/15 text-foreground font-medium"
+                                  : "text-popover-foreground hover:bg-muted"
+                              )}
+                            >
+                              {subLabel}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+
               const active =
                 href === "/dashboard"
                   ? pathname === "/dashboard" || pathname === "/"
                   : pathname === href || pathname.startsWith(href + "/");
               return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    LINK_CLASS,
-                    "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {label}
-                </Link>
+                <Fragment key={href}>
+                  {contractsFlyout}
+                  <Link
+                    href={href}
+                    className={cn(
+                      LINK_CLASS,
+                      "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {label}
+                  </Link>
+                </Fragment>
               );
             })}
           </div>

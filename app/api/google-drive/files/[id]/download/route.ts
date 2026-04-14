@@ -20,11 +20,16 @@ export async function GET(
       return NextResponse.json({ error: "Missing file id" }, { status: 400 });
     }
 
+    const inline =
+      request.nextUrl.searchParams.get("inline") === "1" ||
+      request.nextUrl.searchParams.get("inline") === "true";
+
     const drive = await getGoogleDriveClient();
 
     const meta = await drive.files.get({
       fileId,
       fields: "id,name,mimeType",
+      supportsAllDrives: true,
     });
 
     const mime = meta.data.mimeType || "";
@@ -74,7 +79,7 @@ export async function GET(
       );
     } else {
       const res = await drive.files.get(
-        { fileId, alt: "media" },
+        { fileId, alt: "media", supportsAllDrives: true },
         { responseType: "arraybuffer" }
       );
       body = res.data as ArrayBuffer;
@@ -84,11 +89,14 @@ export async function GET(
 
     const asciiName = filename.replace(/[^\x20-\x7E]/g, "_");
     const encoded = encodeURIComponent(filename);
+    const disposition = inline
+      ? `inline; filename="${asciiName}"; filename*=UTF-8''${encoded}`
+      : `attachment; filename="${asciiName}"; filename*=UTF-8''${encoded}`;
 
     return new NextResponse(body, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encoded}`,
+        "Content-Disposition": disposition,
       },
     });
   } catch (err) {

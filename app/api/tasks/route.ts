@@ -22,6 +22,15 @@ export async function GET(request: NextRequest) {
       orderBy: [{ listSortOrder: "asc" }, { createdAt: "asc" }],
       include: {
         taskList: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true, company: true } },
+        linkedContract: {
+          select: {
+            id: true,
+            energyType: true,
+            customer: { select: { name: true, company: true } },
+            supplier: { select: { name: true } },
+          },
+        },
       },
     });
     return NextResponse.json(tasks);
@@ -44,6 +53,8 @@ export async function POST(request: NextRequest) {
       repeatRule,
       starred,
       listSortOrder,
+      contactId,
+      contractId,
     } = body;
 
     if (!taskListId || typeof taskListId !== "string") {
@@ -78,6 +89,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const contactIdVal =
+      contactId != null && String(contactId).trim() !== "" ? String(contactId).trim() : null;
+    const contractIdVal =
+      contractId != null && String(contractId).trim() !== "" ? String(contractId).trim() : null;
+
     const task = await prisma.task.create({
       data: {
         title: title.trim(),
@@ -98,9 +114,20 @@ export async function POST(request: NextRequest) {
         starred: Boolean(starred),
         listSortOrder:
           listSortOrder != null ? Number(listSortOrder) : 0,
+        contactId: contactIdVal,
+        contractId: contractIdVal,
       },
       include: {
         taskList: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true, company: true } },
+        linkedContract: {
+          select: {
+            id: true,
+            energyType: true,
+            customer: { select: { name: true, company: true } },
+            supplier: { select: { name: true } },
+          },
+        },
       },
     });
 

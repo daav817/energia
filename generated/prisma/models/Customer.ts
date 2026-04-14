@@ -263,6 +263,7 @@ export type CustomerWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Customer"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Customer"> | Date | string
   contracts?: Prisma.ContractListRelationFilter
+  contractWorkflowRows?: Prisma.ContractWorkflowRowListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
   documents?: Prisma.DocumentListRelationFilter
   rfpRequests?: Prisma.RfpRequestListRelationFilter
@@ -288,6 +289,7 @@ export type CustomerOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   contracts?: Prisma.ContractOrderByRelationAggregateInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowOrderByRelationAggregateInput
   tasks?: Prisma.TaskOrderByRelationAggregateInput
   documents?: Prisma.DocumentOrderByRelationAggregateInput
   rfpRequests?: Prisma.RfpRequestOrderByRelationAggregateInput
@@ -316,6 +318,7 @@ export type CustomerWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Customer"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Customer"> | Date | string
   contracts?: Prisma.ContractListRelationFilter
+  contractWorkflowRows?: Prisma.ContractWorkflowRowListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
   documents?: Prisma.DocumentListRelationFilter
   rfpRequests?: Prisma.RfpRequestListRelationFilter
@@ -383,6 +386,7 @@ export type CustomerCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
@@ -408,6 +412,7 @@ export type CustomerUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
@@ -433,6 +438,7 @@ export type CustomerUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
@@ -458,6 +464,7 @@ export type CustomerUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
@@ -614,6 +621,22 @@ export type CustomerUpdateOneRequiredWithoutContractsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.CustomerUpdateToOneWithWhereWithoutContractsInput, Prisma.CustomerUpdateWithoutContractsInput>, Prisma.CustomerUncheckedUpdateWithoutContractsInput>
 }
 
+export type CustomerCreateNestedOneWithoutContractWorkflowRowsInput = {
+  create?: Prisma.XOR<Prisma.CustomerCreateWithoutContractWorkflowRowsInput, Prisma.CustomerUncheckedCreateWithoutContractWorkflowRowsInput>
+  connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutContractWorkflowRowsInput
+  connect?: Prisma.CustomerWhereUniqueInput
+}
+
+export type CustomerUpdateOneWithoutContractWorkflowRowsNestedInput = {
+  create?: Prisma.XOR<Prisma.CustomerCreateWithoutContractWorkflowRowsInput, Prisma.CustomerUncheckedCreateWithoutContractWorkflowRowsInput>
+  connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutContractWorkflowRowsInput
+  upsert?: Prisma.CustomerUpsertWithoutContractWorkflowRowsInput
+  disconnect?: Prisma.CustomerWhereInput | boolean
+  delete?: Prisma.CustomerWhereInput | boolean
+  connect?: Prisma.CustomerWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CustomerUpdateToOneWithWhereWithoutContractWorkflowRowsInput, Prisma.CustomerUpdateWithoutContractWorkflowRowsInput>, Prisma.CustomerUncheckedUpdateWithoutContractWorkflowRowsInput>
+}
+
 export type CustomerCreateNestedOneWithoutTasksInput = {
   create?: Prisma.XOR<Prisma.CustomerCreateWithoutTasksInput, Prisma.CustomerUncheckedCreateWithoutTasksInput>
   connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutTasksInput
@@ -726,6 +749,7 @@ export type CustomerCreateWithoutContractsInput = {
   googleContactId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
@@ -750,6 +774,7 @@ export type CustomerUncheckedCreateWithoutContractsInput = {
   googleContactId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
@@ -790,6 +815,7 @@ export type CustomerUpdateWithoutContractsInput = {
   googleContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
@@ -814,6 +840,123 @@ export type CustomerUncheckedUpdateWithoutContractsInput = {
   googleContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
+  documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
+  rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
+  emails?: Prisma.EmailUncheckedUpdateManyWithoutCustomerNestedInput
+  contacts?: Prisma.ContactUncheckedUpdateManyWithoutCustomerNestedInput
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutCustomerNestedInput
+}
+
+export type CustomerCreateWithoutContractWorkflowRowsInput = {
+  id?: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  notes?: string | null
+  hasElectric?: boolean
+  hasNaturalGas?: boolean
+  googleContactId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
+  documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
+  rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
+  emails?: Prisma.EmailCreateNestedManyWithoutCustomerInput
+  contacts?: Prisma.ContactCreateNestedManyWithoutCustomerInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutCustomerInput
+}
+
+export type CustomerUncheckedCreateWithoutContractWorkflowRowsInput = {
+  id?: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  notes?: string | null
+  hasElectric?: boolean
+  hasNaturalGas?: boolean
+  googleContactId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
+  documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
+  rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
+  emails?: Prisma.EmailUncheckedCreateNestedManyWithoutCustomerInput
+  contacts?: Prisma.ContactUncheckedCreateNestedManyWithoutCustomerInput
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutCustomerInput
+}
+
+export type CustomerCreateOrConnectWithoutContractWorkflowRowsInput = {
+  where: Prisma.CustomerWhereUniqueInput
+  create: Prisma.XOR<Prisma.CustomerCreateWithoutContractWorkflowRowsInput, Prisma.CustomerUncheckedCreateWithoutContractWorkflowRowsInput>
+}
+
+export type CustomerUpsertWithoutContractWorkflowRowsInput = {
+  update: Prisma.XOR<Prisma.CustomerUpdateWithoutContractWorkflowRowsInput, Prisma.CustomerUncheckedUpdateWithoutContractWorkflowRowsInput>
+  create: Prisma.XOR<Prisma.CustomerCreateWithoutContractWorkflowRowsInput, Prisma.CustomerUncheckedCreateWithoutContractWorkflowRowsInput>
+  where?: Prisma.CustomerWhereInput
+}
+
+export type CustomerUpdateToOneWithWhereWithoutContractWorkflowRowsInput = {
+  where?: Prisma.CustomerWhereInput
+  data: Prisma.XOR<Prisma.CustomerUpdateWithoutContractWorkflowRowsInput, Prisma.CustomerUncheckedUpdateWithoutContractWorkflowRowsInput>
+}
+
+export type CustomerUpdateWithoutContractWorkflowRowsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  city?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  state?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  zip?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasElectric?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  hasNaturalGas?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  googleContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
+  documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
+  rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
+  emails?: Prisma.EmailUpdateManyWithoutCustomerNestedInput
+  contacts?: Prisma.ContactUpdateManyWithoutCustomerNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutCustomerNestedInput
+}
+
+export type CustomerUncheckedUpdateWithoutContractWorkflowRowsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  city?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  state?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  zip?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasElectric?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  hasNaturalGas?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  googleContactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
@@ -839,6 +982,7 @@ export type CustomerCreateWithoutTasksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
   emails?: Prisma.EmailCreateNestedManyWithoutCustomerInput
@@ -863,6 +1007,7 @@ export type CustomerUncheckedCreateWithoutTasksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
   emails?: Prisma.EmailUncheckedCreateNestedManyWithoutCustomerInput
@@ -903,6 +1048,7 @@ export type CustomerUpdateWithoutTasksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
   emails?: Prisma.EmailUpdateManyWithoutCustomerNestedInput
@@ -927,6 +1073,7 @@ export type CustomerUncheckedUpdateWithoutTasksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
   emails?: Prisma.EmailUncheckedUpdateManyWithoutCustomerNestedInput
@@ -951,6 +1098,7 @@ export type CustomerCreateWithoutDocumentsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
   emails?: Prisma.EmailCreateNestedManyWithoutCustomerInput
@@ -975,6 +1123,7 @@ export type CustomerUncheckedCreateWithoutDocumentsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
   emails?: Prisma.EmailUncheckedCreateNestedManyWithoutCustomerInput
@@ -1015,6 +1164,7 @@ export type CustomerUpdateWithoutDocumentsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
   emails?: Prisma.EmailUpdateManyWithoutCustomerNestedInput
@@ -1039,6 +1189,7 @@ export type CustomerUncheckedUpdateWithoutDocumentsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
   emails?: Prisma.EmailUncheckedUpdateManyWithoutCustomerNestedInput
@@ -1063,6 +1214,7 @@ export type CustomerCreateWithoutCalendarEventsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
@@ -1087,6 +1239,7 @@ export type CustomerUncheckedCreateWithoutCalendarEventsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
@@ -1127,6 +1280,7 @@ export type CustomerUpdateWithoutCalendarEventsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
@@ -1151,6 +1305,7 @@ export type CustomerUncheckedUpdateWithoutCalendarEventsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
@@ -1175,6 +1330,7 @@ export type CustomerCreateWithoutRfpRequestsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   emails?: Prisma.EmailCreateNestedManyWithoutCustomerInput
@@ -1199,6 +1355,7 @@ export type CustomerUncheckedCreateWithoutRfpRequestsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   emails?: Prisma.EmailUncheckedCreateNestedManyWithoutCustomerInput
@@ -1239,6 +1396,7 @@ export type CustomerUpdateWithoutRfpRequestsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   emails?: Prisma.EmailUpdateManyWithoutCustomerNestedInput
@@ -1263,6 +1421,7 @@ export type CustomerUncheckedUpdateWithoutRfpRequestsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   emails?: Prisma.EmailUncheckedUpdateManyWithoutCustomerNestedInput
@@ -1287,6 +1446,7 @@ export type CustomerCreateWithoutContactsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
@@ -1311,6 +1471,7 @@ export type CustomerUncheckedCreateWithoutContactsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
@@ -1351,6 +1512,7 @@ export type CustomerUpdateWithoutContactsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
@@ -1375,6 +1537,7 @@ export type CustomerUncheckedUpdateWithoutContactsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
@@ -1399,6 +1562,7 @@ export type CustomerCreateWithoutEmailsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestCreateNestedManyWithoutCustomerInput
@@ -1423,6 +1587,7 @@ export type CustomerUncheckedCreateWithoutEmailsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   contracts?: Prisma.ContractUncheckedCreateNestedManyWithoutCustomerInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedCreateNestedManyWithoutCustomerInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutCustomerInput
   documents?: Prisma.DocumentUncheckedCreateNestedManyWithoutCustomerInput
   rfpRequests?: Prisma.RfpRequestUncheckedCreateNestedManyWithoutCustomerInput
@@ -1463,6 +1628,7 @@ export type CustomerUpdateWithoutEmailsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUpdateManyWithoutCustomerNestedInput
@@ -1487,6 +1653,7 @@ export type CustomerUncheckedUpdateWithoutEmailsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   contracts?: Prisma.ContractUncheckedUpdateManyWithoutCustomerNestedInput
+  contractWorkflowRows?: Prisma.ContractWorkflowRowUncheckedUpdateManyWithoutCustomerNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutCustomerNestedInput
   documents?: Prisma.DocumentUncheckedUpdateManyWithoutCustomerNestedInput
   rfpRequests?: Prisma.RfpRequestUncheckedUpdateManyWithoutCustomerNestedInput
@@ -1501,6 +1668,7 @@ export type CustomerUncheckedUpdateWithoutEmailsInput = {
 
 export type CustomerCountOutputType = {
   contracts: number
+  contractWorkflowRows: number
   tasks: number
   documents: number
   rfpRequests: number
@@ -1511,6 +1679,7 @@ export type CustomerCountOutputType = {
 
 export type CustomerCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   contracts?: boolean | CustomerCountOutputTypeCountContractsArgs
+  contractWorkflowRows?: boolean | CustomerCountOutputTypeCountContractWorkflowRowsArgs
   tasks?: boolean | CustomerCountOutputTypeCountTasksArgs
   documents?: boolean | CustomerCountOutputTypeCountDocumentsArgs
   rfpRequests?: boolean | CustomerCountOutputTypeCountRfpRequestsArgs
@@ -1534,6 +1703,13 @@ export type CustomerCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Ext
  */
 export type CustomerCountOutputTypeCountContractsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ContractWhereInput
+}
+
+/**
+ * CustomerCountOutputType without action
+ */
+export type CustomerCountOutputTypeCountContractWorkflowRowsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ContractWorkflowRowWhereInput
 }
 
 /**
@@ -1596,6 +1772,7 @@ export type CustomerSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   createdAt?: boolean
   updatedAt?: boolean
   contracts?: boolean | Prisma.Customer$contractsArgs<ExtArgs>
+  contractWorkflowRows?: boolean | Prisma.Customer$contractWorkflowRowsArgs<ExtArgs>
   tasks?: boolean | Prisma.Customer$tasksArgs<ExtArgs>
   documents?: boolean | Prisma.Customer$documentsArgs<ExtArgs>
   rfpRequests?: boolean | Prisma.Customer$rfpRequestsArgs<ExtArgs>
@@ -1662,6 +1839,7 @@ export type CustomerSelectScalar = {
 export type CustomerOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "phone" | "company" | "address" | "city" | "state" | "zip" | "notes" | "hasElectric" | "hasNaturalGas" | "googleContactId" | "createdAt" | "updatedAt", ExtArgs["result"]["customer"]>
 export type CustomerInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   contracts?: boolean | Prisma.Customer$contractsArgs<ExtArgs>
+  contractWorkflowRows?: boolean | Prisma.Customer$contractWorkflowRowsArgs<ExtArgs>
   tasks?: boolean | Prisma.Customer$tasksArgs<ExtArgs>
   documents?: boolean | Prisma.Customer$documentsArgs<ExtArgs>
   rfpRequests?: boolean | Prisma.Customer$rfpRequestsArgs<ExtArgs>
@@ -1677,6 +1855,7 @@ export type $CustomerPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   name: "Customer"
   objects: {
     contracts: Prisma.$ContractPayload<ExtArgs>[]
+    contractWorkflowRows: Prisma.$ContractWorkflowRowPayload<ExtArgs>[]
     tasks: Prisma.$TaskPayload<ExtArgs>[]
     documents: Prisma.$DocumentPayload<ExtArgs>[]
     rfpRequests: Prisma.$RfpRequestPayload<ExtArgs>[]
@@ -2095,6 +2274,7 @@ readonly fields: CustomerFieldRefs;
 export interface Prisma__CustomerClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   contracts<T extends Prisma.Customer$contractsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$contractsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContractPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contractWorkflowRows<T extends Prisma.Customer$contractWorkflowRowsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$contractWorkflowRowsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContractWorkflowRowPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tasks<T extends Prisma.Customer$tasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   documents<T extends Prisma.Customer$documentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$documentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DocumentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   rfpRequests<T extends Prisma.Customer$rfpRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$rfpRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RfpRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2559,6 +2739,30 @@ export type Customer$contractsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.ContractScalarFieldEnum | Prisma.ContractScalarFieldEnum[]
+}
+
+/**
+ * Customer.contractWorkflowRows
+ */
+export type Customer$contractWorkflowRowsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContractWorkflowRow
+   */
+  select?: Prisma.ContractWorkflowRowSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContractWorkflowRow
+   */
+  omit?: Prisma.ContractWorkflowRowOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContractWorkflowRowInclude<ExtArgs> | null
+  where?: Prisma.ContractWorkflowRowWhereInput
+  orderBy?: Prisma.ContractWorkflowRowOrderByWithRelationInput | Prisma.ContractWorkflowRowOrderByWithRelationInput[]
+  cursor?: Prisma.ContractWorkflowRowWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractWorkflowRowScalarFieldEnum | Prisma.ContractWorkflowRowScalarFieldEnum[]
 }
 
 /**

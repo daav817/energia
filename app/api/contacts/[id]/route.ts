@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { enqueueGoogleContactDeletion } from "@/lib/google-contact-deletion-queue";
 
 const includeRelations = {
   emails: true,
@@ -39,7 +40,7 @@ function buildUpdateData(body: Record<string, unknown>) {
     (body.name as string)?.trim() ||
     [firstName, lastName].filter(Boolean).join(" ").trim();
   const emails = body.emails as Array<{ email: string; type?: string }> | undefined;
-  const phones = body.phones as Array<{ phone: string; type?: string }> | undefined;
+  const phones = body.phones as Array<{ phone: string; type?: string; extension?: string | null }> | undefined;
   const addresses = body.addresses as Array<{ street?: string; city?: string; state?: string; zip?: string; type?: string }> | undefined;
   const significantDates = body.significantDates as Array<{ label: string; date: string }> | undefined;
   const relatedPersons = body.relatedPersons as Array<{ name: string; relation?: string }> | undefined;
@@ -111,7 +112,12 @@ export async function PATCH(
         deleteMany: {},
         create: phoneList
           .filter((p) => p?.phone?.trim())
-          .map((p, i) => ({ phone: p.phone.trim(), type: p.type || "work", order: i })),
+          .map((p, i) => ({
+            phone: p.phone.trim(),
+            extension: p.extension != null && String(p.extension).trim() ? String(p.extension).trim() : null,
+            type: p.type || "work",
+            order: i,
+          })),
       };
     }
     if (addresses !== undefined) {
@@ -177,9 +183,14 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const existing = await prisma.contact.findUnique({
+      where: { id },
+      select: { googleResourceName: true },
+    });
     await prisma.contact.delete({
       where: { id },
     });
+    await enqueueGoogleContactDeletion(existing?.googleResourceName);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Contact delete error:", error);

@@ -52,6 +52,8 @@ export type TaskMinAggregateOutputType = {
   listSortOrder: number | null
   customerId: string | null
   prospectId: string | null
+  contactId: string | null
+  contractId: string | null
   taskListId: string | null
   completedAt: Date | null
   createdAt: Date | null
@@ -74,6 +76,8 @@ export type TaskMaxAggregateOutputType = {
   listSortOrder: number | null
   customerId: string | null
   prospectId: string | null
+  contactId: string | null
+  contractId: string | null
   taskListId: string | null
   completedAt: Date | null
   createdAt: Date | null
@@ -96,6 +100,8 @@ export type TaskCountAggregateOutputType = {
   listSortOrder: number
   customerId: number
   prospectId: number
+  contactId: number
+  contractId: number
   taskListId: number
   completedAt: number
   createdAt: number
@@ -130,6 +136,8 @@ export type TaskMinAggregateInputType = {
   listSortOrder?: true
   customerId?: true
   prospectId?: true
+  contactId?: true
+  contractId?: true
   taskListId?: true
   completedAt?: true
   createdAt?: true
@@ -152,6 +160,8 @@ export type TaskMaxAggregateInputType = {
   listSortOrder?: true
   customerId?: true
   prospectId?: true
+  contactId?: true
+  contractId?: true
   taskListId?: true
   completedAt?: true
   createdAt?: true
@@ -174,6 +184,8 @@ export type TaskCountAggregateInputType = {
   listSortOrder?: true
   customerId?: true
   prospectId?: true
+  contactId?: true
+  contractId?: true
   taskListId?: true
   completedAt?: true
   createdAt?: true
@@ -283,6 +295,8 @@ export type TaskGroupByOutputType = {
   listSortOrder: number
   customerId: string | null
   prospectId: string | null
+  contactId: string | null
+  contractId: string | null
   taskListId: string | null
   completedAt: Date | null
   createdAt: Date
@@ -328,12 +342,16 @@ export type TaskWhereInput = {
   listSortOrder?: Prisma.IntFilter<"Task"> | number
   customerId?: Prisma.StringNullableFilter<"Task"> | string | null
   prospectId?: Prisma.StringNullableFilter<"Task"> | string | null
+  contactId?: Prisma.StringNullableFilter<"Task"> | string | null
+  contractId?: Prisma.StringNullableFilter<"Task"> | string | null
   taskListId?: Prisma.StringNullableFilter<"Task"> | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"Task"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Task"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Task"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerNullableScalarRelationFilter, Prisma.CustomerWhereInput> | null
   prospect?: Prisma.XOR<Prisma.ProspectNullableScalarRelationFilter, Prisma.ProspectWhereInput> | null
+  contact?: Prisma.XOR<Prisma.ContactNullableScalarRelationFilter, Prisma.ContactWhereInput> | null
+  linkedContract?: Prisma.XOR<Prisma.ContractNullableScalarRelationFilter, Prisma.ContractWhereInput> | null
   taskList?: Prisma.XOR<Prisma.TaskListNullableScalarRelationFilter, Prisma.TaskListWhereInput> | null
   calendarEvents?: Prisma.CalendarEventListRelationFilter
 }
@@ -354,12 +372,16 @@ export type TaskOrderByWithRelationInput = {
   listSortOrder?: Prisma.SortOrder
   customerId?: Prisma.SortOrderInput | Prisma.SortOrder
   prospectId?: Prisma.SortOrderInput | Prisma.SortOrder
+  contactId?: Prisma.SortOrderInput | Prisma.SortOrder
+  contractId?: Prisma.SortOrderInput | Prisma.SortOrder
   taskListId?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   customer?: Prisma.CustomerOrderByWithRelationInput
   prospect?: Prisma.ProspectOrderByWithRelationInput
+  contact?: Prisma.ContactOrderByWithRelationInput
+  linkedContract?: Prisma.ContractOrderByWithRelationInput
   taskList?: Prisma.TaskListOrderByWithRelationInput
   calendarEvents?: Prisma.CalendarEventOrderByRelationAggregateInput
 }
@@ -383,12 +405,16 @@ export type TaskWhereUniqueInput = Prisma.AtLeast<{
   listSortOrder?: Prisma.IntFilter<"Task"> | number
   customerId?: Prisma.StringNullableFilter<"Task"> | string | null
   prospectId?: Prisma.StringNullableFilter<"Task"> | string | null
+  contactId?: Prisma.StringNullableFilter<"Task"> | string | null
+  contractId?: Prisma.StringNullableFilter<"Task"> | string | null
   taskListId?: Prisma.StringNullableFilter<"Task"> | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"Task"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Task"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Task"> | Date | string
   customer?: Prisma.XOR<Prisma.CustomerNullableScalarRelationFilter, Prisma.CustomerWhereInput> | null
   prospect?: Prisma.XOR<Prisma.ProspectNullableScalarRelationFilter, Prisma.ProspectWhereInput> | null
+  contact?: Prisma.XOR<Prisma.ContactNullableScalarRelationFilter, Prisma.ContactWhereInput> | null
+  linkedContract?: Prisma.XOR<Prisma.ContractNullableScalarRelationFilter, Prisma.ContractWhereInput> | null
   taskList?: Prisma.XOR<Prisma.TaskListNullableScalarRelationFilter, Prisma.TaskListWhereInput> | null
   calendarEvents?: Prisma.CalendarEventListRelationFilter
 }, "id">
@@ -409,6 +435,8 @@ export type TaskOrderByWithAggregationInput = {
   listSortOrder?: Prisma.SortOrder
   customerId?: Prisma.SortOrderInput | Prisma.SortOrder
   prospectId?: Prisma.SortOrderInput | Prisma.SortOrder
+  contactId?: Prisma.SortOrderInput | Prisma.SortOrder
+  contractId?: Prisma.SortOrderInput | Prisma.SortOrder
   taskListId?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -439,6 +467,8 @@ export type TaskScalarWhereWithAggregatesInput = {
   listSortOrder?: Prisma.IntWithAggregatesFilter<"Task"> | number
   customerId?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
   prospectId?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
+  contactId?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
+  contractId?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
   taskListId?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Task"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Task"> | Date | string
@@ -464,6 +494,8 @@ export type TaskCreateInput = {
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutTasksInput
   prospect?: Prisma.ProspectCreateNestedOneWithoutTasksInput
+  contact?: Prisma.ContactCreateNestedOneWithoutTasksInput
+  linkedContract?: Prisma.ContractCreateNestedOneWithoutTasksInput
   taskList?: Prisma.TaskListCreateNestedOneWithoutTasksInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutTaskInput
 }
@@ -484,6 +516,8 @@ export type TaskUncheckedCreateInput = {
   listSortOrder?: number
   customerId?: string | null
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -510,6 +544,8 @@ export type TaskUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutTasksNestedInput
   prospect?: Prisma.ProspectUpdateOneWithoutTasksNestedInput
+  contact?: Prisma.ContactUpdateOneWithoutTasksNestedInput
+  linkedContract?: Prisma.ContractUpdateOneWithoutTasksNestedInput
   taskList?: Prisma.TaskListUpdateOneWithoutTasksNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutTaskNestedInput
 }
@@ -530,6 +566,8 @@ export type TaskUncheckedUpdateInput = {
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -553,6 +591,8 @@ export type TaskCreateManyInput = {
   listSortOrder?: number
   customerId?: string | null
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -594,6 +634,8 @@ export type TaskUncheckedUpdateManyInput = {
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -626,6 +668,8 @@ export type TaskCountOrderByAggregateInput = {
   listSortOrder?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
   prospectId?: Prisma.SortOrder
+  contactId?: Prisma.SortOrder
+  contractId?: Prisma.SortOrder
   taskListId?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -653,6 +697,8 @@ export type TaskMaxOrderByAggregateInput = {
   listSortOrder?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
   prospectId?: Prisma.SortOrder
+  contactId?: Prisma.SortOrder
+  contractId?: Prisma.SortOrder
   taskListId?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -675,6 +721,8 @@ export type TaskMinOrderByAggregateInput = {
   listSortOrder?: Prisma.SortOrder
   customerId?: Prisma.SortOrder
   prospectId?: Prisma.SortOrder
+  contactId?: Prisma.SortOrder
+  contractId?: Prisma.SortOrder
   taskListId?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -775,6 +823,48 @@ export type TaskUncheckedUpdateManyWithoutProspectNestedInput = {
   deleteMany?: Prisma.TaskScalarWhereInput | Prisma.TaskScalarWhereInput[]
 }
 
+export type TaskCreateNestedManyWithoutLinkedContractInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutLinkedContractInput, Prisma.TaskUncheckedCreateWithoutLinkedContractInput> | Prisma.TaskCreateWithoutLinkedContractInput[] | Prisma.TaskUncheckedCreateWithoutLinkedContractInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutLinkedContractInput | Prisma.TaskCreateOrConnectWithoutLinkedContractInput[]
+  createMany?: Prisma.TaskCreateManyLinkedContractInputEnvelope
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+}
+
+export type TaskUncheckedCreateNestedManyWithoutLinkedContractInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutLinkedContractInput, Prisma.TaskUncheckedCreateWithoutLinkedContractInput> | Prisma.TaskCreateWithoutLinkedContractInput[] | Prisma.TaskUncheckedCreateWithoutLinkedContractInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutLinkedContractInput | Prisma.TaskCreateOrConnectWithoutLinkedContractInput[]
+  createMany?: Prisma.TaskCreateManyLinkedContractInputEnvelope
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+}
+
+export type TaskUpdateManyWithoutLinkedContractNestedInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutLinkedContractInput, Prisma.TaskUncheckedCreateWithoutLinkedContractInput> | Prisma.TaskCreateWithoutLinkedContractInput[] | Prisma.TaskUncheckedCreateWithoutLinkedContractInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutLinkedContractInput | Prisma.TaskCreateOrConnectWithoutLinkedContractInput[]
+  upsert?: Prisma.TaskUpsertWithWhereUniqueWithoutLinkedContractInput | Prisma.TaskUpsertWithWhereUniqueWithoutLinkedContractInput[]
+  createMany?: Prisma.TaskCreateManyLinkedContractInputEnvelope
+  set?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  disconnect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  delete?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  update?: Prisma.TaskUpdateWithWhereUniqueWithoutLinkedContractInput | Prisma.TaskUpdateWithWhereUniqueWithoutLinkedContractInput[]
+  updateMany?: Prisma.TaskUpdateManyWithWhereWithoutLinkedContractInput | Prisma.TaskUpdateManyWithWhereWithoutLinkedContractInput[]
+  deleteMany?: Prisma.TaskScalarWhereInput | Prisma.TaskScalarWhereInput[]
+}
+
+export type TaskUncheckedUpdateManyWithoutLinkedContractNestedInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutLinkedContractInput, Prisma.TaskUncheckedCreateWithoutLinkedContractInput> | Prisma.TaskCreateWithoutLinkedContractInput[] | Prisma.TaskUncheckedCreateWithoutLinkedContractInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutLinkedContractInput | Prisma.TaskCreateOrConnectWithoutLinkedContractInput[]
+  upsert?: Prisma.TaskUpsertWithWhereUniqueWithoutLinkedContractInput | Prisma.TaskUpsertWithWhereUniqueWithoutLinkedContractInput[]
+  createMany?: Prisma.TaskCreateManyLinkedContractInputEnvelope
+  set?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  disconnect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  delete?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  update?: Prisma.TaskUpdateWithWhereUniqueWithoutLinkedContractInput | Prisma.TaskUpdateWithWhereUniqueWithoutLinkedContractInput[]
+  updateMany?: Prisma.TaskUpdateManyWithWhereWithoutLinkedContractInput | Prisma.TaskUpdateManyWithWhereWithoutLinkedContractInput[]
+  deleteMany?: Prisma.TaskScalarWhereInput | Prisma.TaskScalarWhereInput[]
+}
+
 export type TaskCreateNestedManyWithoutTaskListInput = {
   create?: Prisma.XOR<Prisma.TaskCreateWithoutTaskListInput, Prisma.TaskUncheckedCreateWithoutTaskListInput> | Prisma.TaskCreateWithoutTaskListInput[] | Prisma.TaskUncheckedCreateWithoutTaskListInput[]
   connectOrCreate?: Prisma.TaskCreateOrConnectWithoutTaskListInput | Prisma.TaskCreateOrConnectWithoutTaskListInput[]
@@ -841,6 +931,48 @@ export type TaskUpdateOneWithoutCalendarEventsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TaskUpdateToOneWithWhereWithoutCalendarEventsInput, Prisma.TaskUpdateWithoutCalendarEventsInput>, Prisma.TaskUncheckedUpdateWithoutCalendarEventsInput>
 }
 
+export type TaskCreateNestedManyWithoutContactInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutContactInput, Prisma.TaskUncheckedCreateWithoutContactInput> | Prisma.TaskCreateWithoutContactInput[] | Prisma.TaskUncheckedCreateWithoutContactInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutContactInput | Prisma.TaskCreateOrConnectWithoutContactInput[]
+  createMany?: Prisma.TaskCreateManyContactInputEnvelope
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+}
+
+export type TaskUncheckedCreateNestedManyWithoutContactInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutContactInput, Prisma.TaskUncheckedCreateWithoutContactInput> | Prisma.TaskCreateWithoutContactInput[] | Prisma.TaskUncheckedCreateWithoutContactInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutContactInput | Prisma.TaskCreateOrConnectWithoutContactInput[]
+  createMany?: Prisma.TaskCreateManyContactInputEnvelope
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+}
+
+export type TaskUpdateManyWithoutContactNestedInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutContactInput, Prisma.TaskUncheckedCreateWithoutContactInput> | Prisma.TaskCreateWithoutContactInput[] | Prisma.TaskUncheckedCreateWithoutContactInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutContactInput | Prisma.TaskCreateOrConnectWithoutContactInput[]
+  upsert?: Prisma.TaskUpsertWithWhereUniqueWithoutContactInput | Prisma.TaskUpsertWithWhereUniqueWithoutContactInput[]
+  createMany?: Prisma.TaskCreateManyContactInputEnvelope
+  set?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  disconnect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  delete?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  update?: Prisma.TaskUpdateWithWhereUniqueWithoutContactInput | Prisma.TaskUpdateWithWhereUniqueWithoutContactInput[]
+  updateMany?: Prisma.TaskUpdateManyWithWhereWithoutContactInput | Prisma.TaskUpdateManyWithWhereWithoutContactInput[]
+  deleteMany?: Prisma.TaskScalarWhereInput | Prisma.TaskScalarWhereInput[]
+}
+
+export type TaskUncheckedUpdateManyWithoutContactNestedInput = {
+  create?: Prisma.XOR<Prisma.TaskCreateWithoutContactInput, Prisma.TaskUncheckedCreateWithoutContactInput> | Prisma.TaskCreateWithoutContactInput[] | Prisma.TaskUncheckedCreateWithoutContactInput[]
+  connectOrCreate?: Prisma.TaskCreateOrConnectWithoutContactInput | Prisma.TaskCreateOrConnectWithoutContactInput[]
+  upsert?: Prisma.TaskUpsertWithWhereUniqueWithoutContactInput | Prisma.TaskUpsertWithWhereUniqueWithoutContactInput[]
+  createMany?: Prisma.TaskCreateManyContactInputEnvelope
+  set?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  disconnect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  delete?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  connect?: Prisma.TaskWhereUniqueInput | Prisma.TaskWhereUniqueInput[]
+  update?: Prisma.TaskUpdateWithWhereUniqueWithoutContactInput | Prisma.TaskUpdateWithWhereUniqueWithoutContactInput[]
+  updateMany?: Prisma.TaskUpdateManyWithWhereWithoutContactInput | Prisma.TaskUpdateManyWithWhereWithoutContactInput[]
+  deleteMany?: Prisma.TaskScalarWhereInput | Prisma.TaskScalarWhereInput[]
+}
+
 export type TaskCreateWithoutCustomerInput = {
   id?: string
   title: string
@@ -859,6 +991,8 @@ export type TaskCreateWithoutCustomerInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   prospect?: Prisma.ProspectCreateNestedOneWithoutTasksInput
+  contact?: Prisma.ContactCreateNestedOneWithoutTasksInput
+  linkedContract?: Prisma.ContractCreateNestedOneWithoutTasksInput
   taskList?: Prisma.TaskListCreateNestedOneWithoutTasksInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutTaskInput
 }
@@ -878,6 +1012,8 @@ export type TaskUncheckedCreateWithoutCustomerInput = {
   priority?: number
   listSortOrder?: number
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -930,6 +1066,8 @@ export type TaskScalarWhereInput = {
   listSortOrder?: Prisma.IntFilter<"Task"> | number
   customerId?: Prisma.StringNullableFilter<"Task"> | string | null
   prospectId?: Prisma.StringNullableFilter<"Task"> | string | null
+  contactId?: Prisma.StringNullableFilter<"Task"> | string | null
+  contractId?: Prisma.StringNullableFilter<"Task"> | string | null
   taskListId?: Prisma.StringNullableFilter<"Task"> | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"Task"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Task"> | Date | string
@@ -954,6 +1092,8 @@ export type TaskCreateWithoutProspectInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutTasksInput
+  contact?: Prisma.ContactCreateNestedOneWithoutTasksInput
+  linkedContract?: Prisma.ContractCreateNestedOneWithoutTasksInput
   taskList?: Prisma.TaskListCreateNestedOneWithoutTasksInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutTaskInput
 }
@@ -973,6 +1113,8 @@ export type TaskUncheckedCreateWithoutProspectInput = {
   priority?: number
   listSortOrder?: number
   customerId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1006,6 +1148,80 @@ export type TaskUpdateManyWithWhereWithoutProspectInput = {
   data: Prisma.XOR<Prisma.TaskUpdateManyMutationInput, Prisma.TaskUncheckedUpdateManyWithoutProspectInput>
 }
 
+export type TaskCreateWithoutLinkedContractInput = {
+  id?: string
+  title: string
+  description?: string | null
+  type?: $Enums.TaskType
+  status?: $Enums.TaskStatus
+  dueDate?: Date | string | null
+  dueAt?: Date | string | null
+  allDay?: boolean
+  starred?: boolean
+  repeatRule?: string | null
+  googleTaskId?: string | null
+  priority?: number
+  listSortOrder?: number
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer?: Prisma.CustomerCreateNestedOneWithoutTasksInput
+  prospect?: Prisma.ProspectCreateNestedOneWithoutTasksInput
+  contact?: Prisma.ContactCreateNestedOneWithoutTasksInput
+  taskList?: Prisma.TaskListCreateNestedOneWithoutTasksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutTaskInput
+}
+
+export type TaskUncheckedCreateWithoutLinkedContractInput = {
+  id?: string
+  title: string
+  description?: string | null
+  type?: $Enums.TaskType
+  status?: $Enums.TaskStatus
+  dueDate?: Date | string | null
+  dueAt?: Date | string | null
+  allDay?: boolean
+  starred?: boolean
+  repeatRule?: string | null
+  googleTaskId?: string | null
+  priority?: number
+  listSortOrder?: number
+  customerId?: string | null
+  prospectId?: string | null
+  contactId?: string | null
+  taskListId?: string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutTaskInput
+}
+
+export type TaskCreateOrConnectWithoutLinkedContractInput = {
+  where: Prisma.TaskWhereUniqueInput
+  create: Prisma.XOR<Prisma.TaskCreateWithoutLinkedContractInput, Prisma.TaskUncheckedCreateWithoutLinkedContractInput>
+}
+
+export type TaskCreateManyLinkedContractInputEnvelope = {
+  data: Prisma.TaskCreateManyLinkedContractInput | Prisma.TaskCreateManyLinkedContractInput[]
+  skipDuplicates?: boolean
+}
+
+export type TaskUpsertWithWhereUniqueWithoutLinkedContractInput = {
+  where: Prisma.TaskWhereUniqueInput
+  update: Prisma.XOR<Prisma.TaskUpdateWithoutLinkedContractInput, Prisma.TaskUncheckedUpdateWithoutLinkedContractInput>
+  create: Prisma.XOR<Prisma.TaskCreateWithoutLinkedContractInput, Prisma.TaskUncheckedCreateWithoutLinkedContractInput>
+}
+
+export type TaskUpdateWithWhereUniqueWithoutLinkedContractInput = {
+  where: Prisma.TaskWhereUniqueInput
+  data: Prisma.XOR<Prisma.TaskUpdateWithoutLinkedContractInput, Prisma.TaskUncheckedUpdateWithoutLinkedContractInput>
+}
+
+export type TaskUpdateManyWithWhereWithoutLinkedContractInput = {
+  where: Prisma.TaskScalarWhereInput
+  data: Prisma.XOR<Prisma.TaskUpdateManyMutationInput, Prisma.TaskUncheckedUpdateManyWithoutLinkedContractInput>
+}
+
 export type TaskCreateWithoutTaskListInput = {
   id?: string
   title: string
@@ -1025,6 +1241,8 @@ export type TaskCreateWithoutTaskListInput = {
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutTasksInput
   prospect?: Prisma.ProspectCreateNestedOneWithoutTasksInput
+  contact?: Prisma.ContactCreateNestedOneWithoutTasksInput
+  linkedContract?: Prisma.ContractCreateNestedOneWithoutTasksInput
   calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutTaskInput
 }
 
@@ -1044,6 +1262,8 @@ export type TaskUncheckedCreateWithoutTaskListInput = {
   listSortOrder?: number
   customerId?: string | null
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1095,6 +1315,8 @@ export type TaskCreateWithoutCalendarEventsInput = {
   updatedAt?: Date | string
   customer?: Prisma.CustomerCreateNestedOneWithoutTasksInput
   prospect?: Prisma.ProspectCreateNestedOneWithoutTasksInput
+  contact?: Prisma.ContactCreateNestedOneWithoutTasksInput
+  linkedContract?: Prisma.ContractCreateNestedOneWithoutTasksInput
   taskList?: Prisma.TaskListCreateNestedOneWithoutTasksInput
 }
 
@@ -1114,6 +1336,8 @@ export type TaskUncheckedCreateWithoutCalendarEventsInput = {
   listSortOrder?: number
   customerId?: string | null
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1155,6 +1379,8 @@ export type TaskUpdateWithoutCalendarEventsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutTasksNestedInput
   prospect?: Prisma.ProspectUpdateOneWithoutTasksNestedInput
+  contact?: Prisma.ContactUpdateOneWithoutTasksNestedInput
+  linkedContract?: Prisma.ContractUpdateOneWithoutTasksNestedInput
   taskList?: Prisma.TaskListUpdateOneWithoutTasksNestedInput
 }
 
@@ -1174,10 +1400,86 @@ export type TaskUncheckedUpdateWithoutCalendarEventsInput = {
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type TaskCreateWithoutContactInput = {
+  id?: string
+  title: string
+  description?: string | null
+  type?: $Enums.TaskType
+  status?: $Enums.TaskStatus
+  dueDate?: Date | string | null
+  dueAt?: Date | string | null
+  allDay?: boolean
+  starred?: boolean
+  repeatRule?: string | null
+  googleTaskId?: string | null
+  priority?: number
+  listSortOrder?: number
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  customer?: Prisma.CustomerCreateNestedOneWithoutTasksInput
+  prospect?: Prisma.ProspectCreateNestedOneWithoutTasksInput
+  linkedContract?: Prisma.ContractCreateNestedOneWithoutTasksInput
+  taskList?: Prisma.TaskListCreateNestedOneWithoutTasksInput
+  calendarEvents?: Prisma.CalendarEventCreateNestedManyWithoutTaskInput
+}
+
+export type TaskUncheckedCreateWithoutContactInput = {
+  id?: string
+  title: string
+  description?: string | null
+  type?: $Enums.TaskType
+  status?: $Enums.TaskStatus
+  dueDate?: Date | string | null
+  dueAt?: Date | string | null
+  allDay?: boolean
+  starred?: boolean
+  repeatRule?: string | null
+  googleTaskId?: string | null
+  priority?: number
+  listSortOrder?: number
+  customerId?: string | null
+  prospectId?: string | null
+  contractId?: string | null
+  taskListId?: string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  calendarEvents?: Prisma.CalendarEventUncheckedCreateNestedManyWithoutTaskInput
+}
+
+export type TaskCreateOrConnectWithoutContactInput = {
+  where: Prisma.TaskWhereUniqueInput
+  create: Prisma.XOR<Prisma.TaskCreateWithoutContactInput, Prisma.TaskUncheckedCreateWithoutContactInput>
+}
+
+export type TaskCreateManyContactInputEnvelope = {
+  data: Prisma.TaskCreateManyContactInput | Prisma.TaskCreateManyContactInput[]
+  skipDuplicates?: boolean
+}
+
+export type TaskUpsertWithWhereUniqueWithoutContactInput = {
+  where: Prisma.TaskWhereUniqueInput
+  update: Prisma.XOR<Prisma.TaskUpdateWithoutContactInput, Prisma.TaskUncheckedUpdateWithoutContactInput>
+  create: Prisma.XOR<Prisma.TaskCreateWithoutContactInput, Prisma.TaskUncheckedCreateWithoutContactInput>
+}
+
+export type TaskUpdateWithWhereUniqueWithoutContactInput = {
+  where: Prisma.TaskWhereUniqueInput
+  data: Prisma.XOR<Prisma.TaskUpdateWithoutContactInput, Prisma.TaskUncheckedUpdateWithoutContactInput>
+}
+
+export type TaskUpdateManyWithWhereWithoutContactInput = {
+  where: Prisma.TaskScalarWhereInput
+  data: Prisma.XOR<Prisma.TaskUpdateManyMutationInput, Prisma.TaskUncheckedUpdateManyWithoutContactInput>
 }
 
 export type TaskCreateManyCustomerInput = {
@@ -1195,6 +1497,8 @@ export type TaskCreateManyCustomerInput = {
   priority?: number
   listSortOrder?: number
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1219,6 +1523,8 @@ export type TaskUpdateWithoutCustomerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   prospect?: Prisma.ProspectUpdateOneWithoutTasksNestedInput
+  contact?: Prisma.ContactUpdateOneWithoutTasksNestedInput
+  linkedContract?: Prisma.ContractUpdateOneWithoutTasksNestedInput
   taskList?: Prisma.TaskListUpdateOneWithoutTasksNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutTaskNestedInput
 }
@@ -1238,6 +1544,8 @@ export type TaskUncheckedUpdateWithoutCustomerInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1260,6 +1568,8 @@ export type TaskUncheckedUpdateManyWithoutCustomerInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1281,6 +1591,8 @@ export type TaskCreateManyProspectInput = {
   priority?: number
   listSortOrder?: number
   customerId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   taskListId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1305,6 +1617,8 @@ export type TaskUpdateWithoutProspectInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutTasksNestedInput
+  contact?: Prisma.ContactUpdateOneWithoutTasksNestedInput
+  linkedContract?: Prisma.ContractUpdateOneWithoutTasksNestedInput
   taskList?: Prisma.TaskListUpdateOneWithoutTasksNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutTaskNestedInput
 }
@@ -1324,6 +1638,8 @@ export type TaskUncheckedUpdateWithoutProspectInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1346,6 +1662,102 @@ export type TaskUncheckedUpdateManyWithoutProspectInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type TaskCreateManyLinkedContractInput = {
+  id?: string
+  title: string
+  description?: string | null
+  type?: $Enums.TaskType
+  status?: $Enums.TaskStatus
+  dueDate?: Date | string | null
+  dueAt?: Date | string | null
+  allDay?: boolean
+  starred?: boolean
+  repeatRule?: string | null
+  googleTaskId?: string | null
+  priority?: number
+  listSortOrder?: number
+  customerId?: string | null
+  prospectId?: string | null
+  contactId?: string | null
+  taskListId?: string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type TaskUpdateWithoutLinkedContractInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.EnumTaskTypeFieldUpdateOperationsInput | $Enums.TaskType
+  status?: Prisma.EnumTaskStatusFieldUpdateOperationsInput | $Enums.TaskStatus
+  dueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  starred?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repeatRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  googleTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneWithoutTasksNestedInput
+  prospect?: Prisma.ProspectUpdateOneWithoutTasksNestedInput
+  contact?: Prisma.ContactUpdateOneWithoutTasksNestedInput
+  taskList?: Prisma.TaskListUpdateOneWithoutTasksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutTaskNestedInput
+}
+
+export type TaskUncheckedUpdateWithoutLinkedContractInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.EnumTaskTypeFieldUpdateOperationsInput | $Enums.TaskType
+  status?: Prisma.EnumTaskStatusFieldUpdateOperationsInput | $Enums.TaskStatus
+  dueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  starred?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repeatRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  googleTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutTaskNestedInput
+}
+
+export type TaskUncheckedUpdateManyWithoutLinkedContractInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.EnumTaskTypeFieldUpdateOperationsInput | $Enums.TaskType
+  status?: Prisma.EnumTaskStatusFieldUpdateOperationsInput | $Enums.TaskStatus
+  dueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  starred?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repeatRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  googleTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1368,6 +1780,8 @@ export type TaskCreateManyTaskListInput = {
   listSortOrder?: number
   customerId?: string | null
   prospectId?: string | null
+  contactId?: string | null
+  contractId?: string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1392,6 +1806,8 @@ export type TaskUpdateWithoutTaskListInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   customer?: Prisma.CustomerUpdateOneWithoutTasksNestedInput
   prospect?: Prisma.ProspectUpdateOneWithoutTasksNestedInput
+  contact?: Prisma.ContactUpdateOneWithoutTasksNestedInput
+  linkedContract?: Prisma.ContractUpdateOneWithoutTasksNestedInput
   calendarEvents?: Prisma.CalendarEventUpdateManyWithoutTaskNestedInput
 }
 
@@ -1411,6 +1827,8 @@ export type TaskUncheckedUpdateWithoutTaskListInput = {
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1433,6 +1851,102 @@ export type TaskUncheckedUpdateManyWithoutTaskListInput = {
   listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contactId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type TaskCreateManyContactInput = {
+  id?: string
+  title: string
+  description?: string | null
+  type?: $Enums.TaskType
+  status?: $Enums.TaskStatus
+  dueDate?: Date | string | null
+  dueAt?: Date | string | null
+  allDay?: boolean
+  starred?: boolean
+  repeatRule?: string | null
+  googleTaskId?: string | null
+  priority?: number
+  listSortOrder?: number
+  customerId?: string | null
+  prospectId?: string | null
+  contractId?: string | null
+  taskListId?: string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type TaskUpdateWithoutContactInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.EnumTaskTypeFieldUpdateOperationsInput | $Enums.TaskType
+  status?: Prisma.EnumTaskStatusFieldUpdateOperationsInput | $Enums.TaskStatus
+  dueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  starred?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repeatRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  googleTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  customer?: Prisma.CustomerUpdateOneWithoutTasksNestedInput
+  prospect?: Prisma.ProspectUpdateOneWithoutTasksNestedInput
+  linkedContract?: Prisma.ContractUpdateOneWithoutTasksNestedInput
+  taskList?: Prisma.TaskListUpdateOneWithoutTasksNestedInput
+  calendarEvents?: Prisma.CalendarEventUpdateManyWithoutTaskNestedInput
+}
+
+export type TaskUncheckedUpdateWithoutContactInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.EnumTaskTypeFieldUpdateOperationsInput | $Enums.TaskType
+  status?: Prisma.EnumTaskStatusFieldUpdateOperationsInput | $Enums.TaskStatus
+  dueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  starred?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repeatRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  googleTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  calendarEvents?: Prisma.CalendarEventUncheckedUpdateManyWithoutTaskNestedInput
+}
+
+export type TaskUncheckedUpdateManyWithoutContactInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.EnumTaskTypeFieldUpdateOperationsInput | $Enums.TaskType
+  status?: Prisma.EnumTaskStatusFieldUpdateOperationsInput | $Enums.TaskStatus
+  dueDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  allDay?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  starred?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repeatRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  googleTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  listSortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  customerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  prospectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taskListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1485,12 +1999,16 @@ export type TaskSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   listSortOrder?: boolean
   customerId?: boolean
   prospectId?: boolean
+  contactId?: boolean
+  contractId?: boolean
   taskListId?: boolean
   completedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.Task$customerArgs<ExtArgs>
   prospect?: boolean | Prisma.Task$prospectArgs<ExtArgs>
+  contact?: boolean | Prisma.Task$contactArgs<ExtArgs>
+  linkedContract?: boolean | Prisma.Task$linkedContractArgs<ExtArgs>
   taskList?: boolean | Prisma.Task$taskListArgs<ExtArgs>
   calendarEvents?: boolean | Prisma.Task$calendarEventsArgs<ExtArgs>
   _count?: boolean | Prisma.TaskCountOutputTypeDefaultArgs<ExtArgs>
@@ -1512,12 +2030,16 @@ export type TaskSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   listSortOrder?: boolean
   customerId?: boolean
   prospectId?: boolean
+  contactId?: boolean
+  contractId?: boolean
   taskListId?: boolean
   completedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.Task$customerArgs<ExtArgs>
   prospect?: boolean | Prisma.Task$prospectArgs<ExtArgs>
+  contact?: boolean | Prisma.Task$contactArgs<ExtArgs>
+  linkedContract?: boolean | Prisma.Task$linkedContractArgs<ExtArgs>
   taskList?: boolean | Prisma.Task$taskListArgs<ExtArgs>
 }, ExtArgs["result"]["task"]>
 
@@ -1537,12 +2059,16 @@ export type TaskSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   listSortOrder?: boolean
   customerId?: boolean
   prospectId?: boolean
+  contactId?: boolean
+  contractId?: boolean
   taskListId?: boolean
   completedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   customer?: boolean | Prisma.Task$customerArgs<ExtArgs>
   prospect?: boolean | Prisma.Task$prospectArgs<ExtArgs>
+  contact?: boolean | Prisma.Task$contactArgs<ExtArgs>
+  linkedContract?: boolean | Prisma.Task$linkedContractArgs<ExtArgs>
   taskList?: boolean | Prisma.Task$taskListArgs<ExtArgs>
 }, ExtArgs["result"]["task"]>
 
@@ -1562,16 +2088,20 @@ export type TaskSelectScalar = {
   listSortOrder?: boolean
   customerId?: boolean
   prospectId?: boolean
+  contactId?: boolean
+  contractId?: boolean
   taskListId?: boolean
   completedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type TaskOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "type" | "status" | "dueDate" | "dueAt" | "allDay" | "starred" | "repeatRule" | "googleTaskId" | "priority" | "listSortOrder" | "customerId" | "prospectId" | "taskListId" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["task"]>
+export type TaskOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "type" | "status" | "dueDate" | "dueAt" | "allDay" | "starred" | "repeatRule" | "googleTaskId" | "priority" | "listSortOrder" | "customerId" | "prospectId" | "contactId" | "contractId" | "taskListId" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["task"]>
 export type TaskInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.Task$customerArgs<ExtArgs>
   prospect?: boolean | Prisma.Task$prospectArgs<ExtArgs>
+  contact?: boolean | Prisma.Task$contactArgs<ExtArgs>
+  linkedContract?: boolean | Prisma.Task$linkedContractArgs<ExtArgs>
   taskList?: boolean | Prisma.Task$taskListArgs<ExtArgs>
   calendarEvents?: boolean | Prisma.Task$calendarEventsArgs<ExtArgs>
   _count?: boolean | Prisma.TaskCountOutputTypeDefaultArgs<ExtArgs>
@@ -1579,11 +2109,15 @@ export type TaskInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
 export type TaskIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.Task$customerArgs<ExtArgs>
   prospect?: boolean | Prisma.Task$prospectArgs<ExtArgs>
+  contact?: boolean | Prisma.Task$contactArgs<ExtArgs>
+  linkedContract?: boolean | Prisma.Task$linkedContractArgs<ExtArgs>
   taskList?: boolean | Prisma.Task$taskListArgs<ExtArgs>
 }
 export type TaskIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   customer?: boolean | Prisma.Task$customerArgs<ExtArgs>
   prospect?: boolean | Prisma.Task$prospectArgs<ExtArgs>
+  contact?: boolean | Prisma.Task$contactArgs<ExtArgs>
+  linkedContract?: boolean | Prisma.Task$linkedContractArgs<ExtArgs>
   taskList?: boolean | Prisma.Task$taskListArgs<ExtArgs>
 }
 
@@ -1592,6 +2126,8 @@ export type $TaskPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     customer: Prisma.$CustomerPayload<ExtArgs> | null
     prospect: Prisma.$ProspectPayload<ExtArgs> | null
+    contact: Prisma.$ContactPayload<ExtArgs> | null
+    linkedContract: Prisma.$ContractPayload<ExtArgs> | null
     taskList: Prisma.$TaskListPayload<ExtArgs> | null
     calendarEvents: Prisma.$CalendarEventPayload<ExtArgs>[]
   }
@@ -1611,6 +2147,8 @@ export type $TaskPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     listSortOrder: number
     customerId: string | null
     prospectId: string | null
+    contactId: string | null
+    contractId: string | null
     taskListId: string | null
     completedAt: Date | null
     createdAt: Date
@@ -2011,6 +2549,8 @@ export interface Prisma__TaskClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   customer<T extends Prisma.Task$customerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Task$customerArgs<ExtArgs>>): Prisma.Prisma__CustomerClient<runtime.Types.Result.GetResult<Prisma.$CustomerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   prospect<T extends Prisma.Task$prospectArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Task$prospectArgs<ExtArgs>>): Prisma.Prisma__ProspectClient<runtime.Types.Result.GetResult<Prisma.$ProspectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  contact<T extends Prisma.Task$contactArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Task$contactArgs<ExtArgs>>): Prisma.Prisma__ContactClient<runtime.Types.Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  linkedContract<T extends Prisma.Task$linkedContractArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Task$linkedContractArgs<ExtArgs>>): Prisma.Prisma__ContractClient<runtime.Types.Result.GetResult<Prisma.$ContractPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   taskList<T extends Prisma.Task$taskListArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Task$taskListArgs<ExtArgs>>): Prisma.Prisma__TaskListClient<runtime.Types.Result.GetResult<Prisma.$TaskListPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   calendarEvents<T extends Prisma.Task$calendarEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Task$calendarEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CalendarEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -2057,6 +2597,8 @@ export interface TaskFieldRefs {
   readonly listSortOrder: Prisma.FieldRef<"Task", 'Int'>
   readonly customerId: Prisma.FieldRef<"Task", 'String'>
   readonly prospectId: Prisma.FieldRef<"Task", 'String'>
+  readonly contactId: Prisma.FieldRef<"Task", 'String'>
+  readonly contractId: Prisma.FieldRef<"Task", 'String'>
   readonly taskListId: Prisma.FieldRef<"Task", 'String'>
   readonly completedAt: Prisma.FieldRef<"Task", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"Task", 'DateTime'>
@@ -2497,6 +3039,44 @@ export type Task$prospectArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    */
   include?: Prisma.ProspectInclude<ExtArgs> | null
   where?: Prisma.ProspectWhereInput
+}
+
+/**
+ * Task.contact
+ */
+export type Task$contactArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Contact
+   */
+  select?: Prisma.ContactSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Contact
+   */
+  omit?: Prisma.ContactOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContactInclude<ExtArgs> | null
+  where?: Prisma.ContactWhereInput
+}
+
+/**
+ * Task.linkedContract
+ */
+export type Task$linkedContractArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Contract
+   */
+  select?: Prisma.ContractSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Contract
+   */
+  omit?: Prisma.ContractOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContractInclude<ExtArgs> | null
+  where?: Prisma.ContractWhereInput
 }
 
 /**
