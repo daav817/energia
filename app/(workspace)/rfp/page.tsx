@@ -64,6 +64,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -106,6 +107,8 @@ import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
 import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
 import { ComposeEmailModal, type ComposeEmailTarget } from "@/components/compose-email-modal";
 import { useUnsavedNavigationBlock } from "@/components/unsaved-navigation-guard";
+import { hydrateQuoteComparisonPicks } from "@/lib/quote-comparison-picks";
+import type { QuoteWorkspaceSnapshotV1 } from "@/lib/quote-workspace-snapshot";
 
 type EnergyType = "ELECTRIC" | "NATURAL_GAS";
 type EnergyChoice = "" | EnergyType;
@@ -338,6 +341,7 @@ type RecentRfp = {
   supplierContactSelections?: unknown;
   suppliers: Array<{ id: string; name: string; email?: string | null }>;
   accountLines: Array<{ accountNumber: string; annualUsage: string; avgMonthlyUsage: string }>;
+  quoteComparisonPicks?: unknown;
 };
 
 /** Emails that received the original RFP send (from stored selections, with directory lookup for legacy rows). */
@@ -965,6 +969,7 @@ export default function RfpGeneratorPage() {
   const [drivePickerQuery, setDrivePickerQuery] = useState("");
   const [drivePickerLoading, setDrivePickerLoading] = useState(false);
   const [drivePickerError, setDrivePickerError] = useState("");
+  const [driveShareWorking, setDriveShareWorking] = useState(false);
   const [driveFiles, setDriveFiles] = useState<DriveFileOption[]>([]);
   const [driveBreadcrumbs, setDriveBreadcrumbs] = useState<DriveBreadcrumb[]>([]);
   const [driveCurrentFolderId, setDriveCurrentFolderId] = useState("");
@@ -992,6 +997,8 @@ export default function RfpGeneratorPage() {
   }>({});
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [deleteRfpTarget, setDeleteRfpTarget] = useState<{ id: string; title: string } | null>(null);
+  const [recentRfpArchiveTarget, setRecentRfpArchiveTarget] = useState<RecentRfp | null>(null);
+  const [recentRfpArchiveBusy, setRecentRfpArchiveBusy] = useState(false);
   const [deleteRfpLoading, setDeleteRfpLoading] = useState(false);
   const [utilityTableModalOpen, setUtilityTableModalOpen] = useState(false);
   const [customTermsError, setCustomTermsError] = useState("");
@@ -1002,6 +1009,7 @@ export default function RfpGeneratorPage() {
     sentTo?: number;
     emailRecipientCount?: number;
     testEmailSent?: boolean;
+    markedSentOutside?: boolean;
     error?: string;
   } | null>(null);
 
@@ -1012,6 +1020,8 @@ export default function RfpGeneratorPage() {
   const [attachContactCustomerId, setAttachContactCustomerId] = useState<string | null>(null);
   const [contactLabelPresets, setContactLabelPresets] = useState<string[]>([]);
   const [rfpTestEmailOk, setRfpTestEmailOk] = useState(false);
+  const [markSentOutsideRfpId, setMarkSentOutsideRfpId] = useState<string | null>(null);
+  const [markSentOutsideBusy, setMarkSentOutsideBusy] = useState(false);
   const localBillInputRef = useRef<HTMLInputElement>(null);
   const localSummaryInputRef = useRef<HTMLInputElement>(null);
   const customerCompanyInputRef = useRef<HTMLInputElement>(null);
@@ -1738,8 +1748,14 @@ export default function RfpGeneratorPage() {
     return i >= 0 ? i + 1 : 0;
   }, [accountLines, accountTimingModalLine]);
 
-  const draftRfqs = useMemo(() => recentRfqs.filter((r) => r.status === "draft"), [recentRfqs]);
-  const submittedRfqs = useMemo(() => recentRfqs.filter((r) => r.status !== "draft"), [recentRfqs]);
+  const draftRfqs = useMemo(
+    () => recentRfqs.filter((r) => r.status === "draft" && r.archivedAt == null),
+    [recentRfqs]
+  );
+  const submittedRfqs = useMemo(
+    () => recentRfqs.filter((r) => r.status !== "draft" && r.archivedAt == null),
+    [recentRfqs]
+  );
 
   const rfpFormFingerprint = useMemo(
     () =>
@@ -1927,6 +1943,56 @@ export default function RfpGeneratorPage() {
       const { error: _e, ...rest } = current;
       return Object.keys(rest).length > 0 ? (rest as typeof current) : null;
     });
+  }
+
+  async function confirmRecentRfpArchive() {
+    const rfp = recentRfpArchiveTarget;
+    if (!rfp) return;
+    setRecentRfpArchiveBusy(true);
+    try {
+      const hydrated = hydrateQuoteComparisonPicks(rfp.quoteComparisonPicks);
+      const pickSnap: QuoteWorkspaceSnapshotV1["pickByTerm"] = {};
+      for (const [k, v] of Object.entries(hydrated)) {
+        if (v) pickSnap[String(k)] = v;
+      }
+      const quoteWorkspaceSnapshot: QuoteWorkspaceSnapshotV1 = {
+        version: 1,
+        pickByTerm: pickSnap,
+        manualRows: [],
+        extraTermMonths: [],
+        capturedAt: new Date().toISOString(),
+      };
+      const res = await fetch(`/api/rfp/${encodeURIComponent(rfp.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive: true, quoteWorkspaceSnapshot }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        createdContractId?: string | null;
+        archiveSkippedContractReason?: string | null;
+        error?: string;
+      };
+      setRecentRfpArchiveTarget(null);
+      await loadPageData();
+      if (!res.ok) {
+        window.alert(data.error || "Could not archive this RFP.");
+        return;
+      }
+      if (data.createdContractId) {
+        const go = window.confirm(
+          "A contract was added to the Contracts directory with details from this RFP. Open Edit Contract now to confirm rate and executed terms?"
+        );
+        if (go) {
+          router.push(
+            `/directory/contracts?contractId=${encodeURIComponent(data.createdContractId)}&fromArchive=1`
+          );
+        }
+      } else if (data.archiveSkippedContractReason) {
+        window.alert(data.archiveSkippedContractReason);
+      }
+    } finally {
+      setRecentRfpArchiveBusy(false);
+    }
   }
 
   async function loadPageData() {
@@ -2632,6 +2698,34 @@ export default function RfpGeneratorPage() {
     }
   }
 
+  async function performMarkRfpSentOutside() {
+    const id = markSentOutsideRfpId;
+    if (!id) return;
+    const wasEditing = activeDraftId === id;
+    setMarkSentOutsideBusy(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/rfp/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "sent" }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not mark RFP as sent");
+      setMarkSentOutsideRfpId(null);
+      skipNextWipPersist.current = true;
+      await loadPageData();
+      if (wasEditing) {
+        await loadSavedRfpIntoForm(id);
+      }
+      setResult({ success: true, markedSentOutside: true });
+    } catch (e) {
+      setResult({ error: e instanceof Error ? e.message : "Could not mark RFP as sent" });
+    } finally {
+      setMarkSentOutsideBusy(false);
+    }
+  }
+
   async function performSendRfp() {
     setSending(true);
     setResult(null);
@@ -2747,32 +2841,52 @@ export default function RfpGeneratorPage() {
     setDriveBreadcrumbs([]);
     setDriveCurrentFolderId("");
     setDriveSort("name");
+    setDriveShareWorking(false);
     setDrivePickerOpen(true);
     void loadDriveFiles(kind, { query: "", folderId: "" });
   }
 
-  function handleDriveEntryActivate(file: DriveFileOption) {
+  async function handleDriveEntryActivate(file: DriveFileOption) {
     if (file.isFolder) {
       setDrivePickerQuery("");
       void loadDriveFiles(drivePickerKind, { query: "", folderId: file.id });
       return;
     }
-    if (drivePickerKind === "bill") {
-      const link =
-        file.webViewLink?.trim() ||
-        (file.id ? `https://drive.google.com/file/d/${file.id}/view` : "");
-      if (link) {
-        setBillDriveItems((prev) =>
-          appendBillDriveItem(prev, { fileId: file.id, webViewLink: link, filename: file.name })
-        );
-      }
-      setLocalBillFile(null);
-    } else {
-      setSummarySpreadsheetUrl(file.webViewLink || "");
-      setSelectedSummaryDriveFileId(file.id);
-      setLocalSummaryFile(null);
+    const fid = String(file.id || "").trim();
+    if (!fid) {
+      setDrivePickerError("This file has no Google Drive id. Choose another file or upload locally.");
+      return;
     }
-    setDrivePickerOpen(false);
+    setDriveShareWorking(true);
+    setDrivePickerError("");
+    try {
+      const res = await fetch(`/api/google-drive/files/${encodeURIComponent(fid)}/share-with-link`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "Could not update sharing for this file.");
+      }
+      const link =
+        file.webViewLink?.trim() || (fid ? `https://drive.google.com/file/d/${fid}/view` : "");
+      if (drivePickerKind === "bill") {
+        if (link) {
+          setBillDriveItems((prev) =>
+            appendBillDriveItem(prev, { fileId: file.id, webViewLink: link, filename: file.name })
+          );
+        }
+        setLocalBillFile(null);
+      } else {
+        setSummarySpreadsheetUrl(link);
+        setSelectedSummaryDriveFileId(file.id);
+        setLocalSummaryFile(null);
+      }
+      setDrivePickerOpen(false);
+    } catch (err) {
+      setDrivePickerError(err instanceof Error ? err.message : "Sharing update failed.");
+    } finally {
+      setDriveShareWorking(false);
+    }
   }
 
   function handleLocalFileSelected(kind: DrivePickerKind, file: File | null) {
@@ -2974,8 +3088,25 @@ export default function RfpGeneratorPage() {
               </button>
             </div>
           ) : null}
+          {result?.success && result.markedSentOutside ? (
+            <div className="flex gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+              <p className="min-w-0 flex-1 leading-snug">
+                RFP marked as sent. You can open <span className="font-medium">Quotes</span> to compare supplier
+                pricing and continue the workflow.
+              </p>
+              <button
+                type="button"
+                className="shrink-0 rounded-sm p-1 text-green-800 hover:bg-green-100 dark:text-green-200 dark:hover:bg-green-900/40"
+                onClick={() => setResult(null)}
+                aria-label="Dismiss message"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
           {result?.success &&
           !result.testEmailSent &&
+          !result.markedSentOutside &&
           typeof (result.emailRecipientCount ?? result.sentTo) === "number" ? (
             <div className="flex gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
               <p className="min-w-0 flex-1 leading-snug">
@@ -3051,6 +3182,18 @@ export default function RfpGeneratorPage() {
             <Button type="button" variant="outline" size="sm" onClick={handleTestSend} disabled={testingEmail}>
               {testingEmail ? "Sending…" : "Test RFP"}
             </Button>
+            {activeDraftId ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={markSentOutsideBusy}
+                onClick={() => setMarkSentOutsideRfpId(activeDraftId)}
+                title="Use when supplier emails were already sent outside Energia"
+              >
+                {markSentOutsideBusy ? "Updating…" : "Mark sent (outside app)"}
+              </Button>
+            ) : null}
             {testEmailFoundId ? (
               <Button type="button" variant="secondary" size="sm" onClick={() => setTestEmailViewOpen(true)}>
                 View test
@@ -4108,6 +4251,16 @@ export default function RfpGeneratorPage() {
                             type="button"
                             size="sm"
                             variant="outline"
+                            disabled={markSentOutsideBusy}
+                            onClick={() => setMarkSentOutsideRfpId(rfp.id)}
+                            title="Use when supplier emails were already sent outside Energia"
+                          >
+                            Mark sent (outside app)
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
                             className="text-destructive border-destructive/40 hover:bg-destructive/10"
                             onClick={() =>
                               setDeleteRfpTarget({ id: rfp.id, title: rfpListCustomerTitle(rfp) })
@@ -4141,6 +4294,17 @@ export default function RfpGeneratorPage() {
                             onClick={() => void loadSavedRfpIntoForm(rfp.id, { showCustomerRfpLoaded: true })}
                           >
                             Continue editing
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            disabled={markSentOutsideBusy}
+                            onClick={() => setMarkSentOutsideRfpId(rfp.id)}
+                            title="Use when supplier emails were already sent outside Energia"
+                          >
+                            Mark sent
                           </Button>
                           <Button
                             type="button"
@@ -4262,59 +4426,11 @@ export default function RfpGeneratorPage() {
                       >
                         Review quotes
                       </Link>
-                      {rfp.status !== "completed" && rfp.status !== "cancelled" && (
-                        <>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            onClick={async () => {
-                              await fetch(`/api/rfp/${rfp.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "completed" }),
-                              });
-                              await loadPageData();
-                            }}
-                          >
-                            Close out (no contract)
-                          </Button>
-                          <Button type="button" size="sm" asChild>
-                            <Link href={`/directory/contracts?newFromRfp=${rfp.id}`}>Close out → new contract</Link>
-                          </Button>
-                        </>
-                      )}
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={async () => {
-                          const res = await fetch(`/api/rfp/${rfp.id}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ archive: true }),
-                          });
-                          const data = (await res.json().catch(() => ({}))) as {
-                            createdContractId?: string | null;
-                            archiveSkippedContractReason?: string | null;
-                            error?: string;
-                          };
-                          await loadPageData();
-                          if (!res.ok) {
-                            window.alert(data.error || "Could not archive this RFP.");
-                            return;
-                          }
-                          if (data.createdContractId) {
-                            const go = window.confirm(
-                              "A draft contract was added to the Contracts directory (highlighted until you enter executed terms). Open it now to complete supplier, dates, and rate from the counter-signed agreement?"
-                            );
-                            if (go) {
-                              router.push(`/directory/contracts?contractId=${encodeURIComponent(data.createdContractId)}`);
-                            }
-                          } else if (data.archiveSkippedContractReason) {
-                            window.alert(data.archiveSkippedContractReason);
-                          }
-                        }}
+                        onClick={() => setRecentRfpArchiveTarget(rfp)}
                       >
                         <Archive className="mr-1 h-4 w-4 shrink-0" />
                         Archive
@@ -4855,6 +4971,49 @@ export default function RfpGeneratorPage() {
       />
 
       <ConfirmDialog
+        open={markSentOutsideRfpId != null}
+        onOpenChange={(o) => {
+          if (!o && !markSentOutsideBusy) setMarkSentOutsideRfpId(null);
+        }}
+        title="Mark RFP as sent?"
+        message="Use this when supplier emails were already sent outside Energia. The request will be treated as submitted (status “sent”) so you can use Quotes and workflow. No supplier emails are sent from Energia."
+        confirmLabel={markSentOutsideBusy ? "Updating…" : "Mark as sent"}
+        variant="default"
+        onConfirm={() => void performMarkRfpSentOutside()}
+      />
+
+      <Dialog
+        open={recentRfpArchiveTarget != null}
+        onOpenChange={(o) => {
+          if (!o && !recentRfpArchiveBusy) setRecentRfpArchiveTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive RFP and quote work?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This hides the RFP from active lists, keeps all quote rows in the database, adds an Archives entry under
+            Settings, and creates a contract stub (when a CRM customer is linked) for you to complete with executed
+            terms.
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRecentRfpArchiveTarget(null)}
+              disabled={recentRfpArchiveBusy}
+            >
+              Cancel
+            </Button>
+            <Button type="button" disabled={recentRfpArchiveBusy} onClick={() => void confirmRecentRfpArchive()}>
+              {recentRfpArchiveBusy ? "Archiving…" : "Archive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
         open={deleteRfpTarget != null}
         onOpenChange={(o) => !o && !deleteRfpLoading && setDeleteRfpTarget(null)}
         title="Delete this RFP?"
@@ -5043,6 +5202,10 @@ export default function RfpGeneratorPage() {
                 ? "Add bill PDF from Google Drive"
                 : "Select Usage Summary from Google Drive"}
             </DialogTitle>
+            <DialogDescription>
+              Selected files are set to <strong>anyone with the link can view</strong> so suppliers can open links
+              from RFP emails without requesting access.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
@@ -5095,6 +5258,12 @@ export default function RfpGeneratorPage() {
                 </SelectContent>
               </Select>
             </div>
+            {driveShareWorking && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                Updating Google Drive sharing so anyone with the link can view…
+              </div>
+            )}
             {drivePickerError && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 <p>{drivePickerError}</p>
@@ -5128,10 +5297,13 @@ export default function RfpGeneratorPage() {
                   role="button"
                   tabIndex={0}
                   title={file.name}
-                  className="grid cursor-pointer grid-cols-[minmax(12rem,2.6fr)_minmax(5rem,1fr)_minmax(6rem,1.1fr)_minmax(4rem,0.85fr)_4.5rem] gap-x-3 gap-y-1 border-b px-3 py-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring sm:px-4 sm:py-3"
-                  onDoubleClick={() => handleDriveEntryActivate(file)}
+                  className={cn(
+                    "grid cursor-pointer grid-cols-[minmax(12rem,2.6fr)_minmax(5rem,1fr)_minmax(6rem,1.1fr)_minmax(4rem,0.85fr)_4.5rem] gap-x-3 gap-y-1 border-b px-3 py-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring sm:px-4 sm:py-3",
+                    driveShareWorking && "pointer-events-none opacity-50"
+                  )}
+                  onDoubleClick={() => void handleDriveEntryActivate(file)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleDriveEntryActivate(file);
+                    if (e.key === "Enter") void handleDriveEntryActivate(file);
                   }}
                 >
                   <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -5167,11 +5339,14 @@ export default function RfpGeneratorPage() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        disabled={!file.webViewLink}
+                        disabled={driveShareWorking || (!file.webViewLink && !file.id)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!file.webViewLink || typeof window === "undefined") return;
-                          window.open(file.webViewLink, "_blank", "noopener,noreferrer");
+                          const url =
+                            file.webViewLink?.trim() ||
+                            (file.id ? `https://drive.google.com/file/d/${file.id}/view` : "");
+                          if (!url || typeof window === "undefined") return;
+                          window.open(url, "_blank", "noopener,noreferrer");
                         }}
                       >
                         View

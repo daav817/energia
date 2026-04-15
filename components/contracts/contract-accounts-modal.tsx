@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,27 @@ function emptyRow(): ContractAccountRowDraft {
     annualUsage: "",
     avgMonthlyUsage: "",
   };
+}
+
+function parseUsageInput(raw: string): number | null {
+  const n = parseFloat(String(raw).trim().replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function sumColumn(rows: ContractAccountRowDraft[], field: "annualUsage" | "avgMonthlyUsage"): number {
+  let sum = 0;
+  for (const r of rows) {
+    const v = parseUsageInput(r[field]);
+    if (v != null) sum += v;
+  }
+  return sum;
+}
+
+function formatUsageTotal(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  const rounded = Math.round(n * 10000) / 10000;
+  if (Number.isInteger(rounded)) return rounded.toLocaleString();
+  return rounded.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
 export function ContractAccountsModal(props: {
@@ -84,6 +105,9 @@ export function ContractAccountsModal(props: {
   useEffect(() => {
     if (open && contractId) void hydrate();
   }, [open, contractId, hydrate]);
+
+  const annualTotal = useMemo(() => sumColumn(rows, "annualUsage"), [rows]);
+  const avgMonthlyTotal = useMemo(() => sumColumn(rows, "avgMonthlyUsage"), [rows]);
 
   const handleSave = async () => {
     if (!contractId) return;
@@ -235,6 +259,16 @@ export function ContractAccountsModal(props: {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-muted/40 font-medium">
+                  <td className="p-2 text-muted-foreground" colSpan={2}>
+                    Total
+                  </td>
+                  <td className="p-2 tabular-nums">{formatUsageTotal(annualTotal)}</td>
+                  <td className="p-2 tabular-nums">{formatUsageTotal(avgMonthlyTotal)}</td>
+                  <td className="p-2" />
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

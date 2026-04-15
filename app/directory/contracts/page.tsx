@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Archive,
@@ -66,9 +66,12 @@ import {
   stripEnergySuffix,
   normalizeCompanyKey,
   isCustomerCandidateContact,
+  isSupplierCandidateContact,
 } from "@/lib/customers-overview";
 import { cn } from "@/lib/utils";
 import { annualGasUsageToMcf } from "@/lib/energy-usage";
+import { normalizeSupplierMatchKey } from "@/lib/supplier-rfp-contacts";
+import { CONTRACT_PLACEHOLDER_SUPPLIER_NAME } from "@/lib/placeholder-supplier-constants";
 import { ContactLabelsField } from "@/components/contact-labels-field";
 import { ComposeEmailModal } from "@/components/compose-email-modal";
 import { GoogleDriveBillFilePickerDialog } from "@/components/google-drive/google-drive-bill-file-picker-dialog";
@@ -92,6 +95,7 @@ type Contact = {
   jobTitle?: string | null;
   label?: string | null;
   customerId?: string | null;
+  supplierId?: string | null;
   isPriority?: boolean;
   emails?: { email: string }[];
   phones?: { phone: string; type?: string }[];
@@ -441,8 +445,11 @@ export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [contractIdFromQuery, setContractIdFromQuery] = useState<string | null>(null);
+  const [fromArchiveFromQuery, setFromArchiveFromQuery] = useState(false);
+  const [editDialogFieldHighlights, setEditDialogFieldHighlights] = useState<ContractEditFieldHighlightKey[] | null>(
+    null
+  );
   const [rfpRequestIdFromQuery, setRfpRequestIdFromQuery] = useState<string | null>(null);
-  const [highlightContractId, setHighlightContractId] = useState<string | null>(null);
   const rfpCloseoutPrefillDoneRef = useRef(false);
   const [tab, setTab] = useState<"active" | "ended">("active");
   const [energyFilter, setEnergyFilter] = useState<"all" | "electric" | "gas">("all");
@@ -527,25 +534,14 @@ export default function ContractsPage() {
     if (typeof window === "undefined") return;
     const sp = new URLSearchParams(window.location.search);
     setContractIdFromQuery(sp.get("contractId"));
+    setFromArchiveFromQuery(sp.get("fromArchive") === "1");
     setRfpRequestIdFromQuery(sp.get("rfpRequestId"));
-    const hi = sp.get("highlightContract")?.trim();
-    if (hi) {
-      setHighlightContractId(hi);
+    if (sp.has("highlightContract")) {
       sp.delete("highlightContract");
       const next = sp.toString();
       window.history.replaceState({}, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
     }
   }, []);
-
-  useEffect(() => {
-    if (!highlightContractId || loading) return;
-    const t = window.setTimeout(() => {
-      document
-        .getElementById(`contract-row-${highlightContractId}`)
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
-    }, 150);
-    return () => window.clearTimeout(t);
-  }, [highlightContractId, loading, contracts]);
 
   // From RFP workspace: pre-fill Add Contract from a submitted RFP (closeout).
   useEffect(() => {
@@ -619,7 +615,7 @@ export default function ContractsPage() {
     fetch("/api/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(Array.isArray(d) ? d : []));
-    fetch("/api/suppliers")
+    fetch("/api/suppliers?materializeFromContacts=1")
       .then((r) => r.json())
       .then((d) => setSuppliers(Array.isArray(d) ? d : []));
     fetch("/api/contacts")
@@ -632,20 +628,30 @@ export default function ContractsPage() {
     const id = contractIdFromQuery;
     if (!id) return;
     if (editContract) return;
+    const archiveFlow = fromArchiveFromQuery;
 
     (async () => {
       try {
         const res = await fetch(`/api/contracts/${encodeURIComponent(id)}`);
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || "Failed to load contract");
-        openEdit(data as Contract);
+        openEdit(data as Contract, archiveFlow ? { fromArchive: true } : undefined);
+        if (typeof window !== "undefined") {
+          const sp = new URLSearchParams(window.location.search);
+          sp.delete("contractId");
+          sp.delete("fromArchive");
+          const next = sp.toString();
+          window.history.replaceState({}, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
+        }
+        setContractIdFromQuery(null);
+        setFromArchiveFromQuery(false);
       } catch (err) {
         // If the param is invalid, ignore and keep the page functional.
         console.error("Failed to open contract from query:", err);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractIdFromQuery]);
+  }, [contractIdFromQuery, fromArchiveFromQuery]);
 
   useEffect(() => {
     if (!contractIdFromQuery || loading) return;
@@ -657,7 +663,9 @@ export default function ContractsPage() {
     fetch("/api/customers").then((r) => r.json()).then((d) => setCustomers(Array.isArray(d) ? d : []));
   }, []);
   const refetchSuppliers = useCallback(() => {
-    fetch("/api/suppliers").then((r) => r.json()).then((d) => setSuppliers(Array.isArray(d) ? d : []));
+    fetch("/api/suppliers?materializeFromContacts=1")
+      .then((r) => r.json())
+      .then((d) => setSuppliers(Array.isArray(d) ? d : []));
   }, []);
   const refetchContacts = useCallback(() => {
     fetch("/api/contacts").then((r) => r.json()).then((d) => setContactsList((d.contacts ?? d) || []));
@@ -890,8 +898,9 @@ export default function ContractsPage() {
     }
   };
 
-  const openEdit = (c: Contract) => {
+  const openEdit = (c: Contract, options?: { fromArchive?: boolean }) => {
     setEditContract(c);
+    setEditDialogFieldHighlights(options?.fromArchive ? ["supplier", "term", "contractRate", "endDate"] : null);
     setForm({
       customerId: c.customerId,
       supplierId: c.supplierId,
@@ -901,7 +910,7 @@ export default function ContractsPage() {
       pricePerUnit: String(c.pricePerUnit ?? ""),
       startDate: c.startDate ? new Date(c.startDate).toISOString().slice(0, 10) : "",
       expirationDate: c.expirationDate ? new Date(c.expirationDate).toISOString().slice(0, 10) : "",
-      termMonths: String(c.termMonths ?? ""),
+      termMonths: options?.fromArchive ? "" : String(c.termMonths ?? ""),
       annualUsage: c.annualUsage != null ? String(c.annualUsage) : "",
       avgMonthlyUsage: c.avgMonthlyUsage != null ? String(c.avgMonthlyUsage) : "",
       brokerMargin: c.brokerMargin != null ? String(c.brokerMargin) : "",
@@ -1140,7 +1149,9 @@ export default function ContractsPage() {
       setImportResult(data.message || `Imported ${data.created?.contracts ?? 0} contract(s).`);
       fetchContracts();
       fetch("/api/customers").then((r) => r.json()).then((d) => setCustomers(Array.isArray(d) ? d : []));
-      fetch("/api/suppliers").then((r) => r.json()).then((d) => setSuppliers(Array.isArray(d) ? d : []));
+      fetch("/api/suppliers?materializeFromContacts=1")
+        .then((r) => r.json())
+        .then((d) => setSuppliers(Array.isArray(d) ? d : []));
       fetch("/api/contacts").then((r) => r.json()).then((d) => setContactsList((d.contacts ?? d) || []));
     } catch (err) {
       setImportResult(err instanceof Error ? err.message : "Import failed");
@@ -1367,7 +1378,7 @@ export default function ContractsPage() {
                 <strong>Total annual usage:</strong> {totalAnnualUsageFooter}
               </span>
               <span>
-                <strong>Total Est. Income/Year:</strong> {formatCurrency(totalEstIncomePerYear)}
+                <strong>Total Broker Est. Income/Year:</strong> {formatCurrency(totalEstIncomePerYear)}
               </span>
               <span>
                 <strong>Total Est. Contract Value:</strong> {formatCurrency(totalEstTotalValue)}
@@ -1404,7 +1415,6 @@ export default function ContractsPage() {
             showArchive
             onRestore={undefined}
             tableClassName="flex-1 min-h-0 ended-grid"
-            highlightContractId={highlightContractId}
           />
         </div>
       )}
@@ -1429,7 +1439,7 @@ export default function ContractsPage() {
                 <strong>Total annual usage:</strong> {totalAnnualUsageFooter}
               </span>
               <span>
-                <strong>Total Est. Income/Year:</strong> {formatCurrency(totalEstIncomePerYear)}
+                <strong>Total Broker Est. Income/Year:</strong> {formatCurrency(totalEstIncomePerYear)}
               </span>
               <span>
                 <strong>Total Est. Contract Value:</strong> {formatCurrency(totalEstTotalValue)}
@@ -1466,7 +1476,6 @@ export default function ContractsPage() {
             showArchive={false}
             onRestore={handleRestoreToActive}
             tableClassName="flex-1 min-h-0"
-            highlightContractId={highlightContractId}
           />
         </div>
       )}
@@ -1492,7 +1501,12 @@ export default function ContractsPage() {
       />
       <AddContractDialog
         open={!!editContract}
-        onOpenChange={(open) => !open && setEditContract(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditContract(null);
+            setEditDialogFieldHighlights(null);
+          }
+        }}
         form={form}
         setForm={setForm}
         customers={customers}
@@ -1504,6 +1518,7 @@ export default function ContractsPage() {
         refetchSuppliers={refetchSuppliers}
         refetchContacts={refetchContacts}
         utilitySuggestions={utilitySuggestions}
+        fieldHighlights={editDialogFieldHighlights}
       />
 
       <ContractRenewalEmailDialog
@@ -1858,7 +1873,6 @@ function ContractsTable({
   showArchive,
   onRestore,
   tableClassName,
-  highlightContractId,
 }: {
   contracts: Contract[];
   contactDirectory: Contact[];
@@ -1888,7 +1902,6 @@ function ContractsTable({
   showArchive: boolean;
   onRestore?: (id: string) => void;
   tableClassName?: string;
-  highlightContractId?: string | null;
 }) {
   const visibleCols = columnOrder.filter((id) => id !== "actions");
   const showLightGrid = !!tableClassName && tableClassName.includes("ended-grid");
@@ -1971,16 +1984,13 @@ function ContractsTable({
                     : needsDetail
                       ? "bg-amber-50/90 dark:bg-amber-950/30 ring-1 ring-inset ring-amber-200/80 dark:ring-amber-800/50"
                       : "";
-                  const urlFocus = highlightContractId === c.id;
-
                   return (
                     <TableRow
                       id={`contract-row-${c.id}`}
                       key={c.id}
                       className={cn(
                         rowHighlight,
-                        showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : "",
-                        urlFocus && "ring-2 ring-inset ring-primary z-[1] relative"
+                        showLightGrid ? "border-b border-slate-300/80 dark:border-slate-500/70" : ""
                       )}
                     >
                       <TableCell className={`sticky left-0 z-10 w-10 min-w-[2.5rem] border-r ${stickyRowBg} shadow-[1px_0_0_0_hsl(var(--border))]`}>
@@ -2532,6 +2542,8 @@ type ContractFormState = {
   signedContractDriveUrl: string;
 };
 
+type ContractEditFieldHighlightKey = "supplier" | "term" | "contractRate" | "endDate";
+
 function AddCustomerModal({
   initialCompanyName,
   initialContactName,
@@ -2782,6 +2794,9 @@ function AddSupplierModal({
   );
 }
 
+/** Default zoom when the signed-contract PDF preview loads (user can change via controls). */
+const DEFAULT_SIGNED_PDF_ZOOM = 81;
+
 function AddContractDialog({
   open,
   onOpenChange,
@@ -2796,6 +2811,7 @@ function AddContractDialog({
   refetchSuppliers,
   refetchContacts,
   utilitySuggestions = [],
+  fieldHighlights = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -2810,7 +2826,12 @@ function AddContractDialog({
   refetchSuppliers?: () => void;
   refetchContacts?: () => void;
   utilitySuggestions?: string[];
+  fieldHighlights?: ContractEditFieldHighlightKey[] | null;
 }) {
+  const archiveFieldRing = (key: ContractEditFieldHighlightKey) =>
+    fieldHighlights?.includes(key)
+      ? "rounded-md ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+      : "";
   const [contactCompanyOptions, setContactCompanyOptions] = useState<ContactCompanyOption[]>([]);
 
   const loadCustomerCompanies = useCallback(() => {
@@ -2834,6 +2855,13 @@ function AddContractDialog({
     loadCustomerCompanies();
   }, [open, loadCustomerCompanies]);
 
+  /** Contacts + suppliers are loaded once on the page; materialize links supplierId on the server — refresh when modal opens. */
+  useEffect(() => {
+    if (!open) return;
+    refetchContacts?.();
+    refetchSuppliers?.();
+  }, [open, refetchContacts, refetchSuppliers]);
+
   const [contactLabelOptions, setContactLabelOptions] = useState<string[]>([]);
   useEffect(() => {
     if (!open) return;
@@ -2844,6 +2872,74 @@ function AddContractDialog({
   }, [open]);
 
   const safeContacts = Array.isArray(contacts) ? contacts : [];
+
+  /**
+   * Supplier combobox: one entry per distinct company among supplier/vendor-labeled contacts.
+   * Resolves each row to a Supplier id via linked contact.supplierId or a directory Supplier name match.
+   */
+  const suppliersForPicker = useMemo(() => {
+    const noPlaceholder = suppliers.filter((s) => s.name !== CONTRACT_PLACEHOLDER_SUPPLIER_NAME);
+    const supplierByNormKey = new Map<string, { id: string; name: string }>();
+    for (const s of noPlaceholder) {
+      const k = normalizeCompanyKey(s.name);
+      if (!k || supplierByNormKey.has(k)) continue;
+      supplierByNormKey.set(k, { id: s.id, name: stripEnergySuffix(s.name) || s.name });
+    }
+
+    const byCompanyKey = new Map<string, { displayName: string; supplierId: string | null }>();
+    for (const c of safeContacts) {
+      if (!isSupplierCandidateContact(c.label)) continue;
+      const rawCo = (c.company || "").trim();
+      const person = (c.name || "").trim();
+      const labelBase = rawCo || person;
+      if (!labelBase) continue;
+      const displayName = stripEnergySuffix(labelBase) || labelBase;
+      const k = normalizeCompanyKey(displayName);
+      if (!k) continue;
+      const sid = (c.supplierId ?? "").trim() || null;
+      const prev = byCompanyKey.get(k);
+      if (!prev) {
+        byCompanyKey.set(k, { displayName, supplierId: sid });
+      } else {
+        if (!prev.supplierId && sid) prev.supplierId = sid;
+      }
+    }
+
+    const resolveSupplierId = (companyKey: string, displayName: string, contactSupplierId: string | null): string | null => {
+      if (contactSupplierId) return contactSupplierId;
+      const hit = supplierByNormKey.get(companyKey);
+      if (hit) return hit.id;
+      const loose = normalizeSupplierMatchKey(displayName);
+      if (!loose) return null;
+      for (const s of noPlaceholder) {
+        if (normalizeSupplierMatchKey(s.name) === loose) return s.id;
+      }
+      return null;
+    };
+
+    const out: { id: string; name: string }[] = [];
+    for (const [k, { displayName, supplierId }] of byCompanyKey) {
+      const id = resolveSupplierId(k, displayName, supplierId);
+      if (!id) continue;
+      out.push({ id, name: displayName });
+    }
+
+    const linked = suppliers.find((s) => s.id === form.supplierId);
+    if (linked && linked.name !== CONTRACT_PLACEHOLDER_SUPPLIER_NAME && !out.some((s) => s.id === linked.id)) {
+      out.push({
+        id: linked.id,
+        name: stripEnergySuffix(linked.name) || linked.name,
+      });
+    }
+
+    const bySupplierId = new Map<string, string>();
+    for (const row of out) {
+      if (!bySupplierId.has(row.id)) bySupplierId.set(row.id, row.name);
+    }
+    return [...bySupplierId.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [suppliers, safeContacts, form.supplierId]);
 
   const companiesMerged = useMemo(() => {
     const list: ContactCompanyOption[] = contactCompanyOptions.map((o) => ({ ...o }));
@@ -2884,7 +2980,20 @@ function AddContractDialog({
   const [signedObjectUrl, setSignedObjectUrl] = useState<string | null>(null);
   const [signedPreviewLarge, setSignedPreviewLarge] = useState(false);
   const [signedDrivePickerOpen, setSignedDrivePickerOpen] = useState(false);
-  const [signedPdfZoom, setSignedPdfZoom] = useState(100);
+  const [signedPdfZoom, setSignedPdfZoom] = useState(DEFAULT_SIGNED_PDF_ZOOM);
+  const signedPdfPreviewScrollRef = useRef<HTMLDivElement>(null);
+  const lastCenteredPdfKeyRef = useRef<string>("");
+
+  const centerSignedPdfInScroll = useCallback(() => {
+    const el = signedPdfPreviewScrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      const box = signedPdfPreviewScrollRef.current;
+      if (!box) return;
+      box.scrollLeft = Math.max(0, (box.scrollWidth - box.clientWidth) / 2);
+      box.scrollTop = Math.max(0, (box.scrollHeight - box.clientHeight) / 2);
+    });
+  }, []);
 
   useEffect(() => {
     if (!signedPreviewFile) {
@@ -2900,14 +3009,32 @@ function AddContractDialog({
     if (!open) {
       setSignedPreviewFile(null);
       setSignedPreviewLarge(false);
-      setSignedPdfZoom(100);
+      setSignedPdfZoom(DEFAULT_SIGNED_PDF_ZOOM);
+      lastCenteredPdfKeyRef.current = "";
     }
   }, [open]);
 
   const signedPreviewSourceUrl = (signedObjectUrl || form.signedContractDriveUrl.trim()).trim();
   useEffect(() => {
-    if (!signedPreviewSourceUrl) setSignedPdfZoom(100);
+    if (!signedPreviewSourceUrl) setSignedPdfZoom(DEFAULT_SIGNED_PDF_ZOOM);
   }, [signedPreviewSourceUrl]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (!signedPreviewSourceUrl || !isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile)) return;
+    const key = `${signedPreviewSourceUrl}::${signedPreviewFile?.name ?? ""}::${signedPreviewFile?.lastModified ?? 0}`;
+    const delay = signedPreviewFile ? 0 : 320;
+    const t = window.setTimeout(() => {
+      lastCenteredPdfKeyRef.current = key;
+      centerSignedPdfInScroll();
+    }, delay);
+    return () => window.clearTimeout(t);
+  }, [open, signedPreviewSourceUrl, signedPreviewFile, centerSignedPdfInScroll]);
+
+  useLayoutEffect(() => {
+    if (!open || !signedPreviewSourceUrl || !isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile)) return;
+    centerSignedPdfInScroll();
+  }, [open, signedPreviewLarge, signedPreviewSourceUrl, signedPreviewFile, centerSignedPdfInScroll]);
 
   useEffect(() => {
     const fromMerged = companiesMerged.find((x) => x.customerId === form.customerId);
@@ -2925,9 +3052,14 @@ function AddContractDialog({
     }
   }, [form.customerId, companiesMerged, customers]);
   useEffect(() => {
+    const fromPicker = suppliersForPicker.find((x) => x.id === form.supplierId);
+    if (fromPicker) {
+      setSupplierQuery(fromPicker.name);
+      return;
+    }
     const s = suppliers.find((x) => x.id === form.supplierId);
     setSupplierQuery(s ? s.name : "");
-  }, [form.supplierId, suppliers]);
+  }, [form.supplierId, suppliers, suppliersForPicker]);
   useEffect(() => {
     const m = safeContacts.find((x) => x.id === form.mainContactId);
     if (m) {
@@ -2970,8 +3102,8 @@ function AddContractDialog({
     return json.id as string;
   };
   const supplierFiltered = supplierQuery.trim()
-    ? suppliers.filter((s) => s.name.toLowerCase().includes(supplierQuery.toLowerCase()))
-    : suppliers;
+    ? suppliersForPicker.filter((s) => s.name.toLowerCase().includes(supplierQuery.toLowerCase()))
+    : suppliersForPicker;
   const supplierExactMatch = supplierFiltered.some((s) => s.name.toLowerCase() === supplierQuery.trim().toLowerCase());
   const mainContactFiltered = mainContactQuery.trim()
     ? customerSideContacts.filter(
@@ -3204,12 +3336,17 @@ function AddContractDialog({
                         void (async () => {
                           try {
                             const id = await ensureCustomerId(c);
-                            const mainId = c.primaryContactId || "";
-                            setForm((f) => ({
-                              ...f,
-                              customerId: id,
-                              mainContactId: mainId,
-                            }));
+                            setForm((f) => {
+                              const switchingCustomer = id !== f.customerId;
+                              const nextMain = switchingCustomer
+                                ? c.primaryContactId || ""
+                                : f.mainContactId || c.primaryContactId || "";
+                              return {
+                                ...f,
+                                customerId: id,
+                                mainContactId: nextMain,
+                              };
+                            });
                             setCompanyQuery(c.displayName);
                             setCompanyOpen(false);
                             refetchCustomers?.();
@@ -3241,8 +3378,12 @@ function AddContractDialog({
                 </div>
               )}
             </div>
-            <div className="grid gap-2 relative">
+            <div className={cn("grid gap-2 relative", archiveFieldRing("supplier"))}>
               <Label>Supplier *</Label>
+              <p className="text-xs text-muted-foreground -mt-1">
+                List is built from <strong>Contacts</strong> whose label includes supplier or vendor: one row per company
+                (shared company names are not repeated).
+              </p>
               <Input
                 value={supplierQuery}
                 onChange={(e) => {
@@ -3251,7 +3392,7 @@ function AddContractDialog({
                 }}
                 onFocus={() => setSupplierOpen(true)}
                 onBlur={() => setTimeout(() => setSupplierOpen(false), 200)}
-                placeholder="Type or select supplier"
+                placeholder="Type or select supplier company"
               />
               {supplierOpen && (
                 <div
@@ -3436,7 +3577,7 @@ function AddContractDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
+            <div className={cn("grid gap-2", archiveFieldRing("contractRate"))}>
               <Label>Contract Rate ($/unit) *</Label>
               <Input
                 type="number"
@@ -3458,7 +3599,7 @@ function AddContractDialog({
                 required
               />
             </div>
-            <div className="grid gap-2">
+            <div className={cn("grid gap-2", archiveFieldRing("endDate"))}>
               <Label>End Date *</Label>
               <Input
                 type="date"
@@ -3470,7 +3611,7 @@ function AddContractDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
+            <div className={cn("grid gap-2", archiveFieldRing("term"))}>
               <Label>Term (months) *</Label>
               <Input
                 type="number"
@@ -3657,7 +3798,10 @@ function AddContractDialog({
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 text-xs"
-                  onClick={() => setSignedPdfZoom(100)}
+                  onClick={() => {
+                    setSignedPdfZoom(DEFAULT_SIGNED_PDF_ZOOM);
+                    centerSignedPdfInScroll();
+                  }}
                 >
                   Reset
                 </Button>
@@ -3680,30 +3824,41 @@ function AddContractDialog({
             const baseIframeH = 1180;
 
             if (isPdf) {
+              const innerW = baseIframeW * scale;
+              const innerH = baseIframeH * scale;
               return (
                 <div
                   className="rounded-md border bg-muted/30"
                   style={{ maxHeight: previewScrollMaxHeight, height: previewScrollMaxHeight }}
                 >
-                  <div className="h-full w-full overflow-auto">
+                  <div ref={signedPdfPreviewScrollRef} className="h-full w-full overflow-auto">
                     <div
+                      className="grid place-items-center box-border p-2"
                       style={{
-                        width: baseIframeW * scale,
-                        height: baseIframeH * scale,
-                        position: "relative",
+                        minWidth: `max(100%, ${innerW}px)`,
+                        minHeight: `max(100%, ${innerH}px)`,
                       }}
                     >
-                      <iframe
-                        title="Contract PDF preview"
-                        className="absolute left-0 top-0 block border-0"
+                      <div
                         style={{
-                          width: baseIframeW,
-                          height: baseIframeH,
-                          transform: `scale(${scale})`,
-                          transformOrigin: "top left",
+                          width: innerW,
+                          height: innerH,
+                          position: "relative",
+                          flexShrink: 0,
                         }}
-                        src={iframeSrc}
-                      />
+                      >
+                        <iframe
+                          title="Contract PDF preview"
+                          className="absolute left-0 top-0 block border-0"
+                          style={{
+                            width: baseIframeW,
+                            height: baseIframeH,
+                            transform: `scale(${scale})`,
+                            transformOrigin: "top left",
+                          }}
+                          src={iframeSrc}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGoogleDriveClient } from "@/lib/gmail";
+import { fileHasAnyoneLinkAccess } from "@/lib/google-drive-anyone-link-access";
 
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const DRIVE_FIELDS =
@@ -118,24 +119,57 @@ export async function GET(request: NextRequest) {
 
     const breadcrumbs = await buildBreadcrumbs(drive, activeFolderId, configuredRootFolderId);
 
+    const rawFiles = response.data.files || [];
+    const CONCURRENCY = 8;
+    const enriched: Array<{
+      id: string | null | undefined;
+      name: string | null | undefined;
+      mimeType: string | null | undefined;
+      webViewLink: string | null | undefined;
+      iconLink: string | null | undefined;
+      modifiedTime: string | null | undefined;
+      parents: string[];
+      size: number | null;
+      ownerName: string | null;
+      isFolder: boolean;
+      anyoneWithLink: boolean;
+    }> = [];
+
+    for (let i = 0; i < rawFiles.length; i += CONCURRENCY) {
+      const chunk = rawFiles.slice(i, i + CONCURRENCY);
+      const part = await Promise.all(
+        chunk.map(async (file) => {
+          const isFolder = file.mimeType === FOLDER_MIME_TYPE;
+          let anyoneWithLink = false;
+          if (!isFolder && file.id) {
+            try {
+              anyoneWithLink = await fileHasAnyoneLinkAccess(drive, file.id);
+            } catch {
+              anyoneWithLink = false;
+            }
+          }
+          return {
+            id: file.id,
+            name: file.name,
+            mimeType: file.mimeType,
+            webViewLink: file.webViewLink,
+            iconLink: file.iconLink,
+            modifiedTime: file.modifiedTime,
+            parents: file.parents || [],
+            size: file.size ? Number(file.size) : null,
+            ownerName: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || null,
+            isFolder,
+            anyoneWithLink,
+          };
+        })
+      );
+      enriched.push(...part);
+    }
+
     return NextResponse.json({
       currentFolderId: activeFolderId,
       breadcrumbs,
-      files: (response.data.files || []).map((file) => {
-        const isFolder = file.mimeType === FOLDER_MIME_TYPE;
-        return {
-          id: file.id,
-          name: file.name,
-          mimeType: file.mimeType,
-          webViewLink: file.webViewLink,
-          iconLink: file.iconLink,
-          modifiedTime: file.modifiedTime,
-          parents: file.parents || [],
-          size: file.size ? Number(file.size) : null,
-          ownerName: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || null,
-          isFolder,
-        };
-      }),
+      files: enriched,
     });
   } catch (error) {
     console.error("Google Drive file picker error:", error);

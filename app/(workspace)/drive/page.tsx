@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   Download,
@@ -11,10 +11,20 @@ import {
   Image as ImageIcon,
   Loader2,
   Search,
+  ThumbsUp,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 type DriveBreadcrumb = { id: string; name: string };
 
 type DriveFileRow = {
@@ -26,28 +36,40 @@ type DriveFileRow = {
   modifiedTime?: string;
   size?: number | null;
   iconLink?: string;
+  /** From Drive permissions: “anyone with the link” reader (or broader). */
+  anyoneWithLink?: boolean;
 };
+
+function isDriveFolder(f: DriveFileRow) {
+  return !!f.isFolder || f.mimeType === "application/vnd.google-apps.folder";
+}
 
 export default function DrivePage() {
   const [localFiles, setLocalFiles] = useState<{ name: string; size: number; file: File }[]>([]);
   const [query, setQuery] = useState("");
   const [folderId, setFolderId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bulkWorking, setBulkWorking] = useState(false);
   const [error, setError] = useState("");
   const [files, setFiles] = useState<DriveFileRow[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<DriveBreadcrumb[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(() => new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const loadGoogle = useCallback(
     async (opts?: { nextFolder?: string | null; nextQuery?: string | null }) => {
       setLoading(true);
       setError("");
+      const fid =
+        opts && Object.prototype.hasOwnProperty.call(opts, "nextFolder")
+          ? opts.nextFolder ?? ""
+          : folderId;
+      const q =
+        opts && Object.prototype.hasOwnProperty.call(opts, "nextQuery") ? opts.nextQuery ?? "" : query;
+      const hadSearch = q.trim().length > 0;
       try {
-        const fid =
-          opts && Object.prototype.hasOwnProperty.call(opts, "nextFolder")
-            ? opts.nextFolder ?? ""
-            : folderId;
-        const q =
-          opts && Object.prototype.hasOwnProperty.call(opts, "nextQuery") ? opts.nextQuery ?? "" : query;
         const params = new URLSearchParams({ kind: "reference" });
         if (fid) params.set("folderId", fid);
         if (q.trim()) params.set("query", q.trim());
@@ -57,9 +79,12 @@ export default function DrivePage() {
         setFiles(Array.isArray(data.files) ? data.files : []);
         setBreadcrumbs(Array.isArray(data.breadcrumbs) ? data.breadcrumbs : []);
         if (typeof data.currentFolderId === "string") setFolderId(data.currentFolderId);
+        setSelectedFileIds(new Set());
+        if (hadSearch) setQuery("");
       } catch (e) {
         setFiles([]);
         setBreadcrumbs([]);
+        setSelectedFileIds(new Set());
         setError(e instanceof Error ? e.message : "Could not load Google Drive");
       } finally {
         setLoading(false);
@@ -79,6 +104,7 @@ export default function DrivePage() {
         setFiles(Array.isArray(data.files) ? data.files : []);
         setBreadcrumbs(Array.isArray(data.breadcrumbs) ? data.breadcrumbs : []);
         if (typeof data.currentFolderId === "string") setFolderId(data.currentFolderId);
+        setSelectedFileIds(new Set());
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load Google Drive");
       } finally {
@@ -90,11 +116,81 @@ export default function DrivePage() {
   const sorted = useMemo(() => {
     const list = [...files];
     list.sort((a, b) => {
-      if (!!a.isFolder !== !!b.isFolder) return a.isFolder ? -1 : 1;
+      if (!!isDriveFolder(a) !== !!isDriveFolder(b)) return isDriveFolder(a) ? -1 : 1;
       return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
     return list;
   }, [files]);
+
+  const fileRowsOnly = useMemo(() => sorted.filter((f) => !isDriveFolder(f)), [sorted]);
+
+  const allFilesSelected =
+    fileRowsOnly.length > 0 && fileRowsOnly.every((f) => selectedFileIds.has(f.id));
+  const someFilesSelected = fileRowsOnly.some((f) => selectedFileIds.has(f.id));
+
+  useEffect(() => {
+    const el = selectAllRef.current;
+    if (!el) return;
+    el.indeterminate = someFilesSelected && !allFilesSelected;
+  }, [someFilesSelected, allFilesSelected]);
+
+  const selectedCount = selectedFileIds.size;
+
+  function toggleFileSelected(id: string) {
+    setSelectedFileIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllFilesInView() {
+    if (allFilesSelected) {
+      setSelectedFileIds(new Set());
+      return;
+    }
+    setSelectedFileIds(new Set(fileRowsOnly.map((f) => f.id)));
+  }
+
+  async function runSharingAction(mode: "link" | "restrict") {
+    if (selectedCount === 0) return;
+    setBulkWorking(true);
+    setError("");
+    try {
+      for (const id of selectedFileIds) {
+        const url =
+          mode === "link"
+            ? `/api/google-drive/files/${encodeURIComponent(id)}/share-with-link`
+            : `/api/google-drive/files/${encodeURIComponent(id)}/share-with-link`;
+        const res = await fetch(url, { method: mode === "link" ? "POST" : "DELETE" });
+        const data = (await res.json()) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "Sharing update failed.");
+      }
+      await loadGoogle();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sharing update failed.");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  async function confirmDeleteFiles() {
+    setBulkWorking(true);
+    setError("");
+    try {
+      for (const id of selectedFileIds) {
+        const res = await fetch(`/api/google-drive/files/${encodeURIComponent(id)}`, { method: "DELETE" });
+        const data = (await res.json()) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "Delete failed.");
+      }
+      await loadGoogle();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed.");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
@@ -146,9 +242,61 @@ export default function DrivePage() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void loadGoogle()}
             />
-            <Button type="button" size="sm" className="h-9" onClick={() => void loadGoogle()}>
+            <Button type="button" size="sm" className="h-9" onClick={() => void loadGoogle()} disabled={loading}>
               Search
             </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-zinc-100/70 px-3 py-2 dark:bg-zinc-900/80">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              disabled={fileRowsOnly.length === 0 || loading || bulkWorking}
+              onClick={() => toggleSelectAllFilesInView()}
+            >
+              {allFilesSelected ? "Unselect all files" : "Select all files"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1 text-destructive border-destructive/40 hover:bg-destructive/10"
+              disabled={selectedCount === 0 || loading || bulkWorking}
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete ({selectedCount})
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  disabled={selectedCount === 0 || loading || bulkWorking}
+                >
+                  {bulkWorking ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Working…
+                    </>
+                  ) : (
+                    "Sharing…"
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => void runSharingAction("link")}>
+                  <ThumbsUp className="mr-2 h-4 w-4 shrink-0" />
+                  Anyone with the link can view
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void runSharingAction("restrict")}>
+                  Remove link sharing (restricted)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex flex-wrap items-center gap-1 px-3 py-2 text-sm text-blue-700 dark:text-blue-300 border-b border-border/40">
             {breadcrumbs.length === 0 ? (
@@ -175,7 +323,25 @@ export default function DrivePage() {
               ))
             )}
           </div>
-          <div className="grid grid-cols-[minmax(0,2fr)_7rem_6rem_5rem] gap-2 border-b border-border/50 bg-zinc-100/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <div className="grid grid-cols-[2rem_1.5rem_minmax(0,2fr)_7rem_6rem_5rem] gap-2 border-b border-border/50 bg-zinc-100/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+            <div className="flex items-center justify-center">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                className="h-4 w-4 rounded border border-input accent-primary cursor-pointer disabled:opacity-50"
+                checked={allFilesSelected}
+                disabled={fileRowsOnly.length === 0 || loading}
+                onChange={() => toggleSelectAllFilesInView()}
+                title={allFilesSelected ? "Unselect all files in this list" : "Select all files in this list"}
+                aria-label="Select all files in this list"
+              />
+            </div>
+            <div
+              className="flex items-center justify-center"
+              title="Thumbs up = anyone with the link can view. Blank = restricted."
+            >
+              <ThumbsUp className="h-3.5 w-3.5 text-muted-foreground/80" aria-hidden />
+            </div>
             <div>Name</div>
             <div className="text-right">Modified</div>
             <div className="text-right">Size</div>
@@ -194,14 +360,45 @@ export default function DrivePage() {
             ) : (
               <ul>
                 {sorted.map((f) => {
-                  const isFolder = !!f.isFolder || f.mimeType === "application/vnd.google-apps.folder";
+                  const isFolder = isDriveFolder(f);
                   const isPdf = (f.mimeType || "").includes("pdf");
                   const isImg = (f.mimeType || "").startsWith("image/");
+                  const selected = selectedFileIds.has(f.id);
                   return (
                     <li
                       key={f.id}
-                      className="grid grid-cols-[minmax(0,2fr)_7rem_6rem_5rem] gap-2 border-b border-border/40 px-3 py-2 text-sm hover:bg-blue-50/60 dark:hover:bg-zinc-900/60"
+                      className="grid grid-cols-[2rem_1.5rem_minmax(0,2fr)_7rem_6rem_5rem] gap-2 border-b border-border/40 px-3 py-2 text-sm hover:bg-blue-50/60 dark:hover:bg-zinc-900/60"
                     >
+                      <div className="flex items-center justify-center">
+                        {isFolder ? (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border border-input accent-primary cursor-pointer"
+                            checked={selected}
+                            onChange={() => toggleFileSelected(f.id)}
+                            aria-label={`Select ${f.name}`}
+                          />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center justify-center"
+                        title={
+                          isFolder
+                            ? undefined
+                            : f.anyoneWithLink
+                              ? "Anyone with the link can view"
+                              : "Restricted (no link sharing)"
+                        }
+                      >
+                        {!isFolder && f.anyoneWithLink ? (
+                          <ThumbsUp
+                            className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                            aria-label="Anyone with the link can view"
+                          />
+                        ) : null}
+                      </div>
                       <button
                         type="button"
                         className="flex min-w-0 items-center gap-2 text-left font-medium text-blue-800 dark:text-blue-100"
@@ -305,6 +502,15 @@ export default function DrivePage() {
           </div>
         </section>
       </div>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete from Google Drive?"
+        message={`Move ${selectedCount} file${selectedCount === 1 ? "" : "s"} to Trash? Folders cannot be deleted from this list.`}
+        confirmLabel="Move to Trash"
+        onConfirm={() => confirmDeleteFiles()}
+      />
     </div>
   );
 }

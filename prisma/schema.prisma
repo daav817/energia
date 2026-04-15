@@ -478,6 +478,8 @@ model RfpRequest {
   archivedQuoteWorkspace Json? @map("archived_quote_workspace")
   /// Saved term → pick for quote comparison (keys: term months as string). See quotes workspace save/load.
   quoteComparisonPicks Json? @map("quote_comparison_picks")
+  /// Draft for the customer quote email on the Quotes workspace compose tab (to, cc, subject, html, template, flags).
+  customerQuoteEmailDraft Json? @map("customer_quote_email_draft")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-export const CONTRACT_PLACEHOLDER_SUPPLIER_NAME = "— Pending (complete in Contracts) —";
+import { CONTRACT_PLACEHOLDER_SUPPLIER_NAME } from "@/lib/placeholder-supplier-constants";
 
 /** Supplier row used when a contract is created from an archived RFP before the winning supplier is known. */
 export async function getOrCreatePlaceholderSupplierId(): Promise<string> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Loader2 } from "lucide-react";
+import { Eye, Loader2, Mail, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,10 @@ import {
 import { loadBrokerProfile } from "@/lib/broker-profile";
 import { ComposeBrokerInsertMenu } from "@/components/compose-broker-insert-menu";
 import { RichTextEditor } from "@/components/communications/RichTextEditor";
-import { stripHtmlToText } from "@/components/communications/compose-email-form";
+import {
+  composeEmailBodyHasContent,
+  stripHtmlToText,
+} from "@/components/communications/compose-email-form";
 import {
   buildCustomerQuotesTableHtml,
   formatTermLengthWithRange,
@@ -29,6 +32,7 @@ import {
   impliedMonthlyEnergyCostUsd,
   combinedAnnualUsageFromAccounts,
 } from "@/lib/rfp-quote-math";
+import { finalizeQuoteEmailHtml } from "@/lib/quote-email-html";
 import type {
   ComparisonRfpQuote,
   ManualQuoteRow,
@@ -43,6 +47,11 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAppToast } from "@/components/app-toast-provider";
+import { useUnsavedNavigationBlock } from "@/components/unsaved-navigation-guard";
+import {
+  canonicalCustomerQuoteDraftJson,
+  parseCustomerQuoteEmailDraft,
+} from "@/lib/customer-quote-email-draft";
 
 function escapeHtml(str: string): string {
   return str
@@ -88,6 +97,8 @@ export function QuoteComposeCustomerTab({
   customerContact,
   contractStartMonth,
   contractStartYear,
+  customerQuoteEmailDraft,
+  onQuoteComposeDraftSaved,
   onQuoteEmailSent,
 }: {
   rfpRequestId: string;
@@ -108,6 +119,9 @@ export function QuoteComposeCustomerTab({
   customerContact: CustomerContact;
   contractStartMonth: number | null;
   contractStartYear: number | null;
+  /** Persisted draft from the RFP row (optional). */
+  customerQuoteEmailDraft?: unknown;
+  onQuoteComposeDraftSaved?: () => void;
   onQuoteEmailSent?: () => void;
 }) {
   const toast = useAppToast();
@@ -124,21 +138,100 @@ export function QuoteComposeCustomerTab({
   const [recordQuoteSummaryOnSend, setRecordQuoteSummaryOnSend] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+  const [quoteTestEmail, setQuoteTestEmail] = useState("");
+  const [testingQuoteEmail, setTestingQuoteEmail] = useState(false);
+  const [quoteTestMessageId, setQuoteTestMessageId] = useState<string | null>(null);
+  const [quoteTestViewOpen, setQuoteTestViewOpen] = useState(false);
   const appliedTemplateBootstrapRef = useRef<string | null>(null);
+  const prevRestoreRfpIdRef = useRef<string | null>(null);
+  const lastAppliedServerDraftCanonRef = useRef<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [noServerBaseline, setNoServerBaseline] = useState<string | null>(null);
+  const draftRefForBaseline = useRef<PersistedComposeDraft>({
+    to: "",
+    cc: "",
+    subject: "",
+    htmlBody: "<p></p>",
+    templateId: "",
+    recordQuoteSummaryOnSend: false,
+  });
 
   const annualUsage = useMemo(() => combinedAnnualUsageFromAccounts(rfp.accountLines), [rfp.accountLines]);
+
+  const serverDraftParsed = useMemo(() => {
+    if (customerQuoteEmailDraft == null) return null;
+    return parseCustomerQuoteEmailDraft(customerQuoteEmailDraft);
+  }, [customerQuoteEmailDraft]);
+  const serverCanonical = useMemo(
+    () => (serverDraftParsed != null ? canonicalCustomerQuoteDraftJson(serverDraftParsed) : null),
+    [serverDraftParsed]
+  );
+
+  const localCanonical = useMemo(
+    () =>
+      canonicalCustomerQuoteDraftJson({
+        to,
+        cc,
+        subject,
+        htmlBody,
+        templateId,
+        recordQuoteSummaryOnSend,
+      }),
+    [to, cc, subject, htmlBody, templateId, recordQuoteSummaryOnSend]
+  );
+
+  draftRefForBaseline.current = {
+    to,
+    cc,
+    subject,
+    htmlBody,
+    templateId,
+    recordQuoteSummaryOnSend,
+  };
+
+  useEffect(() => {
+    setNoServerBaseline(null);
+  }, [rfpRequestId]);
+
+  useEffect(() => {
+    if (serverCanonical !== null) return;
+    if (!rfpRequestId || templates.length === 0) return;
+    const t = window.setTimeout(() => {
+      setNoServerBaseline(canonicalCustomerQuoteDraftJson(draftRefForBaseline.current));
+    }, 450);
+    return () => window.clearTimeout(t);
+  }, [rfpRequestId, serverCanonical, templates.length]);
+
+  const isComposeDirty =
+    serverCanonical !== null
+      ? localCanonical !== serverCanonical
+      : noServerBaseline !== null && localCanonical !== noServerBaseline;
+
+  useEffect(() => {
+    if (!isComposeDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isComposeDirty]);
+
+  useUnsavedNavigationBlock(
+    isComposeDirty,
+    "You have unsaved changes to this quote email draft. Leave without saving?"
+  );
 
   const greetingFirstName = useMemo(() => {
     const raw = (customerContact?.name ?? rfp.customer?.name ?? "there").trim();
     return raw.split(/\s+/)[0] || "there";
   }, [customerContact?.name, rfp.customer?.name]);
 
-  /** Replace merge vars in template HTML; subject always follows workspace formula */
-  const applyTemplateBodyOnly = useCallback(
-    (id: string) => {
-      setTemplateId(id);
+  /** Merge vars into the selected template HTML (no React state updates). */
+  const mergedTemplateHtmlForId = useCallback(
+    (id: string): string | null => {
       const tpl = templates.find((t) => t.id === id);
-      if (!tpl) return;
+      if (!tpl) return null;
       const broker = loadBrokerProfile();
       const greet = greetingFirstName;
       const companyLine =
@@ -166,12 +259,39 @@ export function QuoteComposeCustomerTab({
         const re = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, "g");
         html = html.replace(re, v);
       }
-      setHtmlBody(html.trim() ? html : "<p></p>");
+      return html.trim() ? html : "<p></p>";
+    },
+    [templates, greetingFirstName, resolvedCompanyName, energyTypeLabel, rfp.customer]
+  );
+
+  /** Replace merge vars in template HTML; subject always follows workspace formula */
+  const applyTemplateBodyOnly = useCallback(
+    (id: string) => {
+      setTemplateId(id);
+      const html = mergedTemplateHtmlForId(id);
+      if (html == null) return;
+      setHtmlBody(html);
       setQuoteComposeEditorKey((k) => k + 1);
+      const broker = loadBrokerProfile();
       setSubject(buildQuoteEmailSubject(resolvedCompanyName, energyTypeSubjectSegment, broker.companyName));
     },
-    [templates, greetingFirstName, resolvedCompanyName, energyTypeLabel, energyTypeSubjectSegment, rfp.customer]
+    [mergedTemplateHtmlForId, resolvedCompanyName, energyTypeSubjectSegment]
   );
+
+  /** Clear inserted tables/images and restore the selected template body; subject unchanged. */
+  const resetEmailBodyToTemplate = useCallback(() => {
+    const html = mergedTemplateHtmlForId(templateId);
+    if (html != null) {
+      setHtmlBody(html);
+      setQuoteComposeEditorKey((k) => k + 1);
+      return;
+    }
+    const greet = escapeHtml(greetingFirstName);
+    setHtmlBody(
+      `<p>Dear ${greet},</p>\n<p>Please find indicative quotes below for your review.</p>\n<p>Best regards</p>`
+    );
+    setQuoteComposeEditorKey((k) => k + 1);
+  }, [mergedTemplateHtmlForId, templateId, greetingFirstName]);
 
   useEffect(() => {
     const list = loadEmailTemplates();
@@ -197,12 +317,20 @@ export function QuoteComposeCustomerTab({
         /* prefill */
       }
     }
+    if (customerQuoteEmailDraft != null) {
+      const d = parseCustomerQuoteEmailDraft(customerQuoteEmailDraft);
+      if (d && d.to.trim() !== "") return;
+    }
     setTo(em || "");
-  }, [customerContact?.email, rfpRequestId]);
+  }, [customerContact?.email, rfpRequestId, customerQuoteEmailDraft]);
 
   /** Restore draft or reset fields when switching RFP */
   useEffect(() => {
     if (typeof window === "undefined" || !rfpRequestId) return;
+    if (prevRestoreRfpIdRef.current !== rfpRequestId) {
+      prevRestoreRfpIdRef.current = rfpRequestId;
+      lastAppliedServerDraftCanonRef.current = null;
+    }
     appliedTemplateBootstrapRef.current = null;
     const key = composeDraftStorageKey(rfpRequestId);
     const raw = sessionStorage.getItem(key);
@@ -224,6 +352,26 @@ export function QuoteComposeCustomerTab({
         /* fall through */
       }
     }
+    if (customerQuoteEmailDraft != null) {
+      const d = parseCustomerQuoteEmailDraft(customerQuoteEmailDraft);
+      if (d) {
+        const canon = canonicalCustomerQuoteDraftJson(d);
+        if (lastAppliedServerDraftCanonRef.current === canon) {
+          appliedTemplateBootstrapRef.current = rfpRequestId;
+          return;
+        }
+        lastAppliedServerDraftCanonRef.current = canon;
+        setTo(d.to);
+        setCc(d.cc);
+        setSubject(d.subject);
+        setHtmlBody(d.htmlBody.trim() ? d.htmlBody : "<p></p>");
+        setQuoteComposeEditorKey((k) => k + 1);
+        if (d.templateId.trim()) setTemplateId(d.templateId);
+        setRecordQuoteSummaryOnSend(d.recordQuoteSummaryOnSend);
+        appliedTemplateBootstrapRef.current = rfpRequestId;
+        return;
+      }
+    }
     const broker = loadBrokerProfile();
     setSubject(buildQuoteEmailSubject(resolvedCompanyName, energyTypeSubjectSegment, broker.companyName));
     setCc("");
@@ -233,7 +381,17 @@ export function QuoteComposeCustomerTab({
       `<p>Dear ${greet},</p>\n<p>Please find indicative quotes below for your review.</p>\n<p>Best regards</p>`
     );
     setQuoteComposeEditorKey((k) => k + 1);
-  }, [rfpRequestId, resolvedCompanyName, energyTypeSubjectSegment, greetingFirstName]);
+  }, [
+    rfpRequestId,
+    resolvedCompanyName,
+    energyTypeSubjectSegment,
+    greetingFirstName,
+    customerQuoteEmailDraft,
+  ]);
+
+  useEffect(() => {
+    setQuoteTestMessageId(null);
+  }, [rfpRequestId]);
 
   /** When no saved draft, merge email template body once templates load */
   useEffect(() => {
@@ -267,6 +425,43 @@ export function QuoteComposeCustomerTab({
     }, 400);
     return () => window.clearTimeout(t);
   }, [rfpRequestId, to, cc, subject, htmlBody, templateId, recordQuoteSummaryOnSend]);
+
+  async function handleSaveDraft() {
+    if (!rfpRequestId) return;
+    setSavingDraft(true);
+    try {
+      const res = await fetch(`/api/rfp/${encodeURIComponent(rfpRequestId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerQuoteEmailDraft: {
+            to,
+            cc,
+            subject,
+            htmlBody,
+            templateId,
+            recordQuoteSummaryOnSend,
+          },
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Save failed");
+      lastAppliedServerDraftCanonRef.current = canonicalCustomerQuoteDraftJson({
+        to,
+        cc,
+        subject,
+        htmlBody,
+        templateId,
+        recordQuoteSummaryOnSend,
+      });
+      toast({ message: "Quote email draft saved to this RFP.", variant: "success" });
+      onQuoteComposeDraftSaved?.();
+    } catch (e) {
+      toast({ message: e instanceof Error ? e.message : "Save failed", variant: "error" });
+    } finally {
+      setSavingDraft(false);
+    }
+  }
 
   const insertHtmlAtCaret = useCallback((html: string) => {
     quoteBodyInsertNonce.current += 1;
@@ -340,9 +535,52 @@ export function QuoteComposeCustomerTab({
 
     const table = buildCustomerQuotesTableHtml(rows);
     const usageBracket = `${annualUsage.toLocaleString()} ${unitLabelForEnergy(defaultPriceUnit)}`;
-    const note = `<p style="font-size:12px;line-height:1.45;color:#666;margin:10px 0 0 0;">Note:  The Total Contract Value and Monthly Average amounts are based upon the Annual Usage [${escapeHtml(usageBracket)}] taken from the submitted energy bills</p>`;
-    insertHtmlAtCaret(table + note);
+    const note = `<p style="font-size:12px;line-height:1.45;color:#666666;margin:10px 0 0 0;font-family:Arial, Helvetica, sans-serif;">Note:  The Total Contract Value and Monthly Average amounts are based upon the Annual Usage [${escapeHtml(usageBracket)}] taken from the submitted energy bills</p>`;
+    insertHtmlAtCaret(`<div style="margin:12px 0;">${table}${note}</div>`);
   };
+
+  async function handleQuoteTestSend() {
+    const addr = quoteTestEmail.trim();
+    if (!addr) {
+      toast({ message: "Enter a test email address.", variant: "error" });
+      return;
+    }
+    if (!composeEmailBodyHasContent(htmlBody)) {
+      toast({ message: "Add email body content before sending a test.", variant: "error" });
+      return;
+    }
+    setTestingQuoteEmail(true);
+    setQuoteTestMessageId(null);
+    try {
+      const subj = subject.trim() || buildQuoteEmailSubject(resolvedCompanyName, energyTypeSubjectSegment, loadBrokerProfile().companyName);
+      const res = await fetch("/api/emails/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: [addr],
+          cc: [],
+          subject: `[TEST] ${subj}`,
+          html: htmlBody,
+          body: stripHtmlToText(htmlBody),
+          energiaEmailKind: "customerQuote",
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Test send failed");
+      if (typeof data.id === "string" && data.id) {
+        setQuoteTestMessageId(data.id);
+      }
+      toast({
+        message: `Test quote email sent to ${addr}. Subject starts with [TEST] — no CC, not recorded on the RFP.`,
+        variant: "success",
+      });
+      setPreviewOpen(false);
+    } catch (e) {
+      toast({ message: e instanceof Error ? e.message : "Test send failed", variant: "error" });
+    } finally {
+      setTestingQuoteEmail(false);
+    }
+  }
 
   const performSend = async () => {
     const toAddr = to.trim();
@@ -364,6 +602,7 @@ export function QuoteComposeCustomerTab({
           subject: subject.trim(),
           html: htmlBody,
           body: stripHtmlToText(htmlBody),
+          energiaEmailKind: "customerQuote",
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -415,6 +654,26 @@ export function QuoteComposeCustomerTab({
         onConfirm={() => void performSend()}
       />
 
+      <Dialog open={quoteTestViewOpen} onOpenChange={setQuoteTestViewOpen}>
+        <DialogContent className="z-[120] flex max-h-[92vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4">
+            <DialogTitle>Test quote email</DialogTitle>
+            <p className="text-left text-sm font-normal text-muted-foreground">
+              Scroll to see the full message. Inbox chrome is hidden in this embed.
+            </p>
+          </DialogHeader>
+          {quoteTestMessageId ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <iframe
+                title="Test quote email"
+                className="block h-[min(78vh,760px)] w-full min-h-[400px] border-0 bg-background"
+                src={`/inbox/email/${encodeURIComponent(quoteTestMessageId)}?embed=1`}
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-[min(96vw,720px)] max-h-[min(90vh,820px)] flex flex-col gap-0 overflow-hidden">
           <DialogHeader>
@@ -423,8 +682,11 @@ export function QuoteComposeCustomerTab({
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto rounded-md border bg-muted/20 p-4">
             <div
-              className="prose prose-sm max-w-none dark:prose-invert bg-background rounded p-4 [&_table]:text-sm"
-              dangerouslySetInnerHTML={{ __html: htmlBody || "<p><em>(Empty body)</em></p>" }}
+              className="rounded-md border bg-white p-4 text-[14px] leading-snug text-[#111] dark:border-border dark:bg-background dark:text-foreground [&_table]:max-w-none"
+              dangerouslySetInnerHTML={{
+                __html:
+                  finalizeQuoteEmailHtml(htmlBody || "<p><em>(Empty body)</em></p>"),
+              }}
             />
           </div>
           <DialogFooter className="pt-4">
@@ -465,18 +727,80 @@ export function QuoteComposeCustomerTab({
             type="button"
             variant="outline"
             size="sm"
+            onClick={() => void handleSaveDraft()}
+            disabled={sending || testingQuoteEmail || savingDraft || !isComposeDirty}
+          >
+            {savingDraft ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-1" />
+                Save draft
+              </>
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setPreviewOpen(true)}
-            disabled={sending}
+            disabled={sending || testingQuoteEmail}
           >
             <Eye className="h-4 w-4 mr-1" />
             Preview
           </Button>
+          <Input
+            value={quoteTestEmail}
+            onChange={(e) => setQuoteTestEmail(e.target.value)}
+            placeholder="Test email"
+            className="h-8 w-[min(100%,11rem)] sm:w-44"
+            disabled={sending || testingQuoteEmail}
+            aria-label="Test recipient email"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleQuoteTestSend()}
+            disabled={
+              sending ||
+              testingQuoteEmail ||
+              !quoteTestEmail.trim() ||
+              !composeEmailBodyHasContent(htmlBody)
+            }
+          >
+            {testingQuoteEmail ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Sending…
+              </>
+            ) : (
+              <>
+                <Mail className="h-4 w-4 mr-1" />
+                Test quote email
+              </>
+            )}
+          </Button>
+          {quoteTestMessageId ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setQuoteTestViewOpen(true)}
+              disabled={sending || testingQuoteEmail}
+            >
+              View test
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="secondary"
             size="sm"
             onClick={() => setSendConfirmOpen(true)}
-            disabled={sending || !stripHtmlToText(htmlBody).trim()}
+            disabled={sending || testingQuoteEmail || !composeEmailBodyHasContent(htmlBody)}
           >
             {sending ? (
               <>
@@ -517,10 +841,30 @@ export function QuoteComposeCustomerTab({
 
       <div className="grid gap-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Label className="mb-0">Email body</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="mb-0">Email body</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={resetEmailBodyToTemplate}
+              disabled={sending || testingQuoteEmail}
+              title="Replace body with the current template (removes inserted tables and images)"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              Reset body
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-1">
-            <ComposeBrokerInsertMenu disabled={sending} onInsert={insertBrokerAtCaret} />
-            <Button type="button" size="sm" className="h-8 text-xs" onClick={insertQuotesTable} disabled={sending}>
+            <ComposeBrokerInsertMenu disabled={sending || testingQuoteEmail} onInsert={insertBrokerAtCaret} />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={insertQuotesTable}
+              disabled={sending || testingQuoteEmail}
+            >
               Insert quotes table
             </Button>
           </div>
@@ -529,7 +873,7 @@ export function QuoteComposeCustomerTab({
           initialHtml={htmlBody}
           resetKey={`quote-customer-compose-${quoteComposeEditorKey}`}
           onChangeHtml={(html) => setHtmlBody(html)}
-          disabled={sending}
+          disabled={sending || testingQuoteEmail}
           insertSnippet={quoteBodyInsertSnippet}
         />
       </div>
@@ -538,7 +882,9 @@ export function QuoteComposeCustomerTab({
         Subject defaults to <span className="font-medium">Company</span> + <span className="font-medium">energy type</span>{" "}
         + Supply Quotes from <span className="font-medium">your broker company</span>. Salutations use the main
         contact&apos;s <span className="font-medium">first name</span>. The quotes table uses the same monthly average as
-        the comparison tab (estimated monthly energy cost from rate and annual usage).
+        the comparison tab (estimated monthly energy cost from rate and annual usage).{" "}
+        <span className="font-medium">Test quote email</span> sends only to the test address with a{" "}
+        <span className="font-medium">[TEST]</span> subject prefix, no CC, and does not record quote summary on the RFP.
       </p>
     </div>
   );

@@ -789,21 +789,6 @@ export function ContractWorkflowPanel({
     window.open(`/rfp?${q.toString()}`, "_blank", "noopener,noreferrer");
   }
 
-  async function onRefreshRfp(row: WorkflowRowApi) {
-    const rfpId = row.linkedRfpRequestId || row.linkedRfp?.id;
-    if (!rfpId) return;
-    await patchRow(row.id, { lastWorkflowRefresh: true });
-    setWorkflowRfpPending({
-      workflowRowId: row.id,
-      ...(row.contractId ? { contractId: row.contractId } : {}),
-    });
-    window.open(
-      `/rfp?rfpRequestId=${encodeURIComponent(rfpId)}&openForEdit=1`,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  }
-
   const headerClass = compact ? "text-[10px] font-medium leading-tight px-1" : "text-xs font-medium";
 
   function renderWorkflowTable() {
@@ -844,14 +829,11 @@ export function ContractWorkflowPanel({
             <TableHead className={cn(headerClass, "text-center min-w-[88px]")}>Received Bills</TableHead>
             <TableHead className={cn(headerClass, "text-center min-w-[72px]")}>RFP Sent</TableHead>
             <TableHead className={cn(headerClass, "text-center min-w-[80px]")}>Quote Sent</TableHead>
-            <TableHead className={cn(headerClass, "min-w-[120px] text-center")}>
-              Contract Signed/Received
+            <TableHead className={cn(headerClass, "text-center min-w-[120px] leading-tight")}>
+              Contract signed / received
             </TableHead>
             <TableHead className={cn(headerClass, "text-center min-w-[100px]")}>
               RFP/Quote Closed
-            </TableHead>
-            <TableHead className={cn(headerClass, "text-center min-w-[120px]")}>
-              New Contract Amended
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -1173,35 +1155,47 @@ export function ContractWorkflowPanel({
               )}
             </div>
           </TableCell>
-          <TableCell className={cn(compact ? "p-1" : "")}>
+          <TableCell className="text-center align-middle">
             {archivedView ? (
-              <span className="text-muted-foreground text-center block">—</span>
+              <StepCheck done={Boolean(row.newContractAmendedAt)} compact={compact} />
             ) : (
-              <Select
-                value={row.contractOutcome === "end_pursuit" ? "end_pursuit" : "blank"}
-                onValueChange={(v) => {
-                  if (v === "refresh_rfp") {
-                    void onRefreshRfp(row);
-                    return;
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  type="button"
+                  className={cn(
+                    "flex min-h-[4.5rem] w-full max-w-[9.5rem] flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    row.newContractAmendedAt
+                      ? "bg-emerald-500/10 ring-1 ring-emerald-500/45 dark:bg-emerald-500/15"
+                      : "border border-dashed border-muted-foreground/35 hover:bg-muted/70"
+                  )}
+                  onClick={() =>
+                    void patchRow(row.id, {
+                      newContractAmended: !Boolean(row.newContractAmendedAt),
+                    })
                   }
-                  if (v === "blank") {
-                    void patchRow(row.id, { contractOutcome: "" });
-                    return;
+                  aria-pressed={Boolean(row.newContractAmendedAt)}
+                  aria-label={
+                    row.newContractAmendedAt
+                      ? "Contract signed and received — click to clear"
+                      : "Mark contract signed and received"
                   }
-                  void patchRow(row.id, { contractOutcome: "end_pursuit" });
-                }}
-              >
-                <SelectTrigger className={cn(compact ? "h-7 text-[10px]" : "h-8 text-xs")}>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="blank">—</SelectItem>
-                  <SelectItem value="end_pursuit">End contract pursuit</SelectItem>
-                  <SelectItem value="refresh_rfp" disabled={!rfpId}>
-                    Refresh RFP
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                >
+                  <StepCheck done={Boolean(row.newContractAmendedAt)} compact={compact} />
+                  <span
+                    className={cn(
+                      "text-[10px] leading-tight",
+                      row.newContractAmendedAt
+                        ? "font-medium text-emerald-700 dark:text-emerald-300"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {row.newContractAmendedAt ? "Signed / received" : "Click to confirm"}
+                  </span>
+                </button>
+                {c?.needsContractDetail ? (
+                  <span className="text-[9px] text-amber-600 dark:text-amber-400">Stub</span>
+                ) : null}
+              </div>
             )}
           </TableCell>
           <TableCell className="text-center align-middle">
@@ -1217,25 +1211,6 @@ export function ContractWorkflowPanel({
                   onChange={(e) => void patchRow(row.id, { rfpQuoteClosed: e.target.checked })}
                   aria-label="RFP quote closed"
                 />
-              </div>
-            )}
-          </TableCell>
-          <TableCell className="text-center align-middle">
-            {archivedView ? (
-              <StepCheck done={Boolean(row.newContractAmendedAt)} compact={compact} />
-            ) : (
-              <div className="flex flex-col items-center gap-1">
-                <StepCheck done={Boolean(row.newContractAmendedAt)} compact={compact} />
-                <input
-                  type="checkbox"
-                  className="h-3.5 w-3.5 rounded border-input accent-primary scale-90"
-                  checked={Boolean(row.newContractAmendedAt)}
-                  onChange={(e) => void patchRow(row.id, { newContractAmended: e.target.checked })}
-                  aria-label="New contract amended"
-                />
-                {c?.needsContractDetail ? (
-                  <span className="text-[9px] text-amber-600 dark:text-amber-400">Stub</span>
-                ) : null}
               </div>
             )}
           </TableCell>

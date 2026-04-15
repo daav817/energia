@@ -6,6 +6,7 @@ import { GlobalRemindersBar } from "@/components/global-reminders-bar";
 import { AppMainNav } from "@/components/app-main-nav";
 import { AppToastProvider } from "@/components/app-toast-provider";
 import { UnsavedNavigationProvider } from "@/components/unsaved-navigation-guard";
+import { WorkspaceDocumentTitle } from "@/components/workspace-document-title";
 
 function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +18,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   if (embed) {
     return (
       <AppToastProvider>
+        <WorkspaceDocumentTitle pathname={pathname ?? ""} />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
           {children}
         </main>
@@ -29,6 +31,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   return (
     <AppToastProvider>
     <UnsavedNavigationProvider>
+      <WorkspaceDocumentTitle pathname={pathname ?? ""} />
       {/* Single flex column so main reliably gets a bounded height (flex-1 min-h-0) for nested scroll panes. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <GlobalRemindersBar />

@@ -86,12 +86,23 @@ export function resolveContractGridMainContact(
   return scored[0] ?? null;
 }
 
-/** Display contact: resolved customer-primary-style contact, else contract main contact from DB. */
+/** Display contact: explicit contract main contact when set, else legacy grid primary resolution. */
 export function displayMainContactForContract(
   contract: ContractLikeForMainContact,
   directory: ContactLike[]
 ): ContactLike | null {
-  return resolveContractGridMainContact(contract, directory) ?? contract.mainContact ?? null;
+  const mid = contract.mainContactId?.trim();
+  if (mid) {
+    const base: ContactLike =
+      contract.mainContact?.id === mid
+        ? contract.mainContact
+        : { id: mid, name: contract.mainContact?.name ?? "" };
+    return enrichContactLikeFromDirectory(base, directory);
+  }
+  if (contract.mainContact) {
+    return enrichContactLikeFromDirectory(contract.mainContact, directory);
+  }
+  return resolveContractGridMainContact(contract, directory);
 }
 
 /**

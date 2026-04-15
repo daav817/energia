@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/gmail";
+import { finalizeQuoteEmailHtmlServer } from "@/lib/quote-email-html-server";
+import {
+  replaceDataUrlImagesWithCid,
+  type PreparedInlineImage,
+} from "@/lib/email-data-url-to-cid";
 
 type Attachment = { filename: string; content: any; mimeType: string };
 
@@ -18,6 +23,7 @@ export async function POST(request: NextRequest) {
     let html: string | undefined;
     let subjectVal: string;
     let attachments: Attachment[] = [];
+    let inlineImages: PreparedInlineImage[] = [];
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
@@ -38,15 +44,38 @@ export async function POST(request: NextRequest) {
           attachments.push({ filename: file.name, content: buf, mimeType });
         }
       }
+      if (html && html.includes("data:image") && html.includes("base64,")) {
+        const r = replaceDataUrlImagesWithCid(html);
+        html = r.html;
+        inlineImages = r.inlineImages;
+      }
     } else {
       const body = await request.json();
-      const { to, cc, bcc, subject, body: b, html: h } = body;
+      const { to, cc, bcc, subject, body: b, html: h, energiaEmailKind } = body;
       emailBody = b || "";
       html = h;
       subjectVal = subject || "(no subject)";
       toList = Array.isArray(to) ? to : to ? [to] : [];
       ccList = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
       bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : [];
+      if (
+        html &&
+        typeof html === "string" &&
+        html.trim() &&
+        energiaEmailKind === "customerQuote"
+      ) {
+        html = finalizeQuoteEmailHtmlServer(html);
+      }
+      if (
+        html &&
+        typeof html === "string" &&
+        html.includes("data:image") &&
+        html.includes("base64,")
+      ) {
+        const r = replaceDataUrlImagesWithCid(html);
+        html = r.html;
+        inlineImages = r.inlineImages;
+      }
     }
 
     if (!toList?.length || (!emailBody && !html)) {
@@ -69,6 +98,7 @@ export async function POST(request: NextRequest) {
       text: emailBody || "",
       html,
       attachments,
+      inlineImages,
     });
 
     const encoded = Buffer.from(raw)
@@ -123,10 +153,12 @@ function createMimeMessage(opts: {
   text: string;
   html?: string;
   attachments?: Attachment[];
+  inlineImages?: PreparedInlineImage[];
 }): string {
   const text = opts.text || "";
   const html = opts.html;
   const attachments = opts.attachments || [];
+  const inlineImages = opts.inlineImages || [];
   const date = formatRfc2822Date();
   const messageId = createMessageId();
 
@@ -141,30 +173,37 @@ function createMimeMessage(opts: {
     "MIME-Version: 1.0",
   ].filter(Boolean);
 
-  function buildBodyPart(): string {
+  /** Body only: first boundary line through closing boundary (no multipart Content-Type). */
+  function multipartAlternativeInner(plain: string, htmlPart: string, boundary: string): string {
+    /** Match RFP send route: single-line base64 (Gmail accepts; avoids client decode edge cases). */
+    const textB64 = Buffer.from(plain, "utf-8").toString("base64");
+    const htmlB64 = Buffer.from(htmlPart, "utf-8").toString("base64");
+    return [
+      `--${boundary}`,
+      "Content-Type: text/plain; charset=utf-8",
+      "Content-Transfer-Encoding: base64",
+      "",
+      textB64,
+      "",
+      `--${boundary}`,
+      "Content-Type: text/html; charset=utf-8",
+      "Content-Transfer-Encoding: base64",
+      "",
+      htmlB64,
+      "",
+      `--${boundary}--`,
+    ].join("\r\n");
+  }
+
+  /** First subpart inside multipart/mixed: nested headers + blank line + nested body. */
+  function firstMixedSubpart(): string {
     if (html) {
       const boundary = `----=_Part_${Date.now()}_alt`;
-      const textB64 = wrapBase64(Buffer.from(text, "utf-8").toString("base64"));
-      const htmlB64 = wrapBase64(Buffer.from(html, "utf-8").toString("base64"));
-      const partLines = [
-        `--${boundary}`,
-        "Content-Type: text/plain; charset=utf-8",
-        "Content-Transfer-Encoding: base64",
-        "",
-        textB64,
-        "",
-        `--${boundary}`,
-        "Content-Type: text/html; charset=utf-8",
-        "Content-Transfer-Encoding: base64",
-        "",
-        htmlB64,
-        "",
-        `--${boundary}--`,
-      ];
+      const inner = multipartAlternativeInner(text, html, boundary);
       return [
         `Content-Type: multipart/alternative; boundary="${boundary}"`,
         "",
-        partLines.join("\r\n"),
+        inner,
       ].join("\r\n");
     }
     const textB64 = wrapBase64(Buffer.from(text, "utf-8").toString("base64"));
@@ -176,13 +215,26 @@ function createMimeMessage(opts: {
     ].join("\r\n");
   }
 
-  if (attachments.length > 0) {
+  if (attachments.length > 0 || inlineImages.length > 0) {
     const mixedBoundary = `----=_Part_${Date.now()}_mixed`;
-    const bodyPart = buildBodyPart();
+    const bodyPart = firstMixedSubpart();
     const parts: string[] = [
       `--${mixedBoundary}`,
       bodyPart,
     ];
+    for (const img of inlineImages) {
+      const imgB64 = wrapBase64(img.buffer.toString("base64"));
+      const safeName = escapeFilename(img.filename);
+      parts.push(
+        `--${mixedBoundary}`,
+        `Content-Type: ${img.mimeType}`,
+        "Content-Transfer-Encoding: base64",
+        `Content-Disposition: inline; filename="${safeName}"`,
+        `Content-ID: <${img.contentId}>`,
+        "",
+        imgB64
+      );
+    }
     for (const att of attachments) {
       const attB64 = wrapBase64(att.content.toString("base64"));
       const safeName = escapeFilename(att.filename);
@@ -201,6 +253,16 @@ function createMimeMessage(opts: {
       `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
     ].filter(Boolean);
     return headers.join("\r\n") + "\r\n\r\n" + parts.join("\r\n");
+  }
+
+  if (html) {
+    const boundary = `----=_Part_${Date.now()}_alt`;
+    const inner = multipartAlternativeInner(text, html, boundary);
+    const headers = [
+      ...baseHeaders,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ].filter(Boolean);
+    return headers.join("\r\n") + "\r\n\r\n" + inner;
   }
 
   const headers = [

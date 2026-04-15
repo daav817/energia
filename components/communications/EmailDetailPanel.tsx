@@ -14,6 +14,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/communications/RichTextEditor";
+import { composeEmailBodyHasContent } from "@/components/communications/compose-email-form";
 
 /** Replace cid:... references in HTML with attachment URLs so embedded images display. */
 function replaceCidWithAttachmentUrls(
@@ -837,9 +838,9 @@ export function EmailDetailPanel({
                   onClick={handleSendEditedDraft}
                   disabled={
                     draftSaving ||
-                    !stripHtmlToText(
+                    !composeEmailBodyHasContent(
                       restoreAttachmentUrlsToCid(draftHtml ?? "", email.id, detail?.inlineImages ?? {})
-                    ).trim()
+                    )
                   }
                 >
                   {draftSaving ? "Sending..." : "Send edited draft"}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ClipboardEvent } from "react";
 import { Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,8 @@ export function RichTextEditor({
   const editorRef = useRef<HTMLDivElement | null>(null);
   const onChangeHtmlRef = useRef(onChangeHtml);
   onChangeHtmlRef.current = onChangeHtml;
+  /** Prevents re-running `insertHTML` when `disabled` flips (e.g. test send) with the same snippet. */
+  const lastAppliedInsertNonceRef = useRef<number | null>(null);
 
   const fontOptions = useMemo(
     () => [
@@ -51,12 +53,14 @@ export function RichTextEditor({
   useEffect(() => {
     if (!editorRef.current) return;
     editorRef.current.innerHTML = safeHtml(initialHtml);
+    lastAppliedInsertNonceRef.current = null;
   }, [resetKey]);
 
   useEffect(() => {
     const nonce = insertSnippet?.nonce;
     const html = insertSnippet?.html;
     if (nonce == null || disabled || html == null) return;
+    if (lastAppliedInsertNonceRef.current === nonce) return;
     const el = editorRef.current;
     if (!el) return;
     el.focus();
@@ -65,6 +69,7 @@ export function RichTextEditor({
     } catch {
       /* ignore */
     }
+    lastAppliedInsertNonceRef.current = nonce;
     onChangeHtmlRef.current(el.innerHTML ?? "");
   }, [insertSnippet?.nonce, insertSnippet?.html, disabled]);
 
@@ -184,6 +189,46 @@ export function RichTextEditor({
   const handleInput = () => {
     const html = editorRef.current?.innerHTML ?? "";
     onChangeHtml(html);
+  };
+
+  const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    const items = e.clipboardData?.items;
+    if (items?.length) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind !== "file" || !item.type.startsWith("image/")) continue;
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const el = editorRef.current;
+        if (!el) continue;
+        el.focus();
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = typeof reader.result === "string" ? reader.result : "";
+          if (!dataUrl || !editorRef.current) return;
+          const safe = dataUrl.replace(/"/g, "&quot;");
+          try {
+            document.execCommand(
+              "insertHTML",
+              false,
+              `<img src="${safe}" alt="" style="max-width:100%;height:auto;display:block;" />`
+            );
+          } catch {
+            /* ignore */
+          }
+          onChangeHtmlRef.current(editorRef.current.innerHTML ?? "");
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+    // Text / rich paste: ensure parent state updates (some browsers skip input on paste).
+    window.setTimeout(() => {
+      const el = editorRef.current;
+      if (el) onChangeHtmlRef.current(el.innerHTML ?? "");
+    }, 0);
   };
 
   const handleAttachFiles = () => {
@@ -332,6 +377,7 @@ export function RichTextEditor({
         contentEditable={!disabled}
         suppressContentEditableWarning
         onInput={handleInput}
+        onPaste={handlePaste}
         className="rich-text-editor min-h-[260px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
       />
     </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, FileImage, FileSpreadsheet, FileText, Folder, Upload } from "lucide-react";
+import { ChevronRight, FileImage, FileSpreadsheet, FileText, Folder, Loader2, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export type DriveFileOption = {
   id: string;
@@ -100,6 +102,7 @@ export function GoogleDriveBillFilePickerDialog({
   const [driveBreadcrumbs, setDriveBreadcrumbs] = useState<DriveBreadcrumb[]>([]);
   const [driveCurrentFolderId, setDriveCurrentFolderId] = useState("");
   const [driveSort, setDriveSort] = useState<"name" | "modified" | "size">("name");
+  const [driveShareWorking, setDriveShareWorking] = useState(false);
   const localInputRef = useRef<HTMLInputElement>(null);
 
   const sortedDriveFiles = useMemo(() => {
@@ -157,6 +160,7 @@ export function GoogleDriveBillFilePickerDialog({
     setDriveBreadcrumbs([]);
     setDriveCurrentFolderId("");
     setDriveSort("name");
+    setDriveShareWorking(false);
 
     (async () => {
       setDrivePickerLoading(true);
@@ -185,17 +189,37 @@ export function GoogleDriveBillFilePickerDialog({
     };
   }, [open]);
 
-  function handleDriveEntryActivate(file: DriveFileOption) {
+  async function handleDriveEntryActivate(file: DriveFileOption) {
     if (file.isFolder) {
       setDrivePickerQuery("");
       void loadDriveFiles({ query: "", folderId: file.id });
       return;
     }
-    const link =
-      file.webViewLink?.trim() || (file.id ? `https://drive.google.com/file/d/${file.id}/view` : "");
-    if (link) {
-      onPickLink(link);
-      onOpenChange(false);
+    const fid = String(file.id || "").trim();
+    if (!fid) {
+      setDrivePickerError("This file has no Google Drive id. Choose another file or upload locally.");
+      return;
+    }
+    setDriveShareWorking(true);
+    setDrivePickerError("");
+    try {
+      const res = await fetch(`/api/google-drive/files/${encodeURIComponent(fid)}/share-with-link`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "Could not update sharing for this file.");
+      }
+      const link =
+        file.webViewLink?.trim() || (fid ? `https://drive.google.com/file/d/${fid}/view` : "");
+      if (link) {
+        onPickLink(link);
+        onOpenChange(false);
+      }
+    } catch (err) {
+      setDrivePickerError(err instanceof Error ? err.message : "Sharing update failed.");
+    } finally {
+      setDriveShareWorking(false);
     }
   }
 
@@ -209,6 +233,10 @@ export function GoogleDriveBillFilePickerDialog({
       <DialogContent className="max-w-[min(92vw,72rem)] w-[min(92vw,72rem)] z-[200]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Selected files are set to <strong>anyone with the link can view</strong> so suppliers can open bill
+            links from RFP emails without requesting access.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -257,6 +285,12 @@ export function GoogleDriveBillFilePickerDialog({
               </SelectContent>
             </Select>
           </div>
+          {driveShareWorking && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+              Updating Google Drive sharing so anyone with the link can view…
+            </div>
+          )}
           {drivePickerError && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
               <p>{drivePickerError}</p>
@@ -290,10 +324,13 @@ export function GoogleDriveBillFilePickerDialog({
                 role="button"
                 tabIndex={0}
                 title={file.name}
-                className="grid cursor-pointer grid-cols-[minmax(12rem,2.6fr)_minmax(5rem,1fr)_minmax(6rem,1.1fr)_minmax(4rem,0.85fr)_minmax(7.5rem,auto)] gap-x-3 gap-y-1 border-b px-3 py-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring sm:px-4 sm:py-3"
-                onDoubleClick={() => handleDriveEntryActivate(file)}
+                className={cn(
+                  "grid cursor-pointer grid-cols-[minmax(12rem,2.6fr)_minmax(5rem,1fr)_minmax(6rem,1.1fr)_minmax(4rem,0.85fr)_minmax(7.5rem,auto)] gap-x-3 gap-y-1 border-b px-3 py-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring sm:px-4 sm:py-3",
+                  driveShareWorking && "pointer-events-none opacity-50"
+                )}
+                onDoubleClick={() => void handleDriveEntryActivate(file)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleDriveEntryActivate(file);
+                  if (e.key === "Enter") void handleDriveEntryActivate(file);
                 }}
               >
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -330,11 +367,14 @@ export function GoogleDriveBillFilePickerDialog({
                         type="button"
                         size="sm"
                         variant="ghost"
-                        disabled={!file.webViewLink}
+                        disabled={driveShareWorking || (!file.webViewLink && !file.id)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!file.webViewLink || typeof window === "undefined") return;
-                          window.open(file.webViewLink, "_blank", "noopener,noreferrer");
+                          const url =
+                            file.webViewLink?.trim() ||
+                            (file.id ? `https://drive.google.com/file/d/${file.id}/view` : "");
+                          if (!url || typeof window === "undefined") return;
+                          window.open(url, "_blank", "noopener,noreferrer");
                         }}
                       >
                         View
@@ -343,10 +383,10 @@ export function GoogleDriveBillFilePickerDialog({
                         type="button"
                         size="sm"
                         variant="outline"
-                        disabled={!file.webViewLink && !file.id}
+                        disabled={driveShareWorking || (!file.webViewLink && !file.id)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDriveEntryActivate(file);
+                          void handleDriveEntryActivate(file);
                         }}
                       >
                         Select

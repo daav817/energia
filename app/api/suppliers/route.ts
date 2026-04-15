@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    if (!withContacts) {
+    if (!materializeFromContacts && !withContacts) {
       return NextResponse.json(suppliers);
     }
 
@@ -76,6 +76,10 @@ export async function GET(request: NextRequest) {
         where: contactPoolWhere,
         select: contactSelect,
       });
+    }
+
+    if (!withContacts) {
+      return NextResponse.json(suppliers);
     }
 
     const suppliersWithContacts = suppliers.map((supplier) => ({

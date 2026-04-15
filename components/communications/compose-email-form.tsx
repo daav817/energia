@@ -33,6 +33,15 @@ export function stripHtmlToText(html: string): string {
     .trim();
 }
 
+/** True if the compose body should allow send: visible text and/or embedded images (paste), etc. */
+export function composeEmailBodyHasContent(html: string): boolean {
+  if (stripHtmlToText(html).trim().length > 0) return true;
+  const h = html.toLowerCase();
+  if (/<img[\s/>]/.test(h)) return true;
+  if (/<picture[\s>]/.test(h)) return true;
+  return false;
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -338,7 +347,7 @@ export function ComposeEmailForm({
           type="submit"
           form={formId}
           size="sm"
-          disabled={sending || !stripHtmlToText(bodyHtml).trim()}
+          disabled={sending || !composeEmailBodyHasContent(bodyHtml)}
         >
           {sending ? (
             <>Sending…</>

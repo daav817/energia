@@ -70,10 +70,23 @@ export type CustomerQuoteTableRow = {
 };
 
 export function buildCustomerQuotesTableHtml(rows: CustomerQuoteTableRow[]): string {
+  /** Outlook (Word HTML) often ignores CSS `border` on cells unless `border` / explicit attrs exist. */
+  const cellBorder =
+    "border-width:1px;border-style:solid;border-color:#111111;mso-border-alt:solid #111111 .75pt;";
+  const th = (label: string) =>
+    `<th align="left" valign="top" style="${cellBorder}padding:8px;text-align:left;vertical-align:top;">${escapeHtml(label)}</th>`;
+  const td = (cell: string) =>
+    `<td align="left" valign="top" style="${cellBorder}padding:8px;vertical-align:top;">${escapeHtml(cell)}</td>`;
   const head =
     "<tr>" +
-    ["Term Length", "Base Rate (per energy unit)", "Supplier", "Total Contract Value", "Monthly Average"]
-      .map((h) => `<th style="text-align:left;border:1px solid #ccc;padding:8px;background:#f5f5f5;">${escapeHtml(h)}</th>`)
+    [
+      "Term Length",
+      "Base Rate (per energy unit)",
+      "Supplier",
+      "Total Contract Value",
+      "Monthly Average",
+    ]
+      .map(th)
       .join("") +
     "</tr>";
   const body = rows
@@ -87,18 +100,12 @@ export function buildCustomerQuotesTableHtml(rows: CustomerQuoteTableRow[]): str
           r.totalContractValueLabel,
           r.monthlyAverageLabel,
         ]
-          .map(
-            (c) =>
-              `<td style="border:1px solid #ccc;padding:8px;vertical-align:top;">${escapeHtml(c)}</td>`
-          )
+          .map(td)
           .join("") +
         "</tr>"
     )
     .join("");
-  return (
-    `<table border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;max-width:720px;font-family:system-ui,-apple-system,sans-serif;font-size:14px;">` +
-    `<thead>${head}</thead><tbody>${body}</tbody></table>`
-  );
+  return `<table role="presentation" border="1" cellspacing="0" cellpadding="8" width="100%" style="border-collapse:collapse;width:100%;max-width:760px;border:1px solid #111111;mso-table-lspace:0pt;mso-table-rspace:0pt;"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
 function escapeHtml(s: string): string {

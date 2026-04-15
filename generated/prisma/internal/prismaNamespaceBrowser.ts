@@ -384,6 +384,7 @@ export const RfpRequestScalarFieldEnum = {
   archivedAt: 'archivedAt',
   archivedQuoteWorkspace: 'archivedQuoteWorkspace',
   quoteComparisonPicks: 'quoteComparisonPicks',
+  customerQuoteEmailDraft: 'customerQuoteEmailDraft',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

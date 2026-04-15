@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createContractFromArchivedRfp } from "@/lib/create-contract-from-archived-rfp";
 import { applyWorkflowClosedFromArchivedRfp } from "@/lib/contract-workflow-sync";
+import { parseCustomerQuoteEmailDraft } from "@/lib/customer-quote-email-draft";
 
 export async function GET(
   _request: NextRequest,
@@ -66,6 +67,26 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid RFP status" }, { status: 400 });
       }
       data.status = statusRaw;
+
+      if (statusRaw === "sent") {
+        const explicitSentRaw =
+          typeof body.sentAt === "string" ? String(body.sentAt).trim() : "";
+        if (explicitSentRaw) {
+          const d = new Date(explicitSentRaw);
+          if (Number.isNaN(d.getTime())) {
+            return NextResponse.json({ error: "Invalid sentAt" }, { status: 400 });
+          }
+          data.sentAt = d;
+        } else {
+          const existing = await prisma.rfpRequest.findUnique({
+            where: { id },
+            select: { sentAt: true },
+          });
+          if (!existing?.sentAt) {
+            data.sentAt = new Date();
+          }
+        }
+      }
     }
 
     if (notes !== undefined) {
@@ -117,6 +138,24 @@ export async function PATCH(
         data.quoteComparisonPicks = body.quoteComparisonPicks as Prisma.InputJsonValue;
       } else {
         return NextResponse.json({ error: "Invalid quoteComparisonPicks" }, { status: 400 });
+      }
+    }
+
+    if (body.customerQuoteEmailDraft !== undefined) {
+      if (body.customerQuoteEmailDraft === null) {
+        data.customerQuoteEmailDraft = Prisma.DbNull;
+      } else if (
+        typeof body.customerQuoteEmailDraft === "object" &&
+        body.customerQuoteEmailDraft !== null &&
+        !Array.isArray(body.customerQuoteEmailDraft)
+      ) {
+        const parsed = parseCustomerQuoteEmailDraft(body.customerQuoteEmailDraft);
+        if (!parsed) {
+          return NextResponse.json({ error: "Invalid customerQuoteEmailDraft" }, { status: 400 });
+        }
+        data.customerQuoteEmailDraft = parsed as unknown as Prisma.InputJsonValue;
+      } else {
+        return NextResponse.json({ error: "Invalid customerQuoteEmailDraft" }, { status: 400 });
       }
     }
 

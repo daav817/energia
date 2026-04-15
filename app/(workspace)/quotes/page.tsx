@@ -89,6 +89,8 @@ type RfpRequestSummary = {
     avgMonthlyUsage: number;
   }>;
   quoteComparisonPicks?: unknown;
+  customerQuoteEmailDraft?: unknown;
+  archivedAt?: string | null;
 };
 
 const EMPTY_MANUAL_ROWS: ManualQuoteRow[] = [];
@@ -263,11 +265,20 @@ export default function RfpQuotesPage() {
   }
 
   const loadRfpRequests = useCallback(async () => {
-    const response = await fetch("/api/rfp");
+    const response = await fetch("/api/rfp", { cache: "no-store" });
     const data = await response.json();
     const rows = Array.isArray(data) ? (data as RfpRequestSummary[]) : [];
-    setRfpRequests(rows.filter((r) => r.sentAt && r.status !== "draft"));
-  }, []);
+    const filtered = rows.filter(
+      (r) => r.sentAt && r.status !== "draft" && r.archivedAt == null
+    );
+    setRfpRequests(filtered);
+    setSelectedRfpId((id) => {
+      if (!id) return id;
+      if (filtered.some((r) => r.id === id)) return id;
+      router.replace("/quotes", { scroll: false });
+      return "";
+    });
+  }, [router]);
 
   const persistComparisonPicksForRfp = useCallback(
     async (
@@ -529,7 +540,7 @@ export default function RfpQuotesPage() {
       setSelectedRfpId("");
       await loadRfpRequests();
       if (cid) {
-        router.push(`/directory/contracts?highlightContract=${encodeURIComponent(cid)}`);
+        router.push(`/directory/contracts?contractId=${encodeURIComponent(cid)}&fromArchive=1`);
       } else if (skip) {
         setArchiveMessage(skip);
       }
@@ -910,6 +921,8 @@ export default function RfpQuotesPage() {
                   customerContact={selectedRequest.customerContact ?? null}
                   contractStartMonth={selectedRequest.contractStartMonth}
                   contractStartYear={selectedRequest.contractStartYear}
+                  customerQuoteEmailDraft={selectedRequest.customerQuoteEmailDraft}
+                  onQuoteComposeDraftSaved={() => void loadRfpRequests()}
                   onQuoteEmailSent={() => void loadRfpRequests()}
                 />
               </div>
