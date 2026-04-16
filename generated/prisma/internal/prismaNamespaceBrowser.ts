@@ -229,6 +229,7 @@ export const ContractAccountScalarFieldEnum = {
   id: 'id',
   contractId: 'contractId',
   accountId: 'accountId',
+  ldcUtility: 'ldcUtility',
   serviceAddress: 'serviceAddress',
   annualUsage: 'annualUsage',
   avgMonthlyUsage: 'avgMonthlyUsage',

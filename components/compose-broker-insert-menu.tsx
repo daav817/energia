@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,8 +38,10 @@ export function ComposeBrokerInsertMenu(props: {
   /** Plain text inserted from Settings → Profile (empty string if field blank). */
   onInsert: (text: string) => void;
   align?: "start" | "end" | "center";
+  /** Merged onto the trigger button (e.g. compact height). */
+  triggerClassName?: string;
 }) {
-  const { disabled, onInsert, align = "end" } = props;
+  const { disabled, onInsert, align = "end", triggerClassName } = props;
 
   const insert = (pick: (p: BrokerProfile) => string) => {
     const p = loadBrokerProfile();
@@ -48,8 +51,14 @@ export function ComposeBrokerInsertMenu(props: {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="shrink-0" disabled={disabled}>
-          <User className="mr-2 h-4 w-4" />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("shrink-0", triggerClassName)}
+          disabled={disabled}
+        >
+          <User className="mr-2 h-4 w-4 shrink-0" />
           Insert broker
         </Button>
       </DropdownMenuTrigger>

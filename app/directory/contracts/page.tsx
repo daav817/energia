@@ -672,8 +672,8 @@ export default function ContractsPage() {
   }, []);
 
   useEffect(() => {
-    if (!addOpen && !editContract) return;
-    const params = new URLSearchParams({ energy: energyFilter, sort: sortCol, order: sortOrder });
+    if (!addOpen && !editContract && !accountsModalContract) return;
+    const params = new URLSearchParams({ energy: "all", sort: sortCol, order: sortOrder });
     Promise.all([
       fetch("/api/contracts?" + params.toString() + "&tab=active").then((r) => r.json()),
       fetch("/api/contracts?" + params.toString() + "&tab=ended").then((r) => r.json()),
@@ -682,7 +682,7 @@ export default function ContractsPage() {
       const e = Array.isArray(ended) ? ended : [];
       setContractsForSuggestions([...a, ...e]);
     });
-  }, [addOpen, editContract, energyFilter, sortCol, sortOrder]);
+  }, [addOpen, editContract, accountsModalContract, energyFilter, sortCol, sortOrder]);
 
   const utilitySuggestions = useMemo(() => {
     const set = new Set<string>();
@@ -692,6 +692,20 @@ export default function ContractsPage() {
     });
     return Array.from(set).sort();
   }, [contractsForSuggestions]);
+
+  const accountModalUtilityOptions = useMemo(() => {
+    if (!accountsModalContract) return [];
+    const et = accountsModalContract.energyType;
+    const set = new Set<string>();
+    for (const c of contractsForSuggestions) {
+      if (c.energyType !== et) continue;
+      const u = c.customerUtility?.trim();
+      if (u) set.add(u);
+    }
+    const selfU = accountsModalContract.customerUtility?.trim();
+    if (selfU) set.add(selfU);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [accountsModalContract, contractsForSuggestions]);
 
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
@@ -1531,6 +1545,8 @@ export default function ContractsPage() {
         open={accountsModalContract != null}
         onOpenChange={(o) => !o && setAccountsModalContract(null)}
         contractId={accountsModalContract?.id ?? null}
+        contractEnergyType={accountsModalContract?.energyType ?? null}
+        utilityOptions={accountModalUtilityOptions}
         subtitle={
           accountsModalContract
             ? `${accountsModalContract.customer?.company || accountsModalContract.customer?.name || "Customer"} · ${accountsModalContract.supplier?.name || "Supplier"}`
@@ -3767,6 +3783,27 @@ function AddContractDialog({
             >
               {signedPreviewLarge ? "Shorter preview area" : "Taller preview area"}
             </Button>
+            {signedPreviewSourceUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                title={
+                  isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile)
+                    ? "Open the signed contract PDF in a new browser tab"
+                    : "Open the preview image in a new browser tab"
+                }
+                onClick={() => {
+                  const isPdf = isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile);
+                  const url = isPdf ? contractPdfPreviewSrc(signedPreviewSourceUrl) : signedPreviewSourceUrl;
+                  window.open(url, "_blank", "noopener,noreferrer");
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                Open in new tab
+              </Button>
+            ) : null}
             {signedPreviewSourceUrl && isContractPdfLike(signedPreviewSourceUrl, signedPreviewFile) ? (
               <>
                 <span className="text-xs text-muted-foreground">Zoom</span>

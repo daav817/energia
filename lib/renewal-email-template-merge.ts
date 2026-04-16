@@ -7,6 +7,8 @@ export type RfpAccountLine = { accountNumber: string; serviceAddress?: string | 
 /** Contract-scoped utility accounts (from DB) for templates and renewal merge. */
 export type ContractAccountTemplateRow = {
   accountId: string;
+  /** LDC / delivery utility (optional). */
+  ldcUtility?: string | null;
   serviceAddress?: string | null;
   /** Display strings for template / email */
   annualUsage?: string | null;
@@ -31,6 +33,7 @@ export function buildContractAccountsTableHtml(rows: ContractAccountTemplateRow[
       (r) =>
         `<tr>` +
         `<td style="border:1px solid #ccc;padding:6px;">${escapeHtml(r.accountId)}</td>` +
+        `<td style="border:1px solid #ccc;padding:6px;">${escapeHtml((r.ldcUtility ?? "").trim() || "—")}</td>` +
         `<td style="border:1px solid #ccc;padding:6px;">${escapeHtml((r.serviceAddress ?? "").trim())}</td>` +
         `<td style="border:1px solid #ccc;padding:6px;text-align:right;">${escapeHtml((r.annualUsage ?? "").trim() || "—")}</td>` +
         `<td style="border:1px solid #ccc;padding:6px;text-align:right;">${escapeHtml((r.avgMonthlyUsage ?? "").trim() || "—")}</td>` +
@@ -41,6 +44,7 @@ export function buildContractAccountsTableHtml(rows: ContractAccountTemplateRow[
     `<table role="presentation" style="border-collapse:collapse;width:100%;max-width:640px;font-size:14px;margin:8px 0;">` +
     `<thead><tr>` +
     `<th style="border:1px solid #ccc;padding:6px;text-align:left;background:#f5f5f5;">Account ID</th>` +
+    `<th style="border:1px solid #ccc;padding:6px;text-align:left;background:#f5f5f5;">Utility</th>` +
     `<th style="border:1px solid #ccc;padding:6px;text-align:left;background:#f5f5f5;">Service address</th>` +
     `<th style="border:1px solid #ccc;padding:6px;text-align:right;background:#f5f5f5;">Annual usage</th>` +
     `<th style="border:1px solid #ccc;padding:6px;text-align:right;background:#f5f5f5;">Avg monthly usage</th>` +
@@ -109,12 +113,14 @@ export const EMAIL_TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
   contractAccountsTableHtml: buildContractAccountsTableHtml([
     {
       accountId: "ACC-1001",
+      ldcUtility: "Sample Electric Co.",
       serviceAddress: "450 Main St, Gym",
       annualUsage: "420000",
       avgMonthlyUsage: "35000",
     },
     {
       accountId: "ACC-1002",
+      ldcUtility: "Sample Electric Co.",
       serviceAddress: "450 Main St, Admin wing",
       annualUsage: "180000",
       avgMonthlyUsage: "15000",
@@ -200,10 +206,12 @@ export function buildRenewalTemplateVariables(
   const accountsHtmlFromContract =
     contractAccountRows.length > 0
       ? contractAccountRows
-          .map(
-            (a) =>
-              `${a.accountId}${a.serviceAddress ? ` — ${a.serviceAddress}` : ""}`
-          )
+          .map((a) => {
+            const util = (a.ldcUtility ?? "").trim();
+            const addr = (a.serviceAddress ?? "").trim();
+            const mid = [util && `(${util})`, addr && `— ${addr}`].filter(Boolean).join(" ");
+            return `${a.accountId}${mid ? ` ${mid}` : ""}`;
+          })
           .join("<br/>")
       : null;
 

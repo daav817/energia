@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGmailClient } from "@/lib/gmail";
-import { finalizeQuoteEmailHtmlServer } from "@/lib/quote-email-html-server";
 import {
   replaceDataUrlImagesWithCid,
   type PreparedInlineImage,
@@ -51,21 +50,15 @@ export async function POST(request: NextRequest) {
       }
     } else {
       const body = await request.json();
-      const { to, cc, bcc, subject, body: b, html: h, energiaEmailKind } = body;
+      const { to, cc, bcc, subject, body: b, html: h } = body;
       emailBody = b || "";
       html = h;
       subjectVal = subject || "(no subject)";
       toList = Array.isArray(to) ? to : to ? [to] : [];
       ccList = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
       bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : [];
-      if (
-        html &&
-        typeof html === "string" &&
-        html.trim() &&
-        energiaEmailKind === "customerQuote"
-      ) {
-        html = finalizeQuoteEmailHtmlServer(html);
-      }
+      // Customer quote (`energiaEmailKind: "customerQuote"`): HTML is finalized in the compose tab so it
+      // matches preview; do not re-parse on the server (linkedom vs browser can diverge and confuse Gmail).
       if (
         html &&
         typeof html === "string" &&

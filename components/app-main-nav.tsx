@@ -12,7 +12,6 @@ import {
   type BrokerProfile,
 } from "@/lib/broker-profile";
 import { BrokerOverviewModal } from "@/components/broker-overview-modal";
-import { AppNavAccountMenu } from "@/components/app-nav-account-menu";
 
 const MAIN_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -152,7 +151,6 @@ export function AppMainNav() {
               );
             })}
           </div>
-          <AppNavAccountMenu />
         </div>
       </nav>
       <BrokerOverviewModal open={overviewOpen} onOpenChange={setOverviewOpen} profile={brokerProfile} />

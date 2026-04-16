@@ -224,6 +224,8 @@ model ContractAccount {
   id               String   @id @default(cuid())
   contractId       String   @map("contract_id")
   accountId        String   @map("account_id")
+  /// LDC / delivery utility name for this account (same energy type as the contract).
+  ldcUtility       String?  @map("ldc_utility")
   serviceAddress   String?  @map("service_address") @db.Text
   annualUsage      Decimal? @map("annual_usage") @db.Decimal(14, 2)
   avgMonthlyUsage  Decimal? @map("avg_monthly_usage") @db.Decimal(14, 2)

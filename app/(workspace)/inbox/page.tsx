@@ -81,8 +81,45 @@ function getPrimaryFolder(labelIds: string[] = [], labelMap: Map<string, string>
 const INBOX_SEARCH_STORAGE_KEY = "energia-inbox-email-search-v1";
 const INBOX_MAIN_PANE_STORAGE_KEY = "energia-inbox-main-pane-v1";
 const INBOX_SEARCH_PANE_STORAGE_KEY = "energia-inbox-search-pane-v1";
+const INBOX_PAGE_CACHE_KEY = "energia-inbox-page-cache-v1";
+const INBOX_UNREAD_CACHE_KEY = "energia-inbox-unread-cache-v1";
+const INBOX_LABELS_CACHE_KEY = "energia-inbox-labels-cache-v1";
+const INBOX_MAIN_DETAIL_CACHE_KEY = "energia-inbox-main-detail-cache-v1";
+const INBOX_SEARCH_DETAIL_CACHE_KEY = "energia-inbox-search-detail-cache-v1";
+const INBOX_FOLDER_CACHE_KEY = "energia-inbox-folder-cache-v1";
+const INBOX_RECENT_LABELS_KEY = "energia-inbox-recent-labels-v1";
+const INBOX_AUTO_REFRESH_MS = 60_000;
 
 type InboxPanePersisted = { selectedId: string | null; detailOpen: boolean };
+type EmailDetailPersisted = {
+  emailId: string | null;
+  detail: {
+    body: string;
+    bodyHtml: string;
+    subject: string;
+    from: string;
+    to: string;
+    cc: string;
+    bcc: string;
+    date: string;
+    labelIds: string[];
+    attachments?: {
+      attachmentId: string;
+      filename: string;
+      mimeType: string;
+      size: number;
+    }[];
+    inlineImages?: Record<string, { attachmentId: string; mimeType: string }>;
+  } | null;
+};
+
+type FolderCacheEntry = {
+  messages: EmailMessage[];
+  nextPageToken: string | null;
+  cachedAt: number;
+};
+
+type FolderCacheMap = Record<string, FolderCacheEntry | undefined>;
 
 function readPanePersisted(key: string): InboxPanePersisted | null {
   if (typeof window === "undefined") return null;
@@ -102,6 +139,44 @@ function readPanePersisted(key: string): InboxPanePersisted | null {
 function writePanePersisted(key: string, v: InboxPanePersisted) {
   try {
     sessionStorage.setItem(key, JSON.stringify(v));
+  } catch {
+    /* ignore */
+  }
+}
+
+function readSessionJson<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionJson(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+function readLocalJson<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalJson(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* ignore */
   }
@@ -217,11 +292,15 @@ export default function InboxPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeSession, setComposeSession] = useState(0);
   const [searchResultsFilter, setSearchResultsFilter] = useState("");
+  const [hasHydratedCachedPage, setHasHydratedCachedPage] = useState(false);
+  const [cacheReady, setCacheReady] = useState(false);
+  const folderCacheRef = useRef<FolderCacheMap>({});
 
   const pendingMainPaneRestoreRef = useRef<InboxPanePersisted | null>(null);
   const pendingSearchPaneRestoreRef = useRef<InboxPanePersisted | null>(null);
   /** Same folder + filters => refreshing inbox list should not clear the open message pane (e.g. after switching back from Search). */
   const inboxListIdentityRef = useRef<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const startResizeFolders = (startX: number) => {
     const startW = foldersWidth;
@@ -286,13 +365,80 @@ export default function InboxPage() {
   };
 
   useEffect(() => {
-    fetchLabels();
-  }, []);
-
-  useEffect(() => {
     pendingMainPaneRestoreRef.current = readPanePersisted(INBOX_MAIN_PANE_STORAGE_KEY);
     pendingSearchPaneRestoreRef.current = readPanePersisted(INBOX_SEARCH_PANE_STORAGE_KEY);
   }, []);
+
+  useEffect(() => {
+    const cachedLabels = readSessionJson<Label[]>(INBOX_LABELS_CACHE_KEY);
+    const cachedPage = readSessionJson<{
+      selectedLabel?: string;
+      emails?: EmailMessage[];
+      nextPageToken?: string | null;
+      filterDate?: string;
+      filterStarred?: boolean;
+      activeTab?: "inbox" | "search" | "unread";
+    }>(INBOX_PAGE_CACHE_KEY);
+    const cachedUnread = readSessionJson<EmailMessage[]>(INBOX_UNREAD_CACHE_KEY);
+    const cachedMainDetail = readSessionJson<EmailDetailPersisted>(INBOX_MAIN_DETAIL_CACHE_KEY);
+    const cachedSearchDetail = readSessionJson<EmailDetailPersisted>(INBOX_SEARCH_DETAIL_CACHE_KEY);
+    const cachedFolderCache = readSessionJson<FolderCacheMap>(INBOX_FOLDER_CACHE_KEY);
+
+    let restored = false;
+    if (cachedLabels?.length) {
+      setLabels(cachedLabels);
+      setLabelsLoading(false);
+      restored = true;
+    }
+    if (cachedPage) {
+      if (typeof cachedPage.selectedLabel === "string" && cachedPage.selectedLabel) {
+        setSelectedLabel(cachedPage.selectedLabel);
+      }
+      if (Array.isArray(cachedPage.emails)) {
+        setEmails(cachedPage.emails);
+        restored = true;
+        const pending = pendingMainPaneRestoreRef.current;
+        if (pending?.selectedId) {
+          const cachedSelected = cachedPage.emails.find((msg) => msg.id === pending.selectedId);
+          if (cachedSelected) {
+            setInboxSelectedEmail(cachedSelected);
+            setInboxDetailOpen(!!pending.detailOpen);
+          }
+        }
+      }
+      if (typeof cachedPage.nextPageToken === "string" || cachedPage.nextPageToken === null) {
+        setNextPageToken(cachedPage.nextPageToken ?? null);
+      }
+      if (typeof cachedPage.filterDate === "string") setFilterDate(cachedPage.filterDate);
+      if (typeof cachedPage.filterStarred === "boolean") setFilterStarred(cachedPage.filterStarred);
+      if (cachedPage.activeTab === "inbox" || cachedPage.activeTab === "search" || cachedPage.activeTab === "unread") {
+        setActiveTab(cachedPage.activeTab);
+      }
+    }
+    if (cachedUnread) {
+      setUnreadResults(cachedUnread);
+      restored = true;
+    }
+    if (cachedMainDetail?.detail) {
+      setInboxEmailDetail(cachedMainDetail.detail);
+      restored = true;
+    }
+    if (cachedSearchDetail?.detail) {
+      setSearchEmailDetail(cachedSearchDetail.detail);
+      restored = true;
+    }
+    if (cachedFolderCache && typeof cachedFolderCache === "object") {
+      folderCacheRef.current = cachedFolderCache;
+      restored = true;
+    }
+    if (restored) setHasHydratedCachedPage(true);
+    setCacheReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!cacheReady) return;
+    void fetchLabels({ silent: hasHydratedCachedPage });
+  }, [cacheReady, hasHydratedCachedPage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -317,12 +463,57 @@ export default function InboxPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedLabel || activeTab !== "inbox") return;
+    if (!cacheReady || !selectedLabel || activeTab !== "inbox") return;
+    // If we have cached data for this folder, show it immediately; fetch will revalidate silently.
+    hydrateFolderFromCache(selectedLabel);
     const identity = `${selectedLabel}\u0000${filterDate}\u0000${filterStarred}`;
-    const keepSelection = inboxListIdentityRef.current === identity;
+    const keepSelection =
+      inboxListIdentityRef.current === identity ||
+      Boolean(pendingMainPaneRestoreRef.current?.selectedId) ||
+      Boolean(inboxSelectedEmail?.id);
     inboxListIdentityRef.current = identity;
-    void fetchEmails(selectedLabel, undefined, { keepSelection });
-  }, [selectedLabel, filterDate, filterStarred, activeTab]);
+    void fetchEmails(selectedLabel, undefined, { keepSelection, silent: hasHydratedCachedPage });
+  }, [cacheReady, selectedLabel, filterDate, filterStarred, activeTab, hasHydratedCachedPage, inboxSelectedEmail?.id]);
+
+  useEffect(() => {
+    writeSessionJson(INBOX_LABELS_CACHE_KEY, labels);
+  }, [labels]);
+
+  useEffect(() => {
+    writeSessionJson(INBOX_PAGE_CACHE_KEY, {
+      selectedLabel,
+      emails,
+      nextPageToken,
+      filterDate,
+      filterStarred,
+      activeTab,
+    });
+  }, [selectedLabel, emails, nextPageToken, filterDate, filterStarred, activeTab]);
+
+  useEffect(() => {
+    writeSessionJson(INBOX_UNREAD_CACHE_KEY, unreadResults);
+  }, [unreadResults]);
+
+  useEffect(() => {
+    writeSessionJson(INBOX_MAIN_DETAIL_CACHE_KEY, {
+      emailId: inboxSelectedEmail?.id ?? null,
+      detail: inboxEmailDetail,
+    } satisfies EmailDetailPersisted);
+  }, [inboxSelectedEmail?.id, inboxEmailDetail]);
+
+  useEffect(() => {
+    writeSessionJson(INBOX_SEARCH_DETAIL_CACHE_KEY, {
+      emailId: searchSelectedEmail?.id ?? null,
+      detail: searchEmailDetail,
+    } satisfies EmailDetailPersisted);
+  }, [searchSelectedEmail?.id, searchEmailDetail]);
+
+  const rememberRecentLabel = useCallback((labelId: string) => {
+    if (!labelId) return;
+    const prev = readLocalJson<string[]>(INBOX_RECENT_LABELS_KEY) ?? [];
+    const next = [labelId, ...prev.filter((x) => x !== labelId)].slice(0, 10);
+    writeLocalJson(INBOX_RECENT_LABELS_KEY, next);
+  }, []);
 
   useEffect(() => {
     if (!inboxSelectedEmail?.id || !inboxDetailOpen) return;
@@ -400,8 +591,8 @@ export default function InboxPage() {
     const pool = activeTab === "unread" ? unreadResults ?? [] : emails;
     if (pool.length === 0 && loading) return;
     const msg = pool.find((e) => e.id === pending.selectedId);
-    pendingMainPaneRestoreRef.current = null;
     if (msg) {
+      pendingMainPaneRestoreRef.current = null;
       setInboxSelectedEmail(msg);
       setInboxDetailOpen(!!pending.detailOpen);
     }
@@ -413,8 +604,8 @@ export default function InboxPage() {
     if (!pending?.selectedId) return;
     if (activeTab !== "search" || !searchResults?.length) return;
     const msg = searchResults.find((e) => e.id === pending.selectedId);
-    pendingSearchPaneRestoreRef.current = null;
     if (msg) {
+      pendingSearchPaneRestoreRef.current = null;
       setSearchSelectedEmail(msg);
       setSearchDetailOpen(!!pending.detailOpen);
     }
@@ -458,8 +649,16 @@ export default function InboxPage() {
     }
   };
 
-  const fetchLabels = async () => {
-    setLabelsLoading(true);
+  useEffect(() => {
+    if (!listSelectedEmail?.id) return;
+    const frame = window.requestAnimationFrame(() => {
+      rowRefs.current[listSelectedEmail.id]?.scrollIntoView({ block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [listSelectedEmail?.id, activeTab, emails, searchResults, unreadResults]);
+
+  const fetchLabels = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLabelsLoading(true);
     try {
       const res = await fetch("/api/emails/labels");
       const data = await res.json();
@@ -471,7 +670,7 @@ export default function InboxPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load labels");
     } finally {
-      setLabelsLoading(false);
+      if (!opts?.silent) setLabelsLoading(false);
     }
   };
 
@@ -591,9 +790,9 @@ export default function InboxPage() {
   const fetchEmails = async (
     labelId: string,
     token?: string,
-    opts?: { keepSelection?: boolean }
+    opts?: { keepSelection?: boolean; silent?: boolean }
   ) => {
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({
@@ -609,6 +808,17 @@ export default function InboxPage() {
       const msgs = data.messages || [];
       setEmails(msgs);
       setNextPageToken(data.nextPageToken || null);
+      if (!token) {
+        folderCacheRef.current = {
+          ...folderCacheRef.current,
+          [labelId]: {
+            messages: msgs,
+            nextPageToken: data.nextPageToken || null,
+            cachedAt: Date.now(),
+          },
+        };
+        writeSessionJson(INBOX_FOLDER_CACHE_KEY, folderCacheRef.current);
+      }
       if (!opts?.keepSelection) {
         setInboxSelectedEmail(null);
         setInboxEmailDetail(null);
@@ -625,9 +835,20 @@ export default function InboxPage() {
       setError(err instanceof Error ? err.message : "Failed to load emails");
       setEmails([]);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
+
+  const hydrateFolderFromCache = useCallback(
+    (labelId: string): boolean => {
+      const entry = folderCacheRef.current[labelId];
+      if (!entry || !Array.isArray(entry.messages)) return false;
+      setEmails(entry.messages);
+      setNextPageToken(entry.nextPageToken ?? null);
+      return true;
+    },
+    []
+  );
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -676,8 +897,8 @@ export default function InboxPage() {
     }
   };
 
-  const fetchUnread = async () => {
-    setLoading(true);
+  const fetchUnread = async (opts?: { silent?: boolean; keepSelection?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({
@@ -688,7 +909,7 @@ export default function InboxPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setUnreadResults(data.messages || []);
-      if (activeTabRef.current === "unread") {
+      if (activeTabRef.current === "unread" && !opts?.keepSelection) {
         setInboxSelectedEmail(null);
         setInboxEmailDetail(null);
         setInboxDetailOpen(false);
@@ -699,9 +920,66 @@ export default function InboxPage() {
       setError(err instanceof Error ? err.message : "Failed to load unread emails");
       setUnreadResults([]);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        try {
+          await fetch("/api/emails/poll?sync=1");
+        } catch {
+          return;
+        }
+        void fetchLabels({ silent: true });
+        if (activeTabRef.current === "search") {
+          return;
+        }
+        if (activeTabRef.current === "unread") {
+          void fetchUnread({ silent: true, keepSelection: true });
+          return;
+        }
+        void fetchEmails(selectedLabel, undefined, { keepSelection: true, silent: true });
+        void fetchUnread({ silent: true, keepSelection: true });
+
+        // Background-refresh other folders (supplier folders, recents, and those with unread counts),
+        // so switching folders is instant and up-to-date.
+        const recent = readLocalJson<string[]>(INBOX_RECENT_LABELS_KEY) ?? [];
+        const unreadFolderIds = labels
+          .filter((l) => !SYSTEM_IDS.includes(l.id) && (l.messagesUnread ?? 0) > 0)
+          .map((l) => l.id);
+        const candidates = Array.from(
+          new Set([selectedLabel, ...recent, ...unreadFolderIds].filter(Boolean))
+        )
+          .filter((id) => id !== selectedLabel)
+          .slice(0, 8);
+
+        for (const id of candidates) {
+          try {
+            const params = new URLSearchParams({ maxResults: "20", labelIds: id });
+            const res = await fetch(`/api/emails?${params.toString()}`);
+            const data = await res.json().catch(() => ({} as any));
+            if (!res.ok || (data as any).error) continue;
+            const msgs = Array.isArray((data as any).messages) ? ((data as any).messages as EmailMessage[]) : [];
+            folderCacheRef.current = {
+              ...folderCacheRef.current,
+              [id]: {
+                messages: msgs,
+                nextPageToken: typeof (data as any).nextPageToken === "string" ? (data as any).nextPageToken : null,
+                cachedAt: Date.now(),
+              },
+            };
+          } catch {
+            // ignore
+          }
+        }
+        writeSessionJson(INBOX_FOLDER_CACHE_KEY, folderCacheRef.current);
+      })();
+    }, INBOX_AUTO_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, [selectedLabel, labels, fetchEmails, fetchLabels, fetchUnread]);
 
   const collapseAllSearchFolders = () => {
     setSearchFolderOpen(
@@ -840,7 +1118,18 @@ export default function InboxPage() {
     return [...rows].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   }, [displayEmails, pinnedIds]);
   const unpinned = displayEmails.filter((e) => !pinnedIds.includes(e.id));
-  const sortedEmails = [...pinned, ...unpinned];
+  const sortedEmails = useMemo(() => {
+    const base = [...pinned, ...unpinned];
+    const selectedId =
+      activeTab === "search"
+        ? searchSelectedEmail?.id
+        : inboxSelectedEmail?.id;
+    if (!selectedId) return base;
+    const selectedIndex = base.findIndex((msg) => msg.id === selectedId);
+    if (selectedIndex <= 0) return base;
+    const selected = base[selectedIndex]!;
+    return [selected, ...base.slice(0, selectedIndex), ...base.slice(selectedIndex + 1)];
+  }, [activeTab, inboxSelectedEmail?.id, searchSelectedEmail?.id, pinned, unpinned]);
 
   const filteredSearchResults = useMemo(() => {
     if (!searchResults?.length) return searchResults;
@@ -1056,7 +1345,13 @@ export default function InboxPage() {
                 nodes={folderTreeNodes}
                 selectedLabel={selectedLabel}
                 expanded={folderExpanded}
-                onSelect={(id) => { setSelectedLabel(id); setActiveTab("inbox"); }}
+                onSelect={(id) => {
+                  rememberRecentLabel(id);
+                  setSelectedLabel(id);
+                  setActiveTab("inbox");
+                  // Show cached folder immediately (silent network refresh will follow).
+                  hydrateFolderFromCache(id);
+                }}
                 onToggleExpand={(id) => setFolderExpanded((s) => { const next = new Set(s); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
                 onDelete={(id, name) => setDeleteConfirm({ type: "folder", id, name })}
               />
@@ -1206,7 +1501,7 @@ export default function InboxPage() {
                         onClick={async () => {
                           await fetch("/api/emails/poll?sync=1");
                           fetchEmails(selectedLabel, undefined, { keepSelection: true });
-                          fetchUnread();
+                          fetchUnread({ keepSelection: true });
                         }}
                         disabled={loading}
                       >
@@ -1410,6 +1705,9 @@ export default function InboxPage() {
                           <EmailRow
                             key={msg.id}
                             msg={msg}
+                            rowRef={(node) => {
+                              rowRefs.current[msg.id] = node;
+                            }}
                             selectedEmail={listSelectedEmail}
                             pinnedIds={pinnedIds}
                             selectedIds={selectedIds}
@@ -1490,6 +1788,9 @@ export default function InboxPage() {
                             <EmailRow
                               key={msg.id}
                               msg={msg}
+                              rowRef={(node) => {
+                                rowRefs.current[msg.id] = node;
+                              }}
                               selectedEmail={listSelectedEmail}
                               pinnedIds={pinnedIds}
                               selectedIds={selectedIds}
@@ -1541,6 +1842,9 @@ export default function InboxPage() {
                         <EmailRow
                           key={msg.id}
                           msg={msg}
+                          rowRef={(node) => {
+                            rowRefs.current[msg.id] = node;
+                          }}
                           selectedEmail={listSelectedEmail}
                           pinnedIds={pinnedIds}
                           selectedIds={selectedIds}
@@ -1561,6 +1865,9 @@ export default function InboxPage() {
                   <EmailRow
                     key={msg.id}
                     msg={msg}
+                    rowRef={(node) => {
+                      rowRefs.current[msg.id] = node;
+                    }}
                     selectedEmail={listSelectedEmail}
                     pinnedIds={pinnedIds}
                     selectedIds={selectedIds}
@@ -1636,6 +1943,7 @@ function EmailRow({
   onAssignFolderOpen,
   folderLabel,
   isDraftFolder = false,
+  rowRef,
 }: {
   msg: EmailMessage;
   selectedEmail: EmailMessage | null;
@@ -1648,10 +1956,12 @@ function EmailRow({
   onAssignFolderOpen: (id: string | null) => void;
   folderLabel?: string;
   isDraftFolder?: boolean;
+  rowRef?: (node: HTMLDivElement | null) => void;
 }) {
   const isSelected = selectedIds.has(msg.id);
   return (
     <div
+      ref={rowRef}
       onClick={() => onSelect(msg)}
       className={`relative flex cursor-pointer flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted ${
         selectedEmail?.id === msg.id ? "bg-primary/20" : ""

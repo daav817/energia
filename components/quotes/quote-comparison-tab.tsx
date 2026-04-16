@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Loader2, RefreshCw, Search, Plus } from "lucide-react";
+import { ChevronDown, Loader2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,17 +76,47 @@ export type SupplierInboxEmailDetail = {
   }>;
 };
 
+const QUOTE_RATE_INPUT_MAX_DECIMALS = 5;
+
 function sanitizeDecimalRateInput(raw: string): string {
   let s = raw.replace(/[^\d.]/g, "");
   const firstDot = s.indexOf(".");
   if (firstDot !== -1) {
-    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, "");
+    const intAndDot = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, "");
+    const fracStart = intAndDot.indexOf(".") + 1;
+    const head = intAndDot.slice(0, fracStart);
+    const frac = intAndDot.slice(fracStart, fracStart + QUOTE_RATE_INPUT_MAX_DECIMALS);
+    s = head + frac;
   }
   return s;
 }
 
 function sanitizeWholeMonthsInput(raw: string): string {
   return raw.replace(/\D/g, "");
+}
+
+/** Formats stored quote rates for the comparison table (up to five fractional digits). */
+function formatComparisonTableRate(rate: number): string {
+  if (!Number.isFinite(rate)) return "—";
+  const rounded = Math.round(rate * 1e5) / 1e5;
+  let s = rounded.toFixed(QUOTE_RATE_INPUT_MAX_DECIMALS);
+  s = s.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+  return `$${s}`;
+}
+
+function parseMessageListDateMs(dateHeader: string): number | null {
+  const t = Date.parse(dateHeader);
+  return Number.isFinite(t) ? t : null;
+}
+
+function startOfLocalDayMs(ymd: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  return new Date(`${ymd}T00:00:00`).getTime();
+}
+
+function endOfLocalDayMs(ymd: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  return new Date(`${ymd}T23:59:59.999`).getTime();
 }
 
 const STANDARD_TERM_PRESETS = ["12", "24", "36"] as const;
@@ -126,14 +156,16 @@ export function QuoteComparisonTab({
   emailDetailLoading: boolean;
 }) {
   const [wideSplit, setWideSplit] = useState(true);
+  const [compareRightTab, setCompareRightTab] = useState<"emails" | "table">("emails");
+  const [emailUserFilter, setEmailUserFilter] = useState("");
+  const [emailDateFrom, setEmailDateFrom] = useState("");
+  const [emailDateTo, setEmailDateTo] = useState("");
+  const [quoteEmailListFiltersOpen, setQuoteEmailListFiltersOpen] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
   const [termPreset, setTermPreset] = useState<string>("12");
   const [customTermMonths, setCustomTermMonths] = useState("");
   const [rateInput, setRateInput] = useState("");
   const [resolvedInboxEmails, setResolvedInboxEmails] = useState<string[]>([]);
-  const [showGrid, setShowGrid] = useState(true);
-  const [inboxQuery, setInboxQuery] = useState("");
-  const [inboxSubmittedQuery, setInboxSubmittedQuery] = useState("");
   const [inboxLoading, setInboxLoading] = useState(false);
   const [inboxError, setInboxError] = useState<string | null>(null);
   const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
@@ -243,25 +275,28 @@ export function QuoteComparisonTab({
     if (fromList.length > 0) {
       parts.push(`(${fromList.map((e) => gmailFromToken(e)).join(" OR ")})`);
     }
-    if (inboxSubmittedQuery.trim()) {
-      parts.push(inboxSubmittedQuery.trim());
-    }
     return parts.filter(Boolean).join(" ");
-  }, [rfp.quoteDueDate, rfp.suppliers, selectedSupplierId, inboxSubmittedQuery, resolvedInboxEmails]);
+  }, [rfp.quoteDueDate, rfp.suppliers, selectedSupplierId, resolvedInboxEmails]);
 
   const loadInbox = useCallback(async () => {
     setInboxLoading(true);
     setInboxError(null);
     try {
-      const q = encodeURIComponent(gmailQueryBase || "in:inbox");
-      const res = await fetch(`/api/emails?maxResults=35&labelIds=INBOX&q=${q}`);
+      const built = gmailQueryBase.trim();
+      if (!built) {
+        setInboxMessages([]);
+        onSelectedEmailIdChange(null);
+        return;
+      }
+      const q = encodeURIComponent(built);
+      const res = await fetch(`/api/emails?maxResults=75&q=${q}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Inbox failed");
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not load messages");
       const msgs = Array.isArray(data?.messages) ? (data.messages as InboxMessage[]) : [];
       setInboxMessages(msgs);
       onSelectedEmailIdChange(null);
     } catch (e) {
-      setInboxError(e instanceof Error ? e.message : "Inbox failed");
+      setInboxError(e instanceof Error ? e.message : "Could not load messages");
       setInboxMessages([]);
       onSelectedEmailIdChange(null);
     } finally {
@@ -357,418 +392,498 @@ export function QuoteComparisonTab({
     };
   };
 
-  return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-4">
-      <PanelGroup
-        direction="vertical"
-        autoSaveId="energia-quote-compare-main-stack"
-        className="flex min-h-[min(78dvh,820px)] min-w-0 flex-1 flex-col"
-      >
-        <Panel defaultSize={58} minSize={18} className="min-h-0 flex min-w-0 flex-col">
-          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
-            <PanelGroup
-              direction={wideSplit ? "horizontal" : "vertical"}
-              autoSaveId="energia-quote-compare-table-email"
-              className="flex min-h-0 min-w-0 flex-1"
-            >
-              <Panel
-                defaultSize={wideSplit ? 48 : 42}
-                minSize={wideSplit ? 22 : 16}
-                className="min-h-0 min-w-0"
-              >
-                <div className="h-full min-h-0 overflow-y-auto border-border bg-muted/15 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="text-sm font-medium">Quote comparison table</p>
-                      <p className="text-[11px] leading-snug text-muted-foreground">
-                        Insert updates the rate for that supplier and term on this RFP. Green outline = lowest rate in that
-                        term column. Click a cell to choose the yellow highlight for the customer quote — your selection is
-                        saved to this RFP automatically. Use{" "}
-                        <span className="font-medium text-foreground">Save picks</span> to refresh the RFP list from the
-                        server.
-                      </p>
-                      {quotesLoading ? (
-                        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-                          Refreshing rates…
-                        </p>
-                      ) : null}
-                    </div>
-                    {onSaveComparisonPicks ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="shrink-0"
-                        disabled={comparisonPicksSaveBusy}
-                        onClick={() => void onSaveComparisonPicks()}
-                      >
-                        {comparisonPicksSaveBusy ? (
-                          <>
-                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                            Saving…
-                          </>
-                        ) : (
-                          "Save picks"
-                        )}
-                      </Button>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex min-w-0 flex-nowrap items-end gap-3 overflow-x-auto pb-0.5">
-                    <div className="grid w-[min(12rem,42vw)] shrink-0 gap-1.5">
-                      <Label className="text-xs">Supplier</Label>
-                      <Select
-                        value={selectedSupplierId || undefined}
-                        onValueChange={setSelectedSupplierId}
-                        disabled={rfp.suppliers.length === 0}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder={rfp.suppliers.length === 0 ? "No suppliers on RFP" : "Select supplier"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {rfp.suppliers.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex shrink-0 items-end gap-2">
-                      <div className="grid w-[min(11rem,38vw)] gap-1.5">
-                        <Label className="text-xs">Contract term column</Label>
-                        <Select value={termPreset} onValueChange={setTermPreset}>
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STANDARD_TERM_PRESETS.map((t) => (
-                              <SelectItem key={t} value={t}>
-                                {t}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="__custom__">Custom</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {termPreset === "__custom__" ? (
-                        <div className="grid w-[4.25rem] gap-1.5">
-                          <Label className="text-xs">Months</Label>
-                          <Input
-                            inputMode="numeric"
-                            className="h-9 tabular-nums"
-                            value={customTermMonths}
-                            onChange={(e) => setCustomTermMonths(sanitizeWholeMonthsInput(e.target.value))}
-                            placeholder="e.g. 18"
-                            maxLength={4}
-                            aria-label="Custom term in whole months"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="grid min-w-[6.5rem] max-w-[10rem] flex-1 basis-[6.5rem] gap-1.5">
-                      <Label className="text-xs">Rate</Label>
-                      <Input
-                        inputMode="decimal"
-                        className="h-9 tabular-nums"
-                        value={rateInput}
-                        onChange={(e) => setRateInput(sanitizeDecimalRateInput(e.target.value))}
-                        placeholder="0.0000"
-                        aria-label="Quoted rate (decimal)"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-3 shrink-0">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => void handleInsertQuoteRowClick()}
-                      disabled={!canInsertQuoteRow || insertQuoteRowBusy}
-                    >
-                      {insertQuoteRowBusy ? (
-                        <>
-                          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                          Adding…
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="mr-1 h-4 w-4" />
-                          Insert quote row
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </Panel>
+  const filteredInboxMessages = useMemo(() => {
+    let rows = inboxMessages;
+    const u = emailUserFilter.trim().toLowerCase();
+    if (u) {
+      rows = rows.filter((m) => `${m.from} ${m.subject} ${m.snippet}`.toLowerCase().includes(u));
+    }
+    const fromMs = emailDateFrom ? startOfLocalDayMs(emailDateFrom) : null;
+    const toMs = emailDateTo ? endOfLocalDayMs(emailDateTo) : null;
+    if (fromMs != null || toMs != null) {
+      rows = rows.filter((m) => {
+        const t = parseMessageListDateMs(m.date);
+        if (t == null) return true;
+        if (fromMs != null && t < fromMs) return false;
+        if (toMs != null && t > toMs) return false;
+        return true;
+      });
+    }
+    return rows;
+  }, [inboxMessages, emailUserFilter, emailDateFrom, emailDateTo]);
 
-              <PanelResizeHandle className={panelResizeHandleClass} />
-
-              <Panel
-                defaultSize={wideSplit ? 52 : 58}
-                minSize={wideSplit ? 24 : 20}
-                className="min-h-0 min-w-0 flex flex-col bg-background"
-              >
-                <PanelGroup
-                  direction="vertical"
-                  autoSaveId="energia-quote-compare-inbox-emailbody"
-                  className="flex min-h-0 min-w-0 flex-1 flex-col"
-                >
-                  <Panel defaultSize={40} minSize={14} className="min-h-0 flex flex-col overflow-hidden">
-                    <div className="shrink-0 space-y-3 border-b border-border p-4">
-                      <p className="text-sm font-medium">Supplier quote email</p>
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="grid min-w-[200px] flex-1 gap-2">
-                          <Label className="text-xs">Search inbox (Gmail query)</Label>
-                          <Input
-                            value={inboxQuery}
-                            onChange={(e) => setInboxQuery(e.target.value)}
-                            placeholder="Keywords, subject:, etc."
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => setInboxSubmittedQuery(inboxQuery.trim())}
-                        >
-                          <Search className="h-4 w-4 mr-1" />
-                          Submit
-                        </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => void loadInbox()}>
-                          <RefreshCw className={cn("h-4 w-4", inboxLoading && "animate-spin")} />
-                        </Button>
-                      </div>
-                      <p className="text-[11px] leading-snug text-muted-foreground">
-                        Messages filter from the supplier quote due date forward (when set), scoped to supplier inbox
-                        addresses when known. Select a message below to read returned quotes while you work on the table.
-                      </p>
-                    </div>
-                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-border">
-                      <div className="shrink-0 border-b bg-muted/30 px-3 py-2 text-sm font-medium">Inbox</div>
-                      <div className="min-h-0 flex-1 divide-y overflow-y-auto">
-                        {inboxError ? (
-                          <p className="p-3 text-sm text-destructive">{inboxError}</p>
-                        ) : inboxLoading ? (
-                          <p className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-                          </p>
-                        ) : inboxMessages.length === 0 ? (
-                          <p className="p-3 text-sm text-muted-foreground">No messages matched.</p>
-                        ) : (
-                          inboxMessages.map((m) => (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => onSelectedEmailIdChange(m.id)}
-                              className={cn(
-                                "w-full px-3 py-2 text-left text-xs transition-colors hover:bg-muted/60",
-                                selectedEmailId === m.id && "bg-primary/10"
-                              )}
-                            >
-                              <div className="line-clamp-1 font-medium">{m.subject}</div>
-                              <div className="line-clamp-1 text-muted-foreground">{m.from}</div>
-                              <div className="line-clamp-2 text-muted-foreground">{m.snippet}</div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </Panel>
-
-                  <PanelResizeHandle className={panelResizeHandleClass} />
-
-                  <Panel defaultSize={60} minSize={18} className="min-h-0 flex flex-col overflow-hidden">
-                    <div className="shrink-0 border-b bg-muted/30 px-4 py-2 text-sm font-medium">Email content</div>
-                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
-                      {emailDetailLoading ? (
-                        <p className="flex items-center gap-2 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Loading message…
-                        </p>
-                      ) : !emailDetail ? (
-                        <p className="text-muted-foreground">Select an inbox message to view its body.</p>
-                      ) : (
-                        <>
-                          {emailDetail.attachments.length > 0 && selectedEmailId ? (
-                            <div className="rounded-md border bg-muted/20 px-3 py-2">
-                              <p className="mb-2 text-xs font-medium text-muted-foreground">Attachments</p>
-                              <ul className="space-y-1 text-xs">
-                                {emailDetail.attachments.map((a) => {
-                                  const base = `/api/emails/${encodeURIComponent(selectedEmailId)}/attachments/${encodeURIComponent(a.attachmentId)}?filename=${encodeURIComponent(a.filename)}&mimeType=${encodeURIComponent(a.mimeType)}`;
-                                  return (
-                                    <li
-                                      key={a.attachmentId}
-                                      className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
-                                    >
-                                      <a
-                                        href={base}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-primary hover:underline"
-                                      >
-                                        {a.filename}
-                                      </a>
-                                      <a
-                                        href={`${base}&download=1`}
-                                        className="text-muted-foreground underline hover:text-foreground"
-                                      >
-                                        Download
-                                      </a>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {emailDetail.bodyHtml ? (
-                            <div
-                              className="prose prose-sm max-w-none dark:prose-invert [&_a]:text-primary"
-                              dangerouslySetInnerHTML={{ __html: emailDetail.bodyHtml }}
-                            />
-                          ) : emailDetail.body ? (
-                            <pre className="whitespace-pre-wrap font-sans text-sm">{emailDetail.body}</pre>
-                          ) : (
-                            <p className="text-muted-foreground">No body in this message.</p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </Panel>
-                </PanelGroup>
-              </Panel>
-            </PanelGroup>
+  const quoteTableSection = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 space-y-2 border-b border-border bg-muted/15 p-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium">Quote comparison table</p>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Enter quote adds or updates the rate for that supplier and term on this RFP. Green outline = lowest rate in
+              that term column. Click a cell to choose the yellow highlight for the customer quote — your selection is
+              saved to this RFP automatically. Use{" "}
+              <span className="font-medium text-foreground">Save picks</span> to refresh the RFP list from the server.
+            </p>
+            {quotesLoading ? (
+              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                Refreshing rates…
+              </p>
+            ) : null}
           </div>
-        </Panel>
-
-        <PanelResizeHandle className={panelResizeHandleClass} />
-
-        <Panel defaultSize={42} minSize={16} className="min-h-0 min-w-0 flex flex-col">
-          <div className="flex min-h-0 min-w-0 flex-col gap-1.5">
-        <Button type="button" variant="outline" size="sm" className="h-8 w-fit text-xs" onClick={() => setShowGrid((s) => !s)}>
-          {showGrid ? "Hide" : "Show"} quote comparison
-        </Button>
-        {showGrid ? (
-          <div className="rounded-md border overflow-x-auto w-full min-w-0">
-            <Table className="w-full min-w-[28rem] border-separate border-spacing-0 text-sm">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent [&_th]:h-9 [&_th]:py-1">
-                  <TableHead className="w-[min(11rem,26vw)] min-w-[8rem] max-w-[16rem] pr-6 pl-3 text-left text-sm font-semibold">
-                    Supplier
+          {onSaveComparisonPicks ? (
+            <Button
+              type="button"
+              size="sm"
+              className="shrink-0"
+              disabled={comparisonPicksSaveBusy}
+              onClick={() => void onSaveComparisonPicks()}
+            >
+              {comparisonPicksSaveBusy ? (
+                <>
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save picks"
+              )}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-w-0 overflow-x-auto">
+          <Table className="w-full min-w-[28rem] border-separate border-spacing-0 text-sm">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent [&_th]:h-9 [&_th]:py-1">
+                <TableHead className="w-[min(11rem,26vw)] min-w-[8rem] max-w-[16rem] pl-3 pr-6 text-left text-sm font-semibold">
+                  Supplier
+                </TableHead>
+                {baseTerms.map((t, i) => (
+                  <TableHead
+                    key={t}
+                    className={`w-[4.25rem] min-w-[4rem] max-w-[5rem] px-1 text-center text-sm font-semibold ${i === 0 ? "border-l border-border/60 pl-3" : ""}`}
+                  >
+                    {t} mo
                   </TableHead>
-                  {baseTerms.map((t, i) => (
-                    <TableHead
-                      key={t}
-                      className={`w-[4.25rem] min-w-[4rem] max-w-[5rem] px-1 text-center text-sm font-semibold ${i === 0 ? "pl-3 border-l border-border/60" : ""}`}
-                    >
-                      {t} mo
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {supplierRows.map((s) => (
-                  <TableRow key={s.id} className="hover:bg-muted/30 [&_td]:py-1">
-                    <TableCell className="max-w-[16rem] truncate px-3 py-1 pr-6 text-sm font-medium leading-snug">
-                      {s.name}
-                    </TableCell>
-                    {baseTerms.map((term, i) => {
-                      const list = quotesBySupplierTerm.get(`${s.id}:${term}`) ?? [];
-                      const pick = pickByTerm[term];
-                      const chosen =
-                        pick?.kind === "quote" ? quotes.find((q) => q.id === pick.quoteId) : null;
-                      const isOn =
-                        chosen != null &&
-                        chosen.supplier.id === s.id &&
-                        chosen.termMonths === term &&
-                        list.length > 0;
-                      const displayQuote =
-                        chosen &&
-                        chosen.supplier.id === s.id &&
-                        chosen.termMonths === term &&
-                        list.some((q) => q.id === chosen.id)
-                          ? chosen
-                          : list[0];
-                      const display = displayQuote ? `$${Number(displayQuote.rate).toFixed(4)}` : "—";
-                      const colMin = lowestRateByTermColumn.get(term);
-                      const colBest = list[0];
-                      const colBestRate = colBest != null ? Number(colBest.rate) : null;
-                      const isColLowest =
-                        colBestRate != null &&
-                        colMin != null &&
-                        Number.isFinite(colBestRate) &&
-                        Number.isFinite(colMin) &&
-                        Math.abs(colBestRate - colMin) <= 1e-9;
-                      return (
-                        <TableCell
-                          key={term}
-                          className={`p-0 text-center align-middle ${i === 0 ? "border-l border-border/60" : ""}`}
-                        >
-                          <button
-                            type="button"
-                            disabled={list.length === 0}
-                            onClick={() => cyclePick(s.id, term)}
-                            title={
-                              list.length === 0
-                                ? undefined
-                                : isOn
-                                  ? "Selected for customer quote email (click to change or clear)"
-                                  : "Click to select this rate for the customer quote email"
-                            }
-                            className={cn(
-                              "w-full min-h-[2.25rem] rounded px-1 py-1 text-xs tabular-nums leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                              isOn
-                                ? "bg-yellow-300 font-semibold text-foreground shadow-md ring-2 ring-yellow-500 ring-offset-1 ring-offset-background dark:bg-yellow-500/35 dark:ring-yellow-400"
-                                : "hover:bg-muted/80",
-                              isColLowest &&
-                                "outline outline-2 outline-[#39ff14] outline-offset-0 shadow-[0_0_7px_rgba(57,255,20,0.65)] dark:shadow-[0_0_9px_rgba(57,255,20,0.5)]"
-                            )}
-                          >
-                            {display}
-                            {list.length > 1 ? (
-                              <span className="mt-0.5 block text-[10px] font-normal leading-none text-muted-foreground">
-                                {list.length} offers · click
-                              </span>
-                            ) : null}
-                          </button>
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-            <div className="grid gap-2 border-t bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-4">
-              {baseTerms.map((term) => {
-                const foot = footerForTerm(term);
-                return (
-                  <div key={term} className="space-y-1 rounded border bg-background p-3 text-xs">
-                    <p className="text-sm font-semibold leading-none">{term} months</p>
-                    <p className="text-muted-foreground">
-                      Total (est.):{" "}
-                      <span className="font-medium tabular-nums text-foreground">
-                        {foot.total != null ? `$${foot.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}
-                      </span>
-                    </p>
-                    <p className="text-muted-foreground">
-                      Monthly (est.):{" "}
-                      <span className="font-medium tabular-nums text-foreground">
-                        {foot.monthly != null
-                          ? `$${foot.monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                          : "—"}
-                      </span>
-                    </p>
-                    {foot.supplierName ? (
-                      <p className="text-muted-foreground">
-                        Supplier:{" "}
-                        <span className="font-medium text-foreground">{foot.supplierName}</span>
-                      </p>
-                    ) : null}
-                    <p className="text-[11px] leading-snug text-muted-foreground">
-                      {annualUsage.toLocaleString()} {unitLabelForEnergy(defaultPriceUnit)}/yr
-                    </p>
-                  </div>
-                );
-              })}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {supplierRows.map((s) => (
+                <TableRow key={s.id} className="hover:bg-muted/30 [&_td]:py-1">
+                  <TableCell className="max-w-[16rem] truncate px-3 py-1 pr-6 text-sm font-medium leading-snug">
+                    {s.name}
+                  </TableCell>
+                  {baseTerms.map((term, i) => {
+                    const list = quotesBySupplierTerm.get(`${s.id}:${term}`) ?? [];
+                    const pick = pickByTerm[term];
+                    const chosen = pick?.kind === "quote" ? quotes.find((q) => q.id === pick.quoteId) : null;
+                    const isOn =
+                      chosen != null &&
+                      chosen.supplier.id === s.id &&
+                      chosen.termMonths === term &&
+                      list.length > 0;
+                    const displayQuote =
+                      chosen &&
+                      chosen.supplier.id === s.id &&
+                      chosen.termMonths === term &&
+                      list.some((q) => q.id === chosen.id)
+                        ? chosen
+                        : list[0];
+                    const display = displayQuote ? formatComparisonTableRate(Number(displayQuote.rate)) : "—";
+                    const colMin = lowestRateByTermColumn.get(term);
+                    const colBest = list[0];
+                    const colBestRate = colBest != null ? Number(colBest.rate) : null;
+                    const isColLowest =
+                      colBestRate != null &&
+                      colMin != null &&
+                      Number.isFinite(colBestRate) &&
+                      Number.isFinite(colMin) &&
+                      Math.abs(colBestRate - colMin) <= 1e-9;
+                    return (
+                      <TableCell
+                        key={term}
+                        className={`p-0 text-center align-middle ${i === 0 ? "border-l border-border/60" : ""}`}
+                      >
+                        <button
+                          type="button"
+                          disabled={list.length === 0}
+                          onClick={() => cyclePick(s.id, term)}
+                          title={
+                            list.length === 0
+                              ? undefined
+                              : isOn
+                                ? "Selected for customer quote email (click to change or clear)"
+                                : "Click to select this rate for the customer quote email"
+                          }
+                          className={cn(
+                            "w-full min-h-[2.25rem] rounded px-1 py-1 text-xs tabular-nums leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                            isOn
+                              ? "bg-yellow-300 font-semibold text-foreground shadow-md ring-2 ring-yellow-500 ring-offset-1 ring-offset-background dark:bg-yellow-500/35 dark:ring-yellow-400"
+                              : "hover:bg-muted/80",
+                            isColLowest &&
+                              "shadow-[0_0_7px_rgba(57,255,20,0.65)] outline outline-2 outline-[#39ff14] outline-offset-0 dark:shadow-[0_0_9px_rgba(57,255,20,0.5)]"
+                          )}
+                        >
+                          {display}
+                          {list.length > 1 ? (
+                            <span className="mt-0.5 block text-[10px] font-normal leading-none text-muted-foreground">
+                              {list.length} offers · click
+                            </span>
+                          ) : null}
+                        </button>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="grid gap-2 border-t bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          {baseTerms.map((term) => {
+            const foot = footerForTerm(term);
+            return (
+              <div key={term} className="space-y-1 rounded border bg-background p-3 text-xs">
+                <p className="text-sm font-semibold leading-none">{term} months</p>
+                <p className="text-muted-foreground">
+                  Total (est.):{" "}
+                  <span className="font-medium tabular-nums text-foreground">
+                    {foot.total != null ? `$${foot.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}
+                  </span>
+                </p>
+                <p className="text-muted-foreground">
+                  Monthly (est.):{" "}
+                  <span className="font-medium tabular-nums text-foreground">
+                    {foot.monthly != null
+                      ? `$${foot.monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                      : "—"}
+                  </span>
+                </p>
+                {foot.supplierName ? (
+                  <p className="text-muted-foreground">
+                    Supplier: <span className="font-medium text-foreground">{foot.supplierName}</span>
+                  </p>
+                ) : null}
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  {annualUsage.toLocaleString()} {unitLabelForEnergy(defaultPriceUnit)}/yr
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  const quoteEmailsSection = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      <div className="shrink-0 border-b border-border bg-muted/20">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/50"
+          aria-expanded={quoteEmailListFiltersOpen}
+          onClick={() => setQuoteEmailListFiltersOpen((o) => !o)}
+        >
+          <span>List filters, dates and refresh</span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+              quoteEmailListFiltersOpen && "rotate-180"
+            )}
+            aria-hidden
+          />
+        </button>
+        {quoteEmailListFiltersOpen ? (
+          <div className="space-y-3 border-t border-border/60 px-3 py-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <Label htmlFor="quote-email-date-from" className="shrink-0 text-xs whitespace-nowrap">
+                  Date from
+                </Label>
+                <Input
+                  id="quote-email-date-from"
+                  type="date"
+                  className="h-9 w-[10.25rem] shrink-0 sm:w-[10.5rem]"
+                  value={emailDateFrom}
+                  onChange={(e) => setEmailDateFrom(e.target.value)}
+                />
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                <Label htmlFor="quote-email-date-to" className="shrink-0 text-xs whitespace-nowrap">
+                  Date to
+                </Label>
+                <Input
+                  id="quote-email-date-to"
+                  type="date"
+                  className="h-9 w-[10.25rem] shrink-0 sm:w-[10.5rem]"
+                  value={emailDateTo}
+                  onChange={(e) => setEmailDateTo(e.target.value)}
+                />
+              </div>
             </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={emailUserFilter}
+                onChange={(e) => setEmailUserFilter(e.target.value)}
+                placeholder="Filter listed messages by sender, subject, or snippet…"
+                className="h-9 min-w-0 flex-1"
+                aria-label="Filter listed messages by sender, subject, or snippet"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 shrink-0 px-2"
+                title="Reload from Gmail"
+                onClick={() => void loadInbox()}
+              >
+                <RefreshCw className={cn("h-4 w-4", inboxLoading && "animate-spin")} />
+              </Button>
+            </div>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Gmail search uses this RFP&apos;s supplier quote due date (when set) and supplier addresses, across{" "}
+              <span className="font-medium text-foreground">all folders</span> (not only Inbox). The filter box narrows
+              the loaded list instantly. Use refresh to fetch again after RFP or supplier changes.
+            </p>
           </div>
         ) : null}
+      </div>
+      <PanelGroup
+        direction={wideSplit ? "horizontal" : "vertical"}
+        autoSaveId="energia-quote-compare-inbox-emailbody"
+        className="flex min-h-0 min-w-0 flex-1"
+      >
+        <Panel defaultSize={38} minSize={18} className="min-h-0 min-w-0 flex flex-col overflow-hidden border-border">
+          <div className="shrink-0 border-b bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Select quote ({filteredInboxMessages.length})
+          </div>
+          <div className="min-h-0 flex-1 divide-y overflow-y-auto">
+            {inboxError ? (
+              <p className="p-3 text-sm text-destructive">{inboxError}</p>
+            ) : inboxLoading ? (
+              <p className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </p>
+            ) : !gmailQueryBase.trim() ? (
+              <p className="p-3 text-sm text-muted-foreground">
+                Add a quote due date and supplier email addresses on the RFP so we can search Gmail across your
+                mailbox.
+              </p>
+            ) : filteredInboxMessages.length === 0 ? (
+              <p className="p-3 text-sm text-muted-foreground">No messages matched these filters.</p>
+            ) : (
+              filteredInboxMessages.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onSelectedEmailIdChange(m.id)}
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-xs transition-colors hover:bg-muted/60",
+                    selectedEmailId === m.id && "bg-primary/10"
+                  )}
+                >
+                  <div className="line-clamp-1 font-medium">{m.subject}</div>
+                  <div className="line-clamp-1 text-muted-foreground">{m.from}</div>
+                  <div className="line-clamp-2 text-muted-foreground">{m.snippet}</div>
+                </button>
+              ))
+            )}
+          </div>
+        </Panel>
+        <PanelResizeHandle className={panelResizeHandleClass} />
+        <Panel defaultSize={62} minSize={22} className="min-h-0 min-w-0 flex flex-col overflow-hidden">
+          <div className="shrink-0 border-b bg-muted/30 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Email content
+          </div>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
+            {emailDetailLoading ? (
+              <p className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading message…
+              </p>
+            ) : !emailDetail ? (
+              <p className="text-muted-foreground">Select a quote email to view its body.</p>
+            ) : (
+              <>
+                {emailDetail.attachments.length > 0 && selectedEmailId ? (
+                  <div className="rounded-md border bg-muted/20 px-3 py-2">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Attachments</p>
+                    <ul className="space-y-1 text-xs">
+                      {emailDetail.attachments.map((a) => {
+                        const base = `/api/emails/${encodeURIComponent(selectedEmailId)}/attachments/${encodeURIComponent(a.attachmentId)}?filename=${encodeURIComponent(a.filename)}&mimeType=${encodeURIComponent(a.mimeType)}`;
+                        return (
+                          <li key={a.attachmentId} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <a
+                              href={base}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              {a.filename}
+                            </a>
+                            <a
+                              href={`${base}&download=1`}
+                              className="text-muted-foreground underline hover:text-foreground"
+                            >
+                              Download
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
+                {emailDetail.bodyHtml ? (
+                  <div
+                    className="prose prose-sm max-w-none dark:prose-invert [&_a]:text-primary"
+                    dangerouslySetInnerHTML={{ __html: emailDetail.bodyHtml }}
+                  />
+                ) : emailDetail.body ? (
+                  <pre className="font-sans whitespace-pre-wrap text-sm">{emailDetail.body}</pre>
+                ) : (
+                  <p className="text-muted-foreground">No body in this message.</p>
+                )}
+              </>
+            )}
+          </div>
+        </Panel>
+      </PanelGroup>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
+      <PanelGroup
+        direction="horizontal"
+        autoSaveId="energia-quote-compare-entry-vs-tabs"
+        className="flex min-h-0 min-w-0 flex-1"
+      >
+        <Panel defaultSize={22} minSize={14} maxSize={32} className="min-h-0 min-w-0 border-r border-border bg-muted/10">
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quote data entry</p>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Supplier</Label>
+              <Select
+                value={selectedSupplierId || undefined}
+                onValueChange={setSelectedSupplierId}
+                disabled={rfp.suppliers.length === 0}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={rfp.suppliers.length === 0 ? "No suppliers" : "Supplier"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {rfp.suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Term</Label>
+              <div className="flex flex-col gap-2">
+                <Select value={termPreset} onValueChange={setTermPreset}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STANDARD_TERM_PRESETS.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t} mo
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__custom__">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                {termPreset === "__custom__" ? (
+                  <Input
+                    inputMode="numeric"
+                    className="h-9 tabular-nums"
+                    value={customTermMonths}
+                    onChange={(e) => setCustomTermMonths(sanitizeWholeMonthsInput(e.target.value))}
+                    placeholder="Months"
+                    maxLength={4}
+                    aria-label="Custom term in whole months"
+                  />
+                ) : null}
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Rate (up to 5 decimals)</Label>
+              <Input
+                inputMode="decimal"
+                className="h-9 tabular-nums"
+                value={rateInput}
+                onChange={(e) => setRateInput(sanitizeDecimalRateInput(e.target.value))}
+                placeholder="0.00000"
+                aria-label="Quoted rate, up to five decimal places"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full shrink-0"
+              onClick={() => void handleInsertQuoteRowClick()}
+              disabled={!canInsertQuoteRow || insertQuoteRowBusy}
+            >
+              {insertQuoteRowBusy ? (
+                <>
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  Adding…
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Enter quote
+                </>
+              )}
+            </Button>
+            <div className="min-h-8 flex-1" aria-hidden />
+          </div>
+        </Panel>
+        <PanelResizeHandle className={panelResizeHandleClass} />
+        <Panel defaultSize={78} minSize={50} className="min-h-0 min-w-0 flex flex-col overflow-hidden">
+          <div className="flex shrink-0 border-b border-border bg-muted/30 px-2 py-1">
+            <div className="inline-flex w-fit gap-0.5 rounded-md border border-border/60 bg-background/80 p-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "h-8 shrink-0 px-2.5 text-xs font-medium whitespace-nowrap",
+                  compareRightTab === "emails"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/80"
+                )}
+                onClick={() => setCompareRightTab("emails")}
+              >
+                Quote emails
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "h-8 shrink-0 px-2.5 text-xs font-medium whitespace-nowrap",
+                  compareRightTab === "table"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/80"
+                )}
+                onClick={() => setCompareRightTab("table")}
+              >
+                Quote comparison table
+              </Button>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", compareRightTab !== "emails" && "hidden")}>
+              {quoteEmailsSection}
+            </div>
+            <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", compareRightTab !== "table" && "hidden")}>
+              {quoteTableSection}
+            </div>
           </div>
         </Panel>
       </PanelGroup>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Loader2, Mail, RotateCcw, Save } from "lucide-react";
+import { Eye, Loader2, Mail, RotateCcw, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -142,6 +142,9 @@ export function QuoteComposeCustomerTab({
   const [testingQuoteEmail, setTestingQuoteEmail] = useState(false);
   const [quoteTestMessageId, setQuoteTestMessageId] = useState<string | null>(null);
   const [quoteTestViewOpen, setQuoteTestViewOpen] = useState(false);
+  /** Tracks whether a real (non-test) customer quote email was already sent this session for dismissible banner copy. */
+  const hasSentCustomerQuoteThisSessionRef = useRef(false);
+  const [quoteSendBanner, setQuoteSendBanner] = useState<null | { variant: "sent" | "resent"; to: string }>(null);
   const appliedTemplateBootstrapRef = useRef<string | null>(null);
   const prevRestoreRfpIdRef = useRef<string | null>(null);
   const lastAppliedServerDraftCanonRef = useRef<string | null>(null);
@@ -191,6 +194,8 @@ export function QuoteComposeCustomerTab({
 
   useEffect(() => {
     setNoServerBaseline(null);
+    hasSentCustomerQuoteThisSessionRef.current = false;
+    setQuoteSendBanner(null);
   }, [rfpRequestId]);
 
   useEffect(() => {
@@ -521,7 +526,7 @@ export function QuoteComposeCustomerTab({
           contractStartMonth,
           contractStartYear,
         }),
-        baseRateLabel: `$${rate.toFixed(4)} / ${unitLabelForEnergy(unit)}`,
+        baseRateLabel: `$${rate.toFixed(5)} / ${unitLabelForEnergy(unit)}`,
         supplierName,
         totalContractValueLabel: `$${totalVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
         monthlyAverageLabel: `$${monthlyAvg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
@@ -553,6 +558,7 @@ export function QuoteComposeCustomerTab({
     setQuoteTestMessageId(null);
     try {
       const subj = subject.trim() || buildQuoteEmailSubject(resolvedCompanyName, energyTypeSubjectSegment, loadBrokerProfile().companyName);
+      const htmlOut = finalizeQuoteEmailHtml(htmlBody);
       const res = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -560,8 +566,8 @@ export function QuoteComposeCustomerTab({
           to: [addr],
           cc: [],
           subject: `[TEST] ${subj}`,
-          html: htmlBody,
-          body: stripHtmlToText(htmlBody),
+          html: htmlOut,
+          body: stripHtmlToText(htmlOut),
           energiaEmailKind: "customerQuote",
         }),
       });
@@ -590,6 +596,7 @@ export function QuoteComposeCustomerTab({
     }
     setSending(true);
     try {
+      const htmlOut = finalizeQuoteEmailHtml(htmlBody);
       const res = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -600,13 +607,17 @@ export function QuoteComposeCustomerTab({
             .map((s) => s.trim())
             .filter(Boolean),
           subject: subject.trim(),
-          html: htmlBody,
-          body: stripHtmlToText(htmlBody),
+          html: htmlOut,
+          body: stripHtmlToText(htmlOut),
           energiaEmailKind: "customerQuote",
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Send failed");
+
+      const isResend = hasSentCustomerQuoteThisSessionRef.current;
+      hasSentCustomerQuoteThisSessionRef.current = true;
+      setQuoteSendBanner({ variant: isResend ? "resent" : "sent", to: toAddr });
 
       if (recordQuoteSummaryOnSend && rfpRequestId) {
         const sentAt = new Date().toISOString();
@@ -642,7 +653,44 @@ export function QuoteComposeCustomerTab({
   const templateChoices = useMemo(() => templates.map((t) => ({ id: t.id, label: t.name })), [templates]);
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden text-sm">
+      {quoteSendBanner ? (
+        <div
+          className="relative shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-3 pr-10 text-emerald-950 shadow-sm dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-50"
+          role="status"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1.5 top-1.5 h-7 w-7 text-emerald-900/80 hover:bg-emerald-500/20 hover:text-emerald-950 dark:text-emerald-100/90 dark:hover:bg-emerald-500/25 dark:hover:text-emerald-50"
+            onClick={() => setQuoteSendBanner(null)}
+            aria-label="Dismiss sent message"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          {quoteSendBanner.variant === "resent" ? (
+            <>
+              <p className="text-base font-semibold leading-snug tracking-tight">Quote email sent again</p>
+              <p className="mt-1 text-xs leading-relaxed opacity-90">
+                Another customer quote email was sent to{" "}
+                <span className="font-medium break-all">{quoteSendBanner.to}</span>.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-base font-semibold leading-snug tracking-tight">Quote email sent</p>
+              <p className="mt-1 text-xs leading-relaxed opacity-90">
+                Your customer quote email was sent successfully to{" "}
+                <span className="font-medium break-all">{quoteSendBanner.to}</span>.
+              </p>
+            </>
+          )}
+          <p className="mt-2 text-[10px] opacity-80">
+            Dismiss when done — does not affect sent mail.
+          </p>
+        </div>
+      ) : null}
       <ConfirmDialog
         open={sendConfirmOpen}
         onOpenChange={setSendConfirmOpen}
@@ -697,195 +745,226 @@ export function QuoteComposeCustomerTab({
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="grid gap-2 sm:col-span-2 lg:col-span-1">
-          <Label>Email template (optional)</Label>
-          {templateChoices.length > 0 ? (
-            <Select
-              value={templateChoices.some((x) => x.id === templateId) ? templateId : templateChoices[0]?.id}
-              onValueChange={(v) => applyTemplate(v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {templateChoices.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p className="text-xs text-muted-foreground rounded-md border bg-muted/30 px-2 py-2">
-              No templates saved. Compose below or add templates under Settings → Email templates.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-2 justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleSaveDraft()}
-            disabled={sending || testingQuoteEmail || savingDraft || !isComposeDirty}
-          >
-            {savingDraft ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-1" />
-                Save draft
-              </>
-            )}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setPreviewOpen(true)}
-            disabled={sending || testingQuoteEmail}
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            Preview
-          </Button>
-          <Input
-            value={quoteTestEmail}
-            onChange={(e) => setQuoteTestEmail(e.target.value)}
-            placeholder="Test email"
-            className="h-8 w-[min(100%,11rem)] sm:w-44"
-            disabled={sending || testingQuoteEmail}
-            aria-label="Test recipient email"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleQuoteTestSend()}
-            disabled={
-              sending ||
-              testingQuoteEmail ||
-              !quoteTestEmail.trim() ||
-              !composeEmailBodyHasContent(htmlBody)
-            }
-          >
-            {testingQuoteEmail ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Sending…
-              </>
-            ) : (
-              <>
-                <Mail className="h-4 w-4 mr-1" />
-                Test quote email
-              </>
-            )}
-          </Button>
-          {quoteTestMessageId ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setQuoteTestViewOpen(true)}
-              disabled={sending || testingQuoteEmail}
-            >
-              View test
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setSendConfirmOpen(true)}
-            disabled={sending || testingQuoteEmail || !composeEmailBodyHasContent(htmlBody)}
-          >
-            {sending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Sending…
-              </>
-            ) : (
-              "Send quote email"
-            )}
-          </Button>
-        </div>
-      </div>
-
-      <label className="flex items-center gap-2 text-sm cursor-pointer w-fit">
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-input"
-          checked={recordQuoteSummaryOnSend}
-          onChange={(e) => setRecordQuoteSummaryOnSend(e.target.checked)}
-        />
-        <span>
-          After send, record <strong className="font-medium">quote summary sent</strong> on this RFP (dashboard follow-up)
-        </span>
-      </label>
-
-      <div className="grid gap-2">
-        <Label>To (customer main contact)</Label>
-        <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="customer@example.com" />
-      </div>
-      <div className="grid gap-2">
-        <Label>CC (optional)</Label>
-        <Input value={cc} onChange={(e) => setCc(e.target.value)} placeholder="comma-separated" />
-      </div>
-      <div className="grid gap-2">
-        <Label>Subject</Label>
-        <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
-      </div>
-
-      <div className="grid gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Label className="mb-0">Email body</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={resetEmailBodyToTemplate}
-              disabled={sending || testingQuoteEmail}
-              title="Replace body with the current template (removes inserted tables and images)"
-            >
-              <RotateCcw className="h-3.5 w-3.5 mr-1" />
-              Reset body
-            </Button>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+        <div className="shrink-0 space-y-1.5 border-b border-border/50 pb-2">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-1.5">
+            <div className="grid min-w-0 flex-1 gap-0.5 sm:max-w-[min(100%,20rem)]">
+              <Label className="text-[11px] font-medium text-muted-foreground">Template</Label>
+              {templateChoices.length > 0 ? (
+                <Select
+                  value={templateChoices.some((x) => x.id === templateId) ? templateId : templateChoices[0]?.id}
+                  onValueChange={(v) => applyTemplate(v)}
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templateChoices.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="rounded border bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground leading-snug">
+                  No templates — Settings → Email templates.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => void handleSaveDraft()}
+                disabled={sending || testingQuoteEmail || savingDraft || !isComposeDirty}
+              >
+                {savingDraft ? (
+                  <>
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-1 h-3.5 w-3.5" />
+                    Save draft
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPreviewOpen(true)}
+                disabled={sending || testingQuoteEmail}
+              >
+                <Eye className="mr-1 h-3.5 w-3.5" />
+                Preview
+              </Button>
+              <Input
+                value={quoteTestEmail}
+                onChange={(e) => setQuoteTestEmail(e.target.value)}
+                placeholder="Test to…"
+                className="h-7 w-[7.5rem] text-xs sm:w-36"
+                disabled={sending || testingQuoteEmail}
+                aria-label="Test recipient email"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => void handleQuoteTestSend()}
+                disabled={
+                  sending ||
+                  testingQuoteEmail ||
+                  !quoteTestEmail.trim() ||
+                  !composeEmailBodyHasContent(htmlBody)
+                }
+              >
+                {testingQuoteEmail ? (
+                  <>
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    …
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-1 h-3.5 w-3.5" />
+                    Test
+                  </>
+                )}
+              </Button>
+              {quoteTestMessageId ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setQuoteTestViewOpen(true)}
+                  disabled={sending || testingQuoteEmail}
+                >
+                  View test
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setSendConfirmOpen(true)}
+                disabled={sending || testingQuoteEmail || !composeEmailBodyHasContent(htmlBody)}
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    …
+                  </>
+                ) : (
+                  "Send"
+                )}
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            <ComposeBrokerInsertMenu disabled={sending || testingQuoteEmail} onInsert={insertBrokerAtCaret} />
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={insertQuotesTable}
-              disabled={sending || testingQuoteEmail}
-            >
-              Insert quotes table
-            </Button>
+
+          <label className="flex cursor-pointer items-center gap-1.5 text-[11px] leading-tight text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-3.5 shrink-0 rounded border-input"
+              checked={recordQuoteSummaryOnSend}
+              onChange={(e) => setRecordQuoteSummaryOnSend(e.target.checked)}
+            />
+            <span>
+              After send, record <span className="font-medium text-foreground">quote summary sent</span> (dashboard)
+            </span>
+          </label>
+
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <div className="grid gap-0.5">
+              <Label className="text-[11px] font-medium text-muted-foreground">To</Label>
+              <Input
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="customer@example.com"
+                className="h-7 text-xs"
+              />
+            </div>
+            <div className="grid gap-0.5">
+              <Label className="text-[11px] font-medium text-muted-foreground">CC</Label>
+              <Input
+                value={cc}
+                onChange={(e) => setCc(e.target.value)}
+                placeholder="optional, comma-separated"
+                className="h-7 text-xs"
+              />
+            </div>
+            <div className="grid gap-0.5 sm:col-span-2">
+              <Label className="text-[11px] font-medium text-muted-foreground">Subject</Label>
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="h-7 text-xs" />
+            </div>
           </div>
         </div>
-        <RichTextEditor
-          initialHtml={htmlBody}
-          resetKey={`quote-customer-compose-${quoteComposeEditorKey}`}
-          onChangeHtml={(html) => setHtmlBody(html)}
-          disabled={sending || testingQuoteEmail}
-          insertSnippet={quoteBodyInsertSnippet}
-        />
-      </div>
 
-      <p className="text-xs text-muted-foreground">
-        Subject defaults to <span className="font-medium">Company</span> + <span className="font-medium">energy type</span>{" "}
-        + Supply Quotes from <span className="font-medium">your broker company</span>. Salutations use the main
-        contact&apos;s <span className="font-medium">first name</span>. The quotes table uses the same monthly average as
-        the comparison tab (estimated monthly energy cost from rate and annual usage).{" "}
-        <span className="font-medium">Test quote email</span> sends only to the test address with a{" "}
-        <span className="font-medium">[TEST]</span> subject prefix, no CC, and does not record quote summary on the RFP.
-      </p>
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-1.5">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">Body</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={resetEmailBodyToTemplate}
+                disabled={sending || testingQuoteEmail}
+                title="Replace body with the current template (removes inserted tables and images)"
+              >
+                <RotateCcw className="mr-1 h-3 w-3" />
+                Reset
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <ComposeBrokerInsertMenu
+                disabled={sending || testingQuoteEmail}
+                onInsert={insertBrokerAtCaret}
+                triggerClassName="h-6 px-2 text-[10px] [&_svg]:mr-1 [&_svg]:h-3 [&_svg]:w-3"
+              />
+              <Button
+                type="button"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={insertQuotesTable}
+                disabled={sending || testingQuoteEmail}
+              >
+                Insert quotes table
+              </Button>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <RichTextEditor
+              fillHeight
+              initialHtml={htmlBody}
+              resetKey={`quote-customer-compose-${quoteComposeEditorKey}`}
+              onChangeHtml={(html) => setHtmlBody(html)}
+              disabled={sending || testingQuoteEmail}
+              insertSnippet={quoteBodyInsertSnippet}
+            />
+          </div>
+        </div>
+
+        <details className="shrink-0 text-[10px] leading-snug text-muted-foreground">
+          <summary className="cursor-pointer select-none text-[11px] font-medium text-foreground/80">
+            Compose help
+          </summary>
+          <p className="mt-1.5 border-t border-border/40 pt-1.5">
+            Subject defaults to company + energy type + Supply Quotes from your broker. Salutations use the
+            contact&apos;s first name. The quotes table matches the comparison tab monthly estimate.{" "}
+            <span className="font-medium text-foreground/90">Test</span> uses a [TEST] subject prefix, no CC, and does
+            not record quote summary.
+          </p>
+        </details>
+      </div>
     </div>
   );
 }

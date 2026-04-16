@@ -42,6 +42,7 @@ export type ContractAccountMinAggregateOutputType = {
   id: string | null
   contractId: string | null
   accountId: string | null
+  ldcUtility: string | null
   serviceAddress: string | null
   annualUsage: runtime.Decimal | null
   avgMonthlyUsage: runtime.Decimal | null
@@ -54,6 +55,7 @@ export type ContractAccountMaxAggregateOutputType = {
   id: string | null
   contractId: string | null
   accountId: string | null
+  ldcUtility: string | null
   serviceAddress: string | null
   annualUsage: runtime.Decimal | null
   avgMonthlyUsage: runtime.Decimal | null
@@ -66,6 +68,7 @@ export type ContractAccountCountAggregateOutputType = {
   id: number
   contractId: number
   accountId: number
+  ldcUtility: number
   serviceAddress: number
   annualUsage: number
   avgMonthlyUsage: number
@@ -92,6 +95,7 @@ export type ContractAccountMinAggregateInputType = {
   id?: true
   contractId?: true
   accountId?: true
+  ldcUtility?: true
   serviceAddress?: true
   annualUsage?: true
   avgMonthlyUsage?: true
@@ -104,6 +108,7 @@ export type ContractAccountMaxAggregateInputType = {
   id?: true
   contractId?: true
   accountId?: true
+  ldcUtility?: true
   serviceAddress?: true
   annualUsage?: true
   avgMonthlyUsage?: true
@@ -116,6 +121,7 @@ export type ContractAccountCountAggregateInputType = {
   id?: true
   contractId?: true
   accountId?: true
+  ldcUtility?: true
   serviceAddress?: true
   annualUsage?: true
   avgMonthlyUsage?: true
@@ -215,6 +221,7 @@ export type ContractAccountGroupByOutputType = {
   id: string
   contractId: string
   accountId: string
+  ldcUtility: string | null
   serviceAddress: string | null
   annualUsage: runtime.Decimal | null
   avgMonthlyUsage: runtime.Decimal | null
@@ -250,6 +257,7 @@ export type ContractAccountWhereInput = {
   id?: Prisma.StringFilter<"ContractAccount"> | string
   contractId?: Prisma.StringFilter<"ContractAccount"> | string
   accountId?: Prisma.StringFilter<"ContractAccount"> | string
+  ldcUtility?: Prisma.StringNullableFilter<"ContractAccount"> | string | null
   serviceAddress?: Prisma.StringNullableFilter<"ContractAccount"> | string | null
   annualUsage?: Prisma.DecimalNullableFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.DecimalNullableFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -263,6 +271,7 @@ export type ContractAccountOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
+  ldcUtility?: Prisma.SortOrderInput | Prisma.SortOrder
   serviceAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   annualUsage?: Prisma.SortOrderInput | Prisma.SortOrder
   avgMonthlyUsage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -279,6 +288,7 @@ export type ContractAccountWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.ContractAccountWhereInput | Prisma.ContractAccountWhereInput[]
   contractId?: Prisma.StringFilter<"ContractAccount"> | string
   accountId?: Prisma.StringFilter<"ContractAccount"> | string
+  ldcUtility?: Prisma.StringNullableFilter<"ContractAccount"> | string | null
   serviceAddress?: Prisma.StringNullableFilter<"ContractAccount"> | string | null
   annualUsage?: Prisma.DecimalNullableFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.DecimalNullableFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -292,6 +302,7 @@ export type ContractAccountOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
+  ldcUtility?: Prisma.SortOrderInput | Prisma.SortOrder
   serviceAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   annualUsage?: Prisma.SortOrderInput | Prisma.SortOrder
   avgMonthlyUsage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -312,6 +323,7 @@ export type ContractAccountScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"ContractAccount"> | string
   contractId?: Prisma.StringWithAggregatesFilter<"ContractAccount"> | string
   accountId?: Prisma.StringWithAggregatesFilter<"ContractAccount"> | string
+  ldcUtility?: Prisma.StringNullableWithAggregatesFilter<"ContractAccount"> | string | null
   serviceAddress?: Prisma.StringNullableWithAggregatesFilter<"ContractAccount"> | string | null
   annualUsage?: Prisma.DecimalNullableWithAggregatesFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.DecimalNullableWithAggregatesFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -323,6 +335,7 @@ export type ContractAccountScalarWhereWithAggregatesInput = {
 export type ContractAccountCreateInput = {
   id?: string
   accountId: string
+  ldcUtility?: string | null
   serviceAddress?: string | null
   annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -336,6 +349,7 @@ export type ContractAccountUncheckedCreateInput = {
   id?: string
   contractId: string
   accountId: string
+  ldcUtility?: string | null
   serviceAddress?: string | null
   annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -347,6 +361,7 @@ export type ContractAccountUncheckedCreateInput = {
 export type ContractAccountUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -360,6 +375,7 @@ export type ContractAccountUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   contractId?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -372,6 +388,7 @@ export type ContractAccountCreateManyInput = {
   id?: string
   contractId: string
   accountId: string
+  ldcUtility?: string | null
   serviceAddress?: string | null
   annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -383,6 +400,7 @@ export type ContractAccountCreateManyInput = {
 export type ContractAccountUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -395,6 +413,7 @@ export type ContractAccountUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   contractId?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -417,6 +436,7 @@ export type ContractAccountCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
+  ldcUtility?: Prisma.SortOrder
   serviceAddress?: Prisma.SortOrder
   annualUsage?: Prisma.SortOrder
   avgMonthlyUsage?: Prisma.SortOrder
@@ -435,6 +455,7 @@ export type ContractAccountMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
+  ldcUtility?: Prisma.SortOrder
   serviceAddress?: Prisma.SortOrder
   annualUsage?: Prisma.SortOrder
   avgMonthlyUsage?: Prisma.SortOrder
@@ -447,6 +468,7 @@ export type ContractAccountMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   contractId?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
+  ldcUtility?: Prisma.SortOrder
   serviceAddress?: Prisma.SortOrder
   annualUsage?: Prisma.SortOrder
   avgMonthlyUsage?: Prisma.SortOrder
@@ -506,6 +528,7 @@ export type ContractAccountUncheckedUpdateManyWithoutContractNestedInput = {
 export type ContractAccountCreateWithoutContractInput = {
   id?: string
   accountId: string
+  ldcUtility?: string | null
   serviceAddress?: string | null
   annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -517,6 +540,7 @@ export type ContractAccountCreateWithoutContractInput = {
 export type ContractAccountUncheckedCreateWithoutContractInput = {
   id?: string
   accountId: string
+  ldcUtility?: string | null
   serviceAddress?: string | null
   annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -558,6 +582,7 @@ export type ContractAccountScalarWhereInput = {
   id?: Prisma.StringFilter<"ContractAccount"> | string
   contractId?: Prisma.StringFilter<"ContractAccount"> | string
   accountId?: Prisma.StringFilter<"ContractAccount"> | string
+  ldcUtility?: Prisma.StringNullableFilter<"ContractAccount"> | string | null
   serviceAddress?: Prisma.StringNullableFilter<"ContractAccount"> | string | null
   annualUsage?: Prisma.DecimalNullableFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.DecimalNullableFilter<"ContractAccount"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -569,6 +594,7 @@ export type ContractAccountScalarWhereInput = {
 export type ContractAccountCreateManyContractInput = {
   id?: string
   accountId: string
+  ldcUtility?: string | null
   serviceAddress?: string | null
   annualUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -580,6 +606,7 @@ export type ContractAccountCreateManyContractInput = {
 export type ContractAccountUpdateWithoutContractInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -591,6 +618,7 @@ export type ContractAccountUpdateWithoutContractInput = {
 export type ContractAccountUncheckedUpdateWithoutContractInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -602,6 +630,7 @@ export type ContractAccountUncheckedUpdateWithoutContractInput = {
 export type ContractAccountUncheckedUpdateManyWithoutContractInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  ldcUtility?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   serviceAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   annualUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   avgMonthlyUsage?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -616,6 +645,7 @@ export type ContractAccountSelect<ExtArgs extends runtime.Types.Extensions.Inter
   id?: boolean
   contractId?: boolean
   accountId?: boolean
+  ldcUtility?: boolean
   serviceAddress?: boolean
   annualUsage?: boolean
   avgMonthlyUsage?: boolean
@@ -629,6 +659,7 @@ export type ContractAccountSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   id?: boolean
   contractId?: boolean
   accountId?: boolean
+  ldcUtility?: boolean
   serviceAddress?: boolean
   annualUsage?: boolean
   avgMonthlyUsage?: boolean
@@ -642,6 +673,7 @@ export type ContractAccountSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   id?: boolean
   contractId?: boolean
   accountId?: boolean
+  ldcUtility?: boolean
   serviceAddress?: boolean
   annualUsage?: boolean
   avgMonthlyUsage?: boolean
@@ -655,6 +687,7 @@ export type ContractAccountSelectScalar = {
   id?: boolean
   contractId?: boolean
   accountId?: boolean
+  ldcUtility?: boolean
   serviceAddress?: boolean
   annualUsage?: boolean
   avgMonthlyUsage?: boolean
@@ -663,7 +696,7 @@ export type ContractAccountSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ContractAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "contractId" | "accountId" | "serviceAddress" | "annualUsage" | "avgMonthlyUsage" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["contractAccount"]>
+export type ContractAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "contractId" | "accountId" | "ldcUtility" | "serviceAddress" | "annualUsage" | "avgMonthlyUsage" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["contractAccount"]>
 export type ContractAccountInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   contract?: boolean | Prisma.ContractDefaultArgs<ExtArgs>
 }
@@ -683,6 +716,10 @@ export type $ContractAccountPayload<ExtArgs extends runtime.Types.Extensions.Int
     id: string
     contractId: string
     accountId: string
+    /**
+     * LDC / delivery utility name for this account (same energy type as the contract).
+     */
+    ldcUtility: string | null
     serviceAddress: string | null
     annualUsage: runtime.Decimal | null
     avgMonthlyUsage: runtime.Decimal | null
@@ -1116,6 +1153,7 @@ export interface ContractAccountFieldRefs {
   readonly id: Prisma.FieldRef<"ContractAccount", 'String'>
   readonly contractId: Prisma.FieldRef<"ContractAccount", 'String'>
   readonly accountId: Prisma.FieldRef<"ContractAccount", 'String'>
+  readonly ldcUtility: Prisma.FieldRef<"ContractAccount", 'String'>
   readonly serviceAddress: Prisma.FieldRef<"ContractAccount", 'String'>
   readonly annualUsage: Prisma.FieldRef<"ContractAccount", 'Decimal'>
   readonly avgMonthlyUsage: Prisma.FieldRef<"ContractAccount", 'Decimal'>

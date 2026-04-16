@@ -12,3 +12,11 @@ export function gmailFromToken(email: string): string {
   }
   return `from:${e}`;
 }
+
+/** Gmail `label:` search token; quotes names with special characters. */
+export function gmailLabelToken(labelName: string): string {
+  const n = labelName.trim();
+  if (!n) return "";
+  const escaped = n.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `label:"${escaped}"`;
+}

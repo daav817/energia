@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Archive, RefreshCw, RotateCcw } from "lucide-react";
+import { Archive, Info, RefreshCw, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -46,9 +45,6 @@ import { useAppToast } from "@/components/app-toast-provider";
 import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
 import { hydrateQuoteComparisonPicks, serializeQuoteComparisonPicks } from "@/lib/quote-comparison-picks";
 import { rfpListLabelWithEnergy } from "@/lib/rfp-request-label";
-
-const QUOTES_PAGE_RESIZE_HANDLE_CLASS =
-  "relative h-1.5 w-full shrink-0 rounded-sm bg-border/80 outline-none hover:bg-primary/40 data-[panel-group-direction=horizontal]:mx-0.5 data-[panel-group-direction=horizontal]:h-full data-[panel-group-direction=horizontal]:w-1.5 data-[panel-group-direction=horizontal]:my-0 data-[panel-group-direction=vertical]:my-0.5";
 
 type RfpQuote = ComparisonRfpQuote & {
   brokerMargin: number | null;
@@ -137,7 +133,7 @@ export default function RfpQuotesPage() {
 
   const [quoteSummarySentRecording, setQuoteSummarySentRecording] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
-  const [wideDetailSplit, setWideDetailSplit] = useState(true);
+  const [rfpInfoOpen, setRfpInfoOpen] = useState(false);
 
   const selectedRequest = rfpRequests.find((request) => request.id === selectedRfpId) ?? null;
   const defaultUnit = selectedRequest ? defaultPriceUnitForRequest(selectedRequest) : "MCF";
@@ -151,15 +147,6 @@ export default function RfpQuotesPage() {
         ""
       ).trim()
     : "";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 768px)");
-    const sync = () => setWideDetailSplit(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -552,193 +539,237 @@ export default function RfpQuotesPage() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="shrink-0">
-        <h1 className="text-base font-semibold tracking-tight">Quotes</h1>
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex w-full min-w-0 shrink-0 flex-wrap items-end gap-2 gap-y-2 border-b border-border/60 pb-3">
+        <div className="grid w-full max-w-[min(100%,10rem)] shrink-0 gap-1">
+          <Label className="text-xs">RFP</Label>
+          <Select
+            value={selectedRfpId ? selectedRfpId : RFP_SELECT_NONE}
+            onValueChange={(v) => void handleRfpSelectChange(v)}
+            disabled={rfpSwitchBusy}
+          >
+            <SelectTrigger className="h-9 w-full min-w-0 truncate">
+              <SelectValue placeholder="Select an RFP" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={RFP_SELECT_NONE}>— None —</SelectItem>
+              {rfpRequests.map((request) => (
+                <SelectItem key={request.id} value={request.id}>
+                  {rfpListLabel(request)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => void loadRfpRequests()}>
+            <RefreshCw className="mr-1 h-4 w-4" />
+            Refresh list
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!selectedRequest}
+            onClick={() => {
+              setRefreshHasChanges(null);
+              setRefreshDueDate(selectedRequest?.quoteDueDate?.slice(0, 10) ?? "");
+              setRefreshOpen(true);
+            }}
+          >
+            Refresh RFP
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={!selectedRequest} onClick={() => setArchiveOpen(true)}>
+            <Archive className="mr-1 h-4 w-4" />
+            Archive
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={rfpSwitchBusy}
+            onClick={() => void persistAndClearWorkspace()}
+            title="Save quote picks for the current RFP, then clear the workspace"
+          >
+            <RotateCcw className="mr-1 h-4 w-4" />
+            Reset
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="ml-auto h-9 w-9 shrink-0 rounded-full"
+          disabled={!selectedRequest}
+          title="RFP details"
+          onClick={() => setRfpInfoOpen(true)}
+        >
+          <Info className="h-4 w-4" aria-hidden />
+          <span className="sr-only">RFP details</span>
+        </Button>
       </div>
 
-      <PanelGroup
-        direction="vertical"
-        autoSaveId="energia-quotes-rfp-workflow-split"
-        className="flex min-h-[min(88dvh,880px)] min-w-0 flex-1 flex-col"
-      >
-        <Panel defaultSize={42} minSize={20} className="min-h-0 flex flex-col">
-          <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
-        <CardContent className="grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain p-4 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-4">
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex min-w-0 flex-col gap-2">
-              <div className="flex flex-wrap items-end gap-2 gap-y-2">
-                <div className="grid min-w-[200px] flex-1 gap-1.5">
-                  <Label className="text-xs">RFP</Label>
-                  <Select
-                    value={selectedRfpId ? selectedRfpId : RFP_SELECT_NONE}
-                    onValueChange={(v) => void handleRfpSelectChange(v)}
-                    disabled={rfpSwitchBusy}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an RFP" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={RFP_SELECT_NONE}>— None —</SelectItem>
-                      {rfpRequests.map((request) => (
-                        <SelectItem key={request.id} value={request.id}>
-                          {rfpListLabel(request)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void loadRfpRequests()}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Refresh list
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!selectedRequest}
-                    onClick={() => {
-                      setRefreshHasChanges(null);
-                      setRefreshDueDate(selectedRequest?.quoteDueDate?.slice(0, 10) ?? "");
-                      setRefreshOpen(true);
-                    }}
-                  >
-                    Refresh RFP
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!selectedRequest}
-                    onClick={() => setArchiveOpen(true)}
-                  >
-                    <Archive className="h-4 w-4 mr-1" />
-                    Archive
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={rfpSwitchBusy}
-                  onClick={() => void persistAndClearWorkspace()}
-                  title="Save quote picks for the current RFP, then clear the workspace"
-                >
-                  <RotateCcw className="h-4 w-4 mr-1" />
-                  Reset
-                </Button>
-              </div>
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border-border/60 shadow-sm">
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3 pt-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="flex w-fit max-w-full gap-1 rounded-lg border border-border/80 bg-muted/40 p-1 text-sm shadow-sm">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "whitespace-nowrap px-4 font-medium transition-colors",
+                  mainTab === "compare"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                )}
+                onClick={() => setMainTab("compare")}
+              >
+                Quote comparison
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "whitespace-nowrap px-4 font-medium transition-colors",
+                  mainTab === "compose"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                )}
+                onClick={() => setMainTab("compose")}
+              >
+                Compose quote
+              </Button>
             </div>
           </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {!selectedRequest ? (
+              <p className="text-sm text-muted-foreground">Choose a submitted RFP from the list above.</p>
+            ) : (
+              <>
+                <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", mainTab !== "compare" && "hidden")}>
+                  <QuoteComparisonTab
+                    rfp={{
+                      id: selectedRequest.id,
+                      quoteDueDate: selectedRequest.quoteDueDate,
+                      requestedTerms: selectedRequest.requestedTerms,
+                      energyType: selectedRequest.energyType,
+                      suppliers: selectedRequest.suppliers,
+                      accountLines: selectedRequest.accountLines,
+                    }}
+                    quotes={quotes}
+                    pickByTerm={pickByTerm}
+                    onPick={onPick}
+                    defaultPriceUnit={defaultUnit}
+                    onInsertQuoteRow={handleInsertQuoteRow}
+                    insertQuoteRowBusy={insertQuoteRowBusy}
+                    quotesLoading={loading}
+                    onSaveComparisonPicks={handleSaveComparisonPicks}
+                    comparisonPicksSaveBusy={comparisonPicksSaveBusy}
+                    manualRows={EMPTY_MANUAL_ROWS}
+                    selectedEmailId={supplierReadEmailId}
+                    onSelectedEmailIdChange={setSupplierReadEmailId}
+                    emailDetail={supplierReadEmailDetail}
+                    emailDetailLoading={supplierReadEmailLoading}
+                  />
+                </div>
+                <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", mainTab !== "compose" && "hidden")}>
+                  <QuoteComposeCustomerTab
+                    rfpRequestId={selectedRequest.id}
+                    defaultPriceUnit={defaultUnit}
+                    energyTypeLabel={energyLabel}
+                    energyTypeSubjectSegment={energyLabelSubject}
+                    resolvedCompanyName={resolvedRfpCompanyName}
+                    rfp={{
+                      accountLines: selectedRequest.accountLines,
+                      ldcUtility: selectedRequest.ldcUtility,
+                      customer: selectedRequest.customer,
+                    }}
+                    quotes={quotes}
+                    pickByTerm={pickByTerm}
+                    manualRows={EMPTY_MANUAL_ROWS}
+                    customerContact={selectedRequest.customerContact ?? null}
+                    contractStartMonth={selectedRequest.contractStartMonth}
+                    contractStartYear={selectedRequest.contractStartYear}
+                    customerQuoteEmailDraft={selectedRequest.customerQuoteEmailDraft}
+                    onQuoteComposeDraftSaved={() => void loadRfpRequests()}
+                    onQuoteEmailSent={() => void loadRfpRequests()}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
+      <Dialog open={rfpInfoOpen} onOpenChange={setRfpInfoOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>RFP details</DialogTitle>
+          </DialogHeader>
           {selectedRequest ? (
-            <div className="rounded-lg border p-4 space-y-3 text-sm">
-              <PanelGroup
-                direction={wideDetailSplit ? "horizontal" : "vertical"}
-                autoSaveId="energia-quotes-rfp-detail-accounts"
-                className={cn(
-                  "flex w-full min-w-0",
-                  wideDetailSplit ? "min-h-[104px]" : "min-h-[200px]"
-                )}
-              >
-                <Panel
-                  defaultSize={wideDetailSplit ? 66 : 64}
-                  minSize={wideDetailSplit ? 40 : 30}
-                  className="min-h-0 min-w-0"
-                >
-                  <div className="min-w-0 space-y-2 pr-0 md:pr-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={selectedRequest.energyType === "ELECTRIC" ? "electric" : "gas"}>
-                        {selectedRequest.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}
-                      </Badge>
-                      <Badge variant="outline">{selectedRequest.status}</Badge>
-                    </div>
-                    <p className="font-medium">
-                      {(
-                        selectedRequest.customer?.company?.trim() ||
-                        selectedRequest.customer?.name?.trim() ||
-                        selectedRequest.customerContact?.company?.trim() ||
-                        ""
-                      ).trim() || "—"}
-                    </p>
-                    {selectedRequest.customer?.company?.trim() &&
-                    selectedRequest.customer?.name?.trim() &&
-                    selectedRequest.customer.company.trim() !== selectedRequest.customer.name.trim() ? (
-                      <p className="text-xs text-muted-foreground">
-                        CRM name: {selectedRequest.customer.name}
-                      </p>
-                    ) : null}
-                    <p className="text-muted-foreground">
-                      Utility: {selectedRequest.ldcUtility || "—"} · Quote due:{" "}
-                      {selectedRequest.quoteDueDate
-                        ? formatLocaleDateFromStoredDay(selectedRequest.quoteDueDate)
-                        : "—"}
-                    </p>
-                    <p className="text-muted-foreground">
-                      Customer contact:{" "}
-                      {selectedRequest.customerContact
-                        ? `${selectedRequest.customerContact.name}${
-                            selectedRequest.customerContact.email
-                              ? ` · ${selectedRequest.customerContact.email}`
-                              : ""
-                          }`
-                        : "—"}
-                    </p>
-                    <p className="text-muted-foreground">
-                      Suppliers: {selectedRequest.suppliers.map((s) => s.name).join(", ") || "—"}
-                    </p>
-                    <p className="text-muted-foreground">
-                      Requested terms:{" "}
-                      {selectedRequest.requestedTerms?.map(formatRequestedTerm).join(", ") || "—"}
-                    </p>
-                  </div>
-                </Panel>
-                <PanelResizeHandle className={QUOTES_PAGE_RESIZE_HANDLE_CLASS} />
-                <Panel
-                  defaultSize={wideDetailSplit ? 34 : 36}
-                  minSize={wideDetailSplit ? 18 : 22}
-                  className="min-h-0 min-w-0"
-                >
-                  <div className="min-w-0 pt-3 md:pt-0 md:pl-1">
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Accounts
-                    </p>
-                    <div className="max-h-32 overflow-y-auto rounded-md border text-[10px] md:max-h-36">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="[&_th]:h-7 [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-[10px]">
-                            <TableHead>Acct</TableHead>
-                            <TableHead className="max-w-[100px]">Address</TableHead>
-                            <TableHead className="text-right">Annual</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedRequest.accountLines.map((line) => (
-                            <TableRow key={line.id} className="[&_td]:px-1.5 [&_td]:py-0.5">
-                              <TableCell className="tabular-nums font-medium">{line.accountNumber}</TableCell>
-                              <TableCell className="max-w-[100px] truncate text-muted-foreground">
-                                {line.serviceAddress ?? "—"}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {Number(line.annualUsage).toLocaleString()}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                </Panel>
-              </PanelGroup>
-
+            <div className="space-y-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={selectedRequest.energyType === "ELECTRIC" ? "electric" : "gas"}>
+                  {selectedRequest.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}
+                </Badge>
+                <Badge variant="outline">{selectedRequest.status}</Badge>
+              </div>
+              <p className="font-medium">
+                {(
+                  selectedRequest.customer?.company?.trim() ||
+                  selectedRequest.customer?.name?.trim() ||
+                  selectedRequest.customerContact?.company?.trim() ||
+                  ""
+                ).trim() || "—"}
+              </p>
+              {selectedRequest.customer?.company?.trim() &&
+              selectedRequest.customer?.name?.trim() &&
+              selectedRequest.customer.company.trim() !== selectedRequest.customer.name.trim() ? (
+                <p className="text-xs text-muted-foreground">CRM name: {selectedRequest.customer.name}</p>
+              ) : null}
+              <p className="text-muted-foreground">
+                Utility: {selectedRequest.ldcUtility || "—"} · Quote due:{" "}
+                {selectedRequest.quoteDueDate ? formatLocaleDateFromStoredDay(selectedRequest.quoteDueDate) : "—"}
+              </p>
+              <p className="text-muted-foreground">
+                Customer contact:{" "}
+                {selectedRequest.customerContact
+                  ? `${selectedRequest.customerContact.name}${
+                      selectedRequest.customerContact.email ? ` · ${selectedRequest.customerContact.email}` : ""
+                    }`
+                  : "—"}
+              </p>
+              <p className="text-muted-foreground">
+                Suppliers: {selectedRequest.suppliers.map((s) => s.name).join(", ") || "—"}
+              </p>
+              <p className="text-muted-foreground">
+                Requested terms: {selectedRequest.requestedTerms?.map(formatRequestedTerm).join(", ") || "—"}
+              </p>
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accounts</p>
+                <div className="max-h-48 overflow-y-auto rounded-md border text-xs">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="[&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_th]:text-xs">
+                        <TableHead>Acct</TableHead>
+                        <TableHead className="max-w-[140px]">Address</TableHead>
+                        <TableHead className="text-right">Annual</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedRequest.accountLines.map((line) => (
+                        <TableRow key={line.id} className="[&_td]:px-2 [&_td]:py-1">
+                          <TableCell className="font-mono text-xs font-medium tabular-nums">{line.accountNumber}</TableCell>
+                          <TableCell className="max-w-[140px] truncate text-muted-foreground">{line.serviceAddress ?? "—"}</TableCell>
+                          <TableCell className="text-right tabular-nums">{Number(line.annualUsage).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               <div className="space-y-2 rounded-md border bg-muted/30 p-3">
                 <p className="text-sm font-medium">Quote email recipients (CRM)</p>
                 {customerContacts.length === 0 ? (
@@ -771,7 +802,7 @@ export default function RfpQuotesPage() {
                     </Button>
                   </>
                 )}
-                <div className="flex flex-col gap-1 pt-2 border-t border-border/60">
+                <div className="flex flex-col gap-1 border-t border-border/60 pt-2">
                   <p className="text-xs text-muted-foreground">
                     After the customer quote email is sent from Energia, record it here for dashboard follow-up.
                   </p>
@@ -797,8 +828,7 @@ export default function RfpQuotesPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -818,7 +848,6 @@ export default function RfpQuotesPage() {
                   Mark completed
                 </Button>
               </div>
-
               <Link
                 href={`/rfp?rfpRequestId=${selectedRequest.id}`}
                 className="inline-flex text-sm font-medium text-primary hover:underline"
@@ -827,112 +856,10 @@ export default function RfpQuotesPage() {
               </Link>
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-              Choose a submitted RFP to begin.
-            </div>
+            <p className="text-sm text-muted-foreground">Select an RFP to view details.</p>
           )}
-        </CardContent>
-          </Card>
-        </Panel>
-
-        <PanelResizeHandle className={QUOTES_PAGE_RESIZE_HANDLE_CLASS} />
-
-        <Panel defaultSize={58} minSize={24} className="min-h-0 flex flex-col">
-          <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
-        <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 pt-4">
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <div className="flex w-fit max-w-full gap-1 rounded-lg border border-border/80 bg-muted/40 p-1 text-sm shadow-sm">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className={cn(
-                  "whitespace-nowrap px-4 font-medium transition-colors",
-                  mainTab === "compare"
-                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                )}
-                onClick={() => setMainTab("compare")}
-              >
-                Quote comparison
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className={cn(
-                  "whitespace-nowrap px-4 font-medium transition-colors",
-                  mainTab === "compose"
-                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                )}
-                onClick={() => setMainTab("compose")}
-              >
-                Compose customer quote
-              </Button>
-            </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {!selectedRequest ? (
-            <p className="text-sm text-muted-foreground">Select an RFP above.</p>
-          ) : (
-            <>
-              <div className={cn("min-h-0", mainTab !== "compare" && "hidden")}>
-                <QuoteComparisonTab
-                  rfp={{
-                    id: selectedRequest.id,
-                    quoteDueDate: selectedRequest.quoteDueDate,
-                    requestedTerms: selectedRequest.requestedTerms,
-                    energyType: selectedRequest.energyType,
-                    suppliers: selectedRequest.suppliers,
-                    accountLines: selectedRequest.accountLines,
-                  }}
-                  quotes={quotes}
-                  pickByTerm={pickByTerm}
-                  onPick={onPick}
-                  defaultPriceUnit={defaultUnit}
-                  onInsertQuoteRow={handleInsertQuoteRow}
-                  insertQuoteRowBusy={insertQuoteRowBusy}
-                  quotesLoading={loading}
-                  onSaveComparisonPicks={handleSaveComparisonPicks}
-                  comparisonPicksSaveBusy={comparisonPicksSaveBusy}
-                  manualRows={EMPTY_MANUAL_ROWS}
-                  selectedEmailId={supplierReadEmailId}
-                  onSelectedEmailIdChange={setSupplierReadEmailId}
-                  emailDetail={supplierReadEmailDetail}
-                  emailDetailLoading={supplierReadEmailLoading}
-                />
-              </div>
-              <div className={cn("min-h-0", mainTab !== "compose" && "hidden")}>
-                <QuoteComposeCustomerTab
-                  rfpRequestId={selectedRequest.id}
-                  defaultPriceUnit={defaultUnit}
-                  energyTypeLabel={energyLabel}
-                  energyTypeSubjectSegment={energyLabelSubject}
-                  resolvedCompanyName={resolvedRfpCompanyName}
-                  rfp={{
-                    accountLines: selectedRequest.accountLines,
-                    ldcUtility: selectedRequest.ldcUtility,
-                    customer: selectedRequest.customer,
-                  }}
-                  quotes={quotes}
-                  pickByTerm={pickByTerm}
-                  manualRows={EMPTY_MANUAL_ROWS}
-                  customerContact={selectedRequest.customerContact ?? null}
-                  contractStartMonth={selectedRequest.contractStartMonth}
-                  contractStartYear={selectedRequest.contractStartYear}
-                  customerQuoteEmailDraft={selectedRequest.customerQuoteEmailDraft}
-                  onQuoteComposeDraftSaved={() => void loadRfpRequests()}
-                  onQuoteEmailSent={() => void loadRfpRequests()}
-                />
-              </div>
-            </>
-          )}
-          </div>
-        </CardContent>
-          </Card>
-        </Panel>
-      </PanelGroup>
+        </DialogContent>
+      </Dialog>
 
       {archiveMessage ? (
         <p className="text-sm text-amber-700 dark:text-amber-400">{archiveMessage}</p>

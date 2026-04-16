@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { ChevronLeft, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -217,11 +221,25 @@ export function DashboardToolbarSettings() {
               Email templates
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a href={googleOAuthConnectUrl(loadBrokerProfile().email)} className="no-underline">
-              Reconnect Google…
-            </a>
-          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="justify-between">
+              <span>Connection</span>
+              <ChevronLeft className="h-4 w-4 opacity-70" aria-hidden />
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem asChild>
+                <a href={googleOAuthConnectUrl(loadBrokerProfile().email)} className="no-underline">
+                  Reconnect Google…
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/mail" className="no-underline">
+                  Communications &amp; OAuth setup
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem onSelect={() => setArchivesOpen(true)}>Archives</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

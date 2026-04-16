@@ -19,6 +19,25 @@ function formatUploadError(err: unknown): string {
   return "Upload failed";
 }
 
+function getHttpStatusFromGoogleError(err: unknown): number | null {
+  if (err && typeof err === "object" && "response" in err) {
+    const status = (err as { response?: { status?: unknown } }).response?.status;
+    return typeof status === "number" ? status : null;
+  }
+  return null;
+}
+
+function looksLikeScopeError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("insufficient authentication scopes") ||
+    m.includes("insufficientpermissions") ||
+    m.includes("request had insufficient authentication scopes") ||
+    m.includes("access not configured") ||
+    m.includes("not authorized")
+  );
+}
+
 /**
  * POST /api/emails/[id]/attachments/[attachmentId]/upload-to-drive
  * Body JSON: { folderId?: string, folderUrl?: string, filename?: string, mimeType?: string }
@@ -80,6 +99,13 @@ export async function POST(
   } catch (err) {
     console.error("Upload attachment to Drive error:", err);
     const message = formatUploadError(err);
+    const status = getHttpStatusFromGoogleError(err) ?? 500;
+    if (status === 401 || status === 403) {
+      const scopeHint = looksLikeScopeError(message)
+        ? "Your Google connection is missing Drive upload permission. Reconnect Google to grant Drive access, then try again."
+        : "You may not have write access to that destination folder. Pick a folder you can edit, or reconnect Google and try again.";
+      return NextResponse.json({ error: `${message} ${scopeHint}` }, { status });
+    }
     return NextResponse.json(
       {
         error: `${message} If this is a new capability, sign out of Google in the app and reconnect so Drive upload scope is granted.`,

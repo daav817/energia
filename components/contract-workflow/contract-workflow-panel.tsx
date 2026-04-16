@@ -111,6 +111,7 @@ type CompanyOpt = {
 
 type AccountRow = {
   accountId: string;
+  ldcUtility: string;
   serviceAddress: string;
 };
 
@@ -219,7 +220,7 @@ function rowSearchBlob(
     row.displayLabel ?? "",
     row.customer?.name ?? "",
     row.customer?.company ?? "",
-    ...accounts.map((a) => `${a.accountId} ${a.serviceAddress}`),
+    ...accounts.map((a) => `${a.accountId} ${a.ldcUtility} ${a.serviceAddress}`),
   ];
   return parts.join(" ").toLowerCase();
 }
@@ -501,12 +502,14 @@ export function ContractWorkflowPanel({
           const list = r.ok
             ? ((await r.json()) as Array<{
                 accountId?: string;
+                ldcUtility?: string | null;
                 serviceAddress?: string | null;
               }>)
             : [];
           const normalized: AccountRow[] = Array.isArray(list)
             ? list.map((x) => ({
                 accountId: String(x.accountId ?? "").trim(),
+                ldcUtility: String(x.ldcUtility ?? "").trim(),
                 serviceAddress: String(x.serviceAddress ?? "").trim(),
               }))
             : [];
@@ -963,12 +966,14 @@ export function ContractWorkflowPanel({
                           const list = r.ok
                             ? ((await r.json()) as Array<{
                                 accountId?: string;
+                                ldcUtility?: string | null;
                                 serviceAddress?: string | null;
                               }>)
                             : [];
                           lines = Array.isArray(list)
                             ? list.map((x) => ({
                                 accountId: String(x.accountId ?? "").trim(),
+                                ldcUtility: String(x.ldcUtility ?? "").trim(),
                                 serviceAddress: String(x.serviceAddress ?? "").trim(),
                               }))
                             : [];
@@ -1431,6 +1436,9 @@ export function ContractWorkflowPanel({
                 {accountsModal.lines.map((line, i) => (
                   <li key={`${line.accountId}-${i}`} className="rounded-md border border-border/60 px-3 py-2">
                     <div className="font-mono text-xs font-medium">{line.accountId || "—"}</div>
+                    {line.ldcUtility ? (
+                      <div className="text-xs text-muted-foreground mt-1">Utility: {line.ldcUtility}</div>
+                    ) : null}
                     {line.serviceAddress ? (
                       <div className="text-xs text-muted-foreground mt-1">{line.serviceAddress}</div>
                     ) : null}

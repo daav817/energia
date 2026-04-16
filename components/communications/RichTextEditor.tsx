@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, type ClipboardEvent } from "react";
 import { Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type Props = {
   initialHtml: string;
@@ -13,6 +14,11 @@ type Props = {
   onAttachFiles?: (files: File[]) => void;
   /** When `nonce` changes, inserts HTML/text at the caret via `insertHTML` (for placeholders, etc.). */
   insertSnippet?: { nonce: number; html: string } | null;
+  /**
+   * Use in a flex column with bounded height: toolbar stays compact; editor grows and scrolls.
+   * Parent should be `flex flex-col min-h-0` with `flex-1` on this component’s wrapper.
+   */
+  fillHeight?: boolean;
 };
 
 function safeHtml(html: string): string {
@@ -27,6 +33,7 @@ export function RichTextEditor({
   disabled = false,
   onAttachFiles,
   insertSnippet = null,
+  fillHeight = false,
 }: Props) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const onChangeHtmlRef = useRef(onChangeHtml);
@@ -244,18 +251,45 @@ export function RichTextEditor({
     input.click();
   };
 
+  const tb = fillHeight ? "h-7 px-2 text-xs" : "h-9 text-sm";
+  const tbBtn = fillHeight ? "h-7 px-2 text-xs" : "";
+
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 border rounded-md p-2 bg-muted/20">
-        <Button type="button" variant="outline" size="sm" onClick={() => apply("undo")} disabled={disabled} title="Undo">
+    <div className={cn(fillHeight ? "flex min-h-0 flex-1 flex-col gap-1.5" : "space-y-2")}>
+      <div
+        className={cn(
+          "flex flex-wrap items-center border rounded-md bg-muted/20",
+          fillHeight ? "shrink-0 gap-1 p-1.5" : "gap-2 p-2"
+        )}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(tbBtn)}
+          onClick={() => apply("undo")}
+          disabled={disabled}
+          title="Undo"
+        >
           Undo
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => apply("redo")} disabled={disabled} title="Redo">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(tbBtn)}
+          onClick={() => apply("redo")}
+          disabled={disabled}
+          title="Redo"
+        >
           Redo
         </Button>
 
         <select
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className={cn(
+            "rounded-md border border-input bg-background px-2",
+            tb
+          )}
           defaultValue="Arial"
           onChange={(e) => apply("fontName", e.target.value)}
           disabled={disabled}
@@ -269,7 +303,7 @@ export function RichTextEditor({
         </select>
 
         <select
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className={cn("rounded-md border border-input bg-background px-2", tb)}
           defaultValue="3"
           onChange={(e) => apply("fontSize", e.target.value)}
           disabled={disabled}
@@ -284,17 +318,49 @@ export function RichTextEditor({
           <option value="7">Very Huge</option>
         </select>
 
-        <div className="flex items-center gap-1">
-          <Button type="button" variant="outline" size="sm" onClick={() => apply("bold")} disabled={disabled} title="Bold">
+        <div className={cn("flex items-center", fillHeight ? "gap-0.5" : "gap-1")}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={() => apply("bold")}
+            disabled={disabled}
+            title="Bold"
+          >
             <span className="font-bold">B</span>
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => apply("italic")} disabled={disabled} title="Italics">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={() => apply("italic")}
+            disabled={disabled}
+            title="Italics"
+          >
             <span className="italic">I</span>
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => apply("underline")} disabled={disabled} title="Underline">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={() => apply("underline")}
+            disabled={disabled}
+            title="Underline"
+          >
             <span className="underline">U</span>
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => apply("strikeThrough")} disabled={disabled} title="Strike-through">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={() => apply("strikeThrough")}
+            disabled={disabled}
+            title="Strike-through"
+          >
             <span className="line-through">S</span>
           </Button>
         </div>
@@ -302,7 +368,7 @@ export function RichTextEditor({
         <div className="flex items-center gap-1">
           <Input
             type="color"
-            className="h-9 w-10 p-1"
+            className={cn(fillHeight ? "h-7 w-9 p-0.5" : "h-9 w-10 p-1")}
             disabled={disabled}
             defaultValue="#000000"
             onChange={(e) => apply("foreColor", e.target.value)}
@@ -311,7 +377,7 @@ export function RichTextEditor({
         </div>
 
         <select
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className={cn("rounded-md border border-input bg-background px-2", tb)}
           defaultValue="left"
           onChange={(e) => {
             const v = e.target.value;
@@ -329,25 +395,65 @@ export function RichTextEditor({
           <option value="justify">Justify</option>
         </select>
 
-        <div className="flex items-center gap-1">
-          <Button type="button" variant="outline" size="sm" onClick={() => apply("insertOrderedList")} disabled={disabled} title="Numbered list">
+        <div className={cn("flex items-center", fillHeight ? "gap-0.5" : "gap-1")}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={() => apply("insertOrderedList")}
+            disabled={disabled}
+            title="Numbered list"
+          >
             1.
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => apply("insertUnorderedList")} disabled={disabled} title="Bulleted list">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={() => apply("insertUnorderedList")}
+            disabled={disabled}
+            title="Bulleted list"
+          >
             •
           </Button>
         </div>
 
-        <div className="flex items-center gap-1">
-          <Button type="button" variant="outline" size="sm" onClick={outdentListItem} disabled={disabled} title="Indent less">
+        <div className={cn("flex items-center", fillHeight ? "gap-0.5" : "gap-1")}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={outdentListItem}
+            disabled={disabled}
+            title="Indent less"
+          >
             Indent less
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={indentListItem} disabled={disabled} title="Indent more">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(tbBtn)}
+            onClick={indentListItem}
+            disabled={disabled}
+            title="Indent more"
+          >
             Indent more
           </Button>
         </div>
 
-        <Button type="button" variant="outline" size="sm" onClick={() => apply("removeFormat")} disabled={disabled} title="Remove formatting">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(tbBtn)}
+          onClick={() => apply("removeFormat")}
+          disabled={disabled}
+          title="Remove formatting"
+        >
           Remove formatting
         </Button>
 
@@ -355,19 +461,36 @@ export function RichTextEditor({
           type="button"
           variant="outline"
           size="sm"
+          className={cn(tbBtn)}
           onClick={handleAttachFiles}
           disabled={disabled || !onAttachFiles}
           title="Attach file"
         >
-          <Paperclip className="mr-1 h-4 w-4" />
+          <Paperclip className={cn("mr-1", fillHeight ? "h-3.5 w-3.5" : "h-4 w-4")} />
           Attach
         </Button>
 
-        <Button type="button" variant="outline" size="sm" onClick={handleInsertLink} disabled={disabled} title="Insert hyperlink">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(tbBtn)}
+          onClick={handleInsertLink}
+          disabled={disabled}
+          title="Insert hyperlink"
+        >
           Link
         </Button>
 
-        <Button type="button" variant="outline" size="sm" onClick={() => apply("formatBlock", "blockquote")} disabled={disabled} title="Quote">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(tbBtn)}
+          onClick={() => apply("formatBlock", "blockquote")}
+          disabled={disabled}
+          title="Quote"
+        >
           Quote
         </Button>
       </div>
@@ -378,7 +501,12 @@ export function RichTextEditor({
         suppressContentEditableWarning
         onInput={handleInput}
         onPaste={handlePaste}
-        className="rich-text-editor min-h-[260px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+        className={cn(
+          "rich-text-editor w-full rounded-md border border-input bg-background outline-none focus:ring-1 focus:ring-ring",
+          fillHeight
+            ? "min-h-[120px] flex-1 overflow-y-auto px-2 py-1.5 text-sm"
+            : "min-h-[260px] px-3 py-2 text-sm"
+        )}
       />
     </div>
   );

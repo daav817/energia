@@ -16,6 +16,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 export type ContractAccountRowDraft = {
   localKey: string;
   accountId: string;
+  ldcUtility: string;
   serviceAddress: string;
   annualUsage: string;
   avgMonthlyUsage: string;
@@ -25,6 +26,7 @@ function emptyRow(): ContractAccountRowDraft {
   return {
     localKey: crypto.randomUUID(),
     accountId: "",
+    ldcUtility: "",
     serviceAddress: "",
     annualUsage: "",
     avgMonthlyUsage: "",
@@ -52,18 +54,41 @@ function formatUsageTotal(n: number): string {
   return rounded.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
+function energyLabel(et: "ELECTRIC" | "NATURAL_GAS" | null | undefined): string {
+  if (et === "NATURAL_GAS") return "natural gas";
+  if (et === "ELECTRIC") return "electric";
+  return "this contract’s energy type";
+}
+
 export function ContractAccountsModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contractId: string | null;
   subtitle?: string;
+  /** Used to filter utility suggestions and label the field. */
+  contractEnergyType?: "ELECTRIC" | "NATURAL_GAS" | null;
+  /** Distinct LDC / utility names from other contracts with the same energy type (and this contract). */
+  utilityOptions?: string[];
   onSaved?: () => void;
 }) {
-  const { open, onOpenChange, contractId, subtitle, onSaved } = props;
+  const {
+    open,
+    onOpenChange,
+    contractId,
+    subtitle,
+    contractEnergyType,
+    utilityOptions = [],
+    onSaved,
+  } = props;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ContractAccountRowDraft[]>([emptyRow()]);
+
+  const utilityDatalistId = useMemo(
+    () => (contractId ? `contract-acc-util-${contractId.replace(/[^a-zA-Z0-9_-]/g, "")}` : "contract-acc-util"),
+    [contractId]
+  );
 
   const hydrate = useCallback(async () => {
     if (!contractId) return;
@@ -81,12 +106,14 @@ export function ContractAccountsModal(props: {
           list.map(
             (r: {
               accountId: string;
+              ldcUtility?: string | null;
               serviceAddress?: string | null;
               annualUsage?: string | null;
               avgMonthlyUsage?: string | null;
             }) => ({
               localKey: crypto.randomUUID(),
               accountId: r.accountId ?? "",
+              ldcUtility: r.ldcUtility ?? "",
               serviceAddress: r.serviceAddress ?? "",
               annualUsage: r.annualUsage ?? "",
               avgMonthlyUsage: r.avgMonthlyUsage ?? "",
@@ -114,13 +141,23 @@ export function ContractAccountsModal(props: {
     const payload = rows
       .map((r) => ({
         accountId: r.accountId.trim(),
+        ldcUtility: r.ldcUtility.trim() || null,
         serviceAddress: r.serviceAddress.trim() || null,
         annualUsage: r.annualUsage.trim() || null,
         avgMonthlyUsage: r.avgMonthlyUsage.trim() || null,
       }))
       .filter((r) => r.accountId.length > 0);
 
-    if (payload.length === 0 && rows.some((r) => r.serviceAddress.trim() || r.annualUsage.trim() || r.avgMonthlyUsage.trim())) {
+    if (
+      payload.length === 0 &&
+      rows.some(
+        (r) =>
+          r.ldcUtility.trim() ||
+          r.serviceAddress.trim() ||
+          r.annualUsage.trim() ||
+          r.avgMonthlyUsage.trim()
+      )
+    ) {
       setError("Enter an account ID for each row with usage or address data.");
       return;
     }
@@ -154,6 +191,17 @@ export function ContractAccountsModal(props: {
         <p className="text-sm text-muted-foreground">
           These values are used in renewal emails and other communications. Add one row per utility account.
         </p>
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/90">Utility</span> is the LDC / delivery company for this account,
+          scoped to {energyLabel(contractEnergyType)} contracts in your directory. Choose a suggestion or type a name.
+        </p>
+        {utilityOptions.length > 0 ? (
+          <datalist id={utilityDatalistId}>
+            {utilityOptions.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        ) : null}
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}
@@ -166,23 +214,34 @@ export function ContractAccountsModal(props: {
           </p>
         ) : (
           <div className="overflow-x-auto rounded border">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col style={{ width: "19%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "38%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "2.25rem" }} />
+              </colgroup>
               <thead>
                 <tr className="border-b bg-muted/50 text-left">
-                  <th className="p-2 font-medium">Account ID</th>
+                  <th className="p-2 font-medium min-w-[9.5rem]">Account ID</th>
+                  <th className="p-2 font-medium">Utility</th>
                   <th className="p-2 font-medium">Service address</th>
-                  <th className="p-2 font-medium">Annual usage</th>
-                  <th className="p-2 font-medium">Avg monthly usage</th>
-                  <th className="p-2 w-10" />
+                  <th className="p-2 pr-3 font-medium text-right">Annual usage</th>
+                  <th className="p-2 pr-3 font-medium text-right">Avg monthly usage</th>
+                  <th className="w-8 max-w-8 p-1 text-right">
+                    <span className="sr-only">Remove row</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.localKey} className="border-b align-top">
-                    <td className="p-1.5">
+                    <td className="p-1.5 min-w-0 align-top">
                       <Label className="sr-only">Account ID row {i + 1}</Label>
                       <Input
-                        className="h-8 text-xs"
+                        className="h-8 min-w-0 font-mono text-xs"
                         value={r.accountId}
                         onChange={(e) =>
                           setRows((prev) =>
@@ -192,10 +251,27 @@ export function ContractAccountsModal(props: {
                         placeholder="Required"
                       />
                     </td>
-                    <td className="p-1.5 min-w-[20rem] w-[45%] max-w-none">
+                    <td className="p-1.5 min-w-0 align-top">
+                      <Label className="sr-only">Utility row {i + 1}</Label>
+                      <Input
+                        className="h-8 min-w-0 w-full text-xs"
+                        value={r.ldcUtility}
+                        onChange={(e) =>
+                          setRows((prev) =>
+                            prev.map((x) =>
+                              x.localKey === r.localKey ? { ...x, ldcUtility: e.target.value } : x
+                            )
+                          )
+                        }
+                        placeholder="Optional"
+                        list={utilityOptions.length > 0 ? utilityDatalistId : undefined}
+                        autoComplete="off"
+                      />
+                    </td>
+                    <td className="p-1.5 min-w-0 align-top">
                       <Label className="sr-only">Service address row {i + 1}</Label>
                       <Input
-                        className="h-8 text-xs w-full min-w-0"
+                        className="h-8 min-w-0 w-full text-xs"
                         value={r.serviceAddress}
                         onChange={(e) =>
                           setRows((prev) =>
@@ -207,10 +283,10 @@ export function ContractAccountsModal(props: {
                         placeholder="Optional"
                       />
                     </td>
-                    <td className="p-1.5">
+                    <td className="p-1.5 min-w-0 align-top text-right">
                       <Label className="sr-only">Annual usage row {i + 1}</Label>
                       <Input
-                        className="h-8 text-xs"
+                        className="h-8 min-w-0 text-right text-xs tabular-nums"
                         value={r.annualUsage}
                         onChange={(e) =>
                           setRows((prev) =>
@@ -219,14 +295,15 @@ export function ContractAccountsModal(props: {
                             )
                           )
                         }
-                        placeholder="Optional"
-                        inputMode="decimal"
+                        placeholder="e.g. 1,234.5"
+                        inputMode="text"
+                        autoComplete="off"
                       />
                     </td>
-                    <td className="p-1.5">
+                    <td className="p-1.5 min-w-0 align-top text-right">
                       <Label className="sr-only">Avg monthly usage row {i + 1}</Label>
                       <Input
-                        className="h-8 text-xs"
+                        className="h-8 min-w-0 text-right text-xs tabular-nums"
                         value={r.avgMonthlyUsage}
                         onChange={(e) =>
                           setRows((prev) =>
@@ -235,16 +312,17 @@ export function ContractAccountsModal(props: {
                             )
                           )
                         }
-                        placeholder="Optional"
-                        inputMode="decimal"
+                        placeholder="e.g. 1,234.5"
+                        inputMode="text"
+                        autoComplete="off"
                       />
                     </td>
-                    <td className="p-1.5">
+                    <td className="w-8 max-w-8 p-0.5 pl-0 text-right align-top">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground"
+                        className="h-8 w-8 shrink-0 text-muted-foreground"
                         aria-label={`Remove row ${i + 1}`}
                         onClick={() =>
                           setRows((prev) => {
@@ -261,12 +339,12 @@ export function ContractAccountsModal(props: {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/40 font-medium">
-                  <td className="p-2 text-muted-foreground" colSpan={2}>
+                  <td className="p-2 text-muted-foreground" colSpan={3}>
                     Total
                   </td>
-                  <td className="p-2 tabular-nums">{formatUsageTotal(annualTotal)}</td>
-                  <td className="p-2 tabular-nums">{formatUsageTotal(avgMonthlyTotal)}</td>
-                  <td className="p-2" />
+                  <td className="p-2 pr-3 text-right tabular-nums">{formatUsageTotal(annualTotal)}</td>
+                  <td className="p-2 pr-3 text-right tabular-nums">{formatUsageTotal(avgMonthlyTotal)}</td>
+                  <td className="w-8 max-w-8 p-0" />
                 </tr>
               </tfoot>
             </table>

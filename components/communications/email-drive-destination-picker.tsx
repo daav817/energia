@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
-import { FolderOpen, FolderPlus, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { FolderOpen, FolderPlus, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,6 +67,14 @@ export function EmailDriveDestinationPicker({
   const [browseData, setBrowseData] = useState<DriveListResponse | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [folderFilter, setFolderFilter] = useState("");
+
+  const filteredFolders = useMemo(() => {
+    const folders = (browseData?.files ?? []).filter((f) => f.isFolder);
+    const q = folderFilter.trim().toLowerCase();
+    if (!q) return folders;
+    return folders.filter((f) => (f.name || "").toLowerCase().includes(q));
+  }, [browseData?.files, folderFilter]);
 
   useEffect(() => {
     if (!open || typeof window === "undefined") return;
@@ -88,6 +96,7 @@ export function EmailDriveDestinationPicker({
       const data = (await res.json()) as DriveListResponse & { error?: string };
       if (!res.ok) throw new Error(data.error || "Failed to load Drive folder");
       setBrowseData(data);
+      setFolderFilter("");
     } catch (e) {
       setBrowseError(e instanceof Error ? e.message : "Failed to load folder");
       setBrowseData(null);
@@ -101,6 +110,7 @@ export function EmailDriveDestinationPicker({
     setBrowseData(null);
     setBrowseError(null);
     setNewFolderName("");
+    setFolderFilter("");
     setPickerOpen(true);
     void loadBrowse(initial);
   };
@@ -236,9 +246,32 @@ export function EmailDriveDestinationPicker({
                   >
                     Up
                   </Button>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {browseData.breadcrumbs.map((x) => x.name).join(" / ")}
-                  </span>
+                  <nav
+                    aria-label="Drive folder breadcrumbs"
+                    className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+                  >
+                    <ol className="inline-flex min-w-0 items-center gap-1">
+                      {browseData.breadcrumbs.map((x, idx) => {
+                        const isLast = idx === browseData.breadcrumbs.length - 1;
+                        return (
+                          <li key={x.id} className="inline-flex min-w-0 items-center gap-1">
+                            <button
+                              type="button"
+                              className={`min-w-0 truncate hover:underline ${
+                                isLast ? "text-foreground cursor-default hover:no-underline" : ""
+                              }`}
+                              disabled={isLast}
+                              title={x.name}
+                              onClick={() => void loadBrowse(x.id)}
+                            >
+                              {x.name}
+                            </button>
+                            {!isLast ? <span className="shrink-0">/</span> : null}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </nav>
                 </div>
                 <div className="flex flex-wrap items-end gap-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-2">
                   <div className="grid min-w-[10rem] flex-1 gap-1">
@@ -281,10 +314,37 @@ export function EmailDriveDestinationPicker({
                     )}
                   </Button>
                 </div>
+                <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/60 bg-background p-2">
+                  <div className="grid min-w-[10rem] flex-1 gap-1">
+                    <Label htmlFor={`${formId}-folder-filter`} className="text-xs text-muted-foreground">
+                      Filter folders
+                    </Label>
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id={`${formId}-folder-filter`}
+                        value={folderFilter}
+                        onChange={(e) => setFolderFilter(e.target.value)}
+                        placeholder="Type to filter by name…"
+                        className="h-8 pl-8 text-sm"
+                        disabled={browseLoading}
+                      />
+                    </div>
+                  </div>
+                  {folderFilter.trim() ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 shrink-0 text-xs"
+                      onClick={() => setFolderFilter("")}
+                    >
+                      Clear
+                    </Button>
+                  ) : null}
+                </div>
                 <ul className="space-y-0.5">
-                  {(browseData.files ?? [])
-                    .filter((f) => f.isFolder)
-                    .map((f) => (
+                  {filteredFolders.map((f) => (
                       <li key={f.id}>
                         <button
                           type="button"
@@ -299,6 +359,8 @@ export function EmailDriveDestinationPicker({
                 </ul>
                 {(browseData.files ?? []).filter((f) => f.isFolder).length === 0 ? (
                   <p className="py-2 text-xs text-muted-foreground">No subfolders here.</p>
+                ) : filteredFolders.length === 0 ? (
+                  <p className="py-2 text-xs text-muted-foreground">No folders match this filter.</p>
                 ) : null}
               </>
             ) : null}

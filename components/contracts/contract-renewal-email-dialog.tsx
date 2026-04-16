@@ -43,6 +43,7 @@ async function fetchContractAccountRowsForTemplate(contractId: string): Promise<
   if (!accRes.ok) return [];
   const list = (await accRes.json()) as Array<{
     accountId: string;
+    ldcUtility?: string | null;
     serviceAddress?: string | null;
     annualUsage?: string | null;
     avgMonthlyUsage?: string | null;
@@ -50,6 +51,7 @@ async function fetchContractAccountRowsForTemplate(contractId: string): Promise<
   if (!Array.isArray(list)) return [];
   return list.map((r) => ({
     accountId: r.accountId,
+    ldcUtility: r.ldcUtility ?? null,
     serviceAddress: r.serviceAddress ?? null,
     annualUsage: r.annualUsage ?? "",
     avgMonthlyUsage: r.avgMonthlyUsage ?? "",
@@ -409,7 +411,7 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden gap-0 p-0 sm:max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden gap-0 p-0 sm:max-w-4xl">
         <div className="shrink-0 space-y-3 border-b bg-background px-6 pt-6 pb-4">
           <DialogHeader className="space-y-1 text-left">
             <DialogTitle>Send renewal email</DialogTitle>
