@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ChevronDown, Loader2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { replaceCidWithAttachmentUrls } from "@/components/communications/EmailDetailPanel";
+import { appendEmailBodyLayoutFix } from "@/lib/email-html-display";
 import { gmailFromToken } from "@/lib/gmail-query";
 import {
   combinedAnnualUsageFromAccounts,
@@ -66,8 +68,13 @@ type InboxMessage = {
 
 export type SupplierInboxEmailDetail = {
   subject: string;
+  from: string;
+  /** RFC 2822 / raw Date header from Gmail */
+  date: string;
   bodyHtml: string;
   body: string;
+  /** Content-ID (no angle brackets) → Gmail attachment part for `cid:` images in bodyHtml */
+  inlineImages?: Record<string, { attachmentId: string; mimeType: string }>;
   attachments: Array<{
     attachmentId: string;
     filename: string;
@@ -76,7 +83,15 @@ export type SupplierInboxEmailDetail = {
   }>;
 };
 
+function formatEmailHeaderSent(raw: string): string {
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return raw.trim() || "—";
+  return new Date(t).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
 const QUOTE_RATE_INPUT_MAX_DECIMALS = 5;
+/** Match `INBOX_AUTO_REFRESH_MS` on the Emails (inbox) workspace page. */
+const QUOTE_EMAILS_LIST_POLL_MS = 60_000;
 
 function sanitizeDecimalRateInput(raw: string): string {
   let s = raw.replace(/[^\d.]/g, "");
@@ -130,8 +145,6 @@ export function QuoteComparisonTab({
   onInsertQuoteRow,
   insertQuoteRowBusy,
   quotesLoading = false,
-  onSaveComparisonPicks,
-  comparisonPicksSaveBusy = false,
   manualRows = [],
   selectedEmailId,
   onSelectedEmailIdChange,
@@ -147,14 +160,15 @@ export function QuoteComparisonTab({
   insertQuoteRowBusy: boolean;
   /** True while refetching quote rows — keeps this panel mounted so insert controls are not reset. */
   quotesLoading?: boolean;
-  onSaveComparisonPicks?: () => void | Promise<void>;
-  comparisonPicksSaveBusy?: boolean;
   manualRows?: ManualQuoteRow[];
   selectedEmailId: string | null;
   onSelectedEmailIdChange: (id: string | null) => void;
   emailDetail: SupplierInboxEmailDetail | null;
   emailDetailLoading: boolean;
 }) {
+  const selectedEmailIdRef = useRef(selectedEmailId);
+  selectedEmailIdRef.current = selectedEmailId;
+
   const [wideSplit, setWideSplit] = useState(true);
   const [compareRightTab, setCompareRightTab] = useState<"emails" | "table">("emails");
   const [emailUserFilter, setEmailUserFilter] = useState("");
@@ -278,35 +292,59 @@ export function QuoteComparisonTab({
     return parts.filter(Boolean).join(" ");
   }, [rfp.quoteDueDate, rfp.suppliers, selectedSupplierId, resolvedInboxEmails]);
 
-  const loadInbox = useCallback(async () => {
-    setInboxLoading(true);
-    setInboxError(null);
-    try {
-      const built = gmailQueryBase.trim();
-      if (!built) {
+  const loadInbox = useCallback(
+    async (opts?: { keepSelection?: boolean }) => {
+      setInboxLoading(true);
+      setInboxError(null);
+      try {
+        const built = gmailQueryBase.trim();
+        if (!built) {
+          setInboxMessages([]);
+          onSelectedEmailIdChange(null);
+          return;
+        }
+        const q = encodeURIComponent(built);
+        const res = await fetch(`/api/emails?maxResults=75&q=${q}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not load messages");
+        const msgs = Array.isArray(data?.messages) ? (data.messages as InboxMessage[]) : [];
+        setInboxMessages(msgs);
+        const curId = selectedEmailIdRef.current;
+        if (!opts?.keepSelection) {
+          onSelectedEmailIdChange(null);
+        } else if (curId && !msgs.some((m) => m.id === curId)) {
+          onSelectedEmailIdChange(null);
+        }
+      } catch (e) {
+        setInboxError(e instanceof Error ? e.message : "Could not load messages");
         setInboxMessages([]);
         onSelectedEmailIdChange(null);
-        return;
+      } finally {
+        setInboxLoading(false);
       }
-      const q = encodeURIComponent(built);
-      const res = await fetch(`/api/emails?maxResults=75&q=${q}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not load messages");
-      const msgs = Array.isArray(data?.messages) ? (data.messages as InboxMessage[]) : [];
-      setInboxMessages(msgs);
-      onSelectedEmailIdChange(null);
-    } catch (e) {
-      setInboxError(e instanceof Error ? e.message : "Could not load messages");
-      setInboxMessages([]);
-      onSelectedEmailIdChange(null);
-    } finally {
-      setInboxLoading(false);
-    }
-  }, [gmailQueryBase, onSelectedEmailIdChange]);
+    },
+    [gmailQueryBase, onSelectedEmailIdChange]
+  );
 
   useEffect(() => {
     void loadInbox();
   }, [loadInbox]);
+
+  useEffect(() => {
+    if (compareRightTab !== "emails") return;
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        try {
+          await fetch("/api/emails/poll?sync=1");
+        } catch {
+          return;
+        }
+        void loadInbox({ keepSelection: true });
+      })();
+    }, QUOTE_EMAILS_LIST_POLL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [compareRightTab, loadInbox]);
 
   const quotesBySupplierTerm = useMemo(() => {
     const map = new Map<string, ComparisonRfpQuote[]>();
@@ -412,17 +450,32 @@ export function QuoteComparisonTab({
     return rows;
   }, [inboxMessages, emailUserFilter, emailDateFrom, emailDateTo]);
 
+  const quoteEmailBodyHtmlForDisplay = useMemo(() => {
+    if (!emailDetail?.bodyHtml?.trim() || !selectedEmailId) return "";
+    return replaceCidWithAttachmentUrls(
+      emailDetail.bodyHtml,
+      selectedEmailId,
+      emailDetail.inlineImages ?? {}
+    );
+  }, [emailDetail?.bodyHtml, emailDetail?.inlineImages, selectedEmailId]);
+
+  const quoteEmailHtmlToInject = useMemo(() => {
+    const raw = quoteEmailBodyHtmlForDisplay || emailDetail?.bodyHtml || "";
+    if (!raw.trim()) return "";
+    return appendEmailBodyLayoutFix(raw);
+  }, [quoteEmailBodyHtmlForDisplay, emailDetail?.bodyHtml]);
+
   const quoteTableSection = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="shrink-0 space-y-2 border-b border-border bg-muted/15 p-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0 space-y-0.5">
+        <div className="min-w-0 space-y-0.5">
             <p className="text-sm font-medium">Quote comparison table</p>
             <p className="text-[11px] leading-snug text-muted-foreground">
               Enter quote adds or updates the rate for that supplier and term on this RFP. Green outline = lowest rate in
               that term column. Click a cell to choose the yellow highlight for the customer quote — your selection is
-              saved to this RFP automatically. Use{" "}
-              <span className="font-medium text-foreground">Save picks</span> to refresh the RFP list from the server.
+              saved to this RFP automatically when you click. Use{" "}
+              <span className="font-medium text-foreground">Refresh list</span> in the bar above if you need the RFP
+              dropdown to reload from the server.
             </p>
             {quotesLoading ? (
               <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -430,39 +483,20 @@ export function QuoteComparisonTab({
                 Refreshing rates…
               </p>
             ) : null}
-          </div>
-          {onSaveComparisonPicks ? (
-            <Button
-              type="button"
-              size="sm"
-              className="shrink-0"
-              disabled={comparisonPicksSaveBusy}
-              onClick={() => void onSaveComparisonPicks()}
-            >
-              {comparisonPicksSaveBusy ? (
-                <>
-                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                "Save picks"
-              )}
-            </Button>
-          ) : null}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="min-w-0 overflow-x-auto">
-          <Table className="w-full min-w-[28rem] border-separate border-spacing-0 text-sm">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent [&_th]:h-9 [&_th]:py-1">
+          <Table className="w-full min-w-[28rem] border-collapse text-sm [&_tbody>tr]:border-0 [&_thead>tr]:border-0 [&_th]:border [&_th]:border-border/80 [&_td]:border [&_td]:border-border/80 [&_thead_th]:bg-muted/40">
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className="border-0 hover:bg-transparent [&_th]:h-9 [&_th]:py-1">
                 <TableHead className="w-[min(11rem,26vw)] min-w-[8rem] max-w-[16rem] pl-3 pr-6 text-left text-sm font-semibold">
                   Supplier
                 </TableHead>
                 {baseTerms.map((t, i) => (
                   <TableHead
                     key={t}
-                    className={`w-[4.25rem] min-w-[4rem] max-w-[5rem] px-1 text-center text-sm font-semibold ${i === 0 ? "border-l border-border/60 pl-3" : ""}`}
+                    className={`w-[4.25rem] min-w-[4rem] max-w-[5rem] px-1 text-center text-sm font-semibold ${i === 0 ? "pl-3" : ""}`}
                   >
                     {t} mo
                   </TableHead>
@@ -471,7 +505,7 @@ export function QuoteComparisonTab({
             </TableHeader>
             <TableBody>
               {supplierRows.map((s) => (
-                <TableRow key={s.id} className="hover:bg-muted/30 [&_td]:py-1">
+                <TableRow key={s.id} className="border-0 hover:bg-muted/30 [&_td]:py-1">
                   <TableCell className="max-w-[16rem] truncate px-3 py-1 pr-6 text-sm font-medium leading-snug">
                     {s.name}
                   </TableCell>
@@ -504,7 +538,7 @@ export function QuoteComparisonTab({
                     return (
                       <TableCell
                         key={term}
-                        className={`p-0 text-center align-middle ${i === 0 ? "border-l border-border/60" : ""}`}
+                        className="p-0 text-center align-middle"
                       >
                         <button
                           type="button"
@@ -637,7 +671,7 @@ export function QuoteComparisonTab({
                 variant="outline"
                 className="h-9 shrink-0 px-2"
                 title="Reload from Gmail"
-                onClick={() => void loadInbox()}
+                onClick={() => void loadInbox({ keepSelection: true })}
               >
                 <RefreshCw className={cn("h-4 w-4", inboxLoading && "animate-spin")} />
               </Button>
@@ -645,7 +679,8 @@ export function QuoteComparisonTab({
             <p className="text-[11px] leading-snug text-muted-foreground">
               Gmail search uses this RFP&apos;s supplier quote due date (when set) and supplier addresses, across{" "}
               <span className="font-medium text-foreground">all folders</span> (not only Inbox). The filter box narrows
-              the loaded list instantly. Use refresh to fetch again after RFP or supplier changes.
+              the loaded list instantly. While this tab is open, the list also refreshes about every 60 seconds (same as
+              the Emails page) after a quick sync. Use refresh to reload immediately.
             </p>
           </div>
         ) : null}
@@ -706,6 +741,20 @@ export function QuoteComparisonTab({
               <p className="text-muted-foreground">Select a quote email to view its body.</p>
             ) : (
               <>
+                <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/25 px-3 py-2.5 text-xs leading-snug">
+                  <p>
+                    <span className="text-muted-foreground">Subject:</span>{" "}
+                    <span className="font-medium text-foreground">{emailDetail.subject?.trim() || "(no subject)"}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">From:</span>{" "}
+                    <span className="break-words text-foreground">{emailDetail.from?.trim() || "—"}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Sent:</span>{" "}
+                    <span className="tabular-nums text-foreground">{formatEmailHeaderSent(emailDetail.date)}</span>
+                  </p>
+                </div>
                 {emailDetail.attachments.length > 0 && selectedEmailId ? (
                   <div className="rounded-md border bg-muted/20 px-3 py-2">
                     <p className="mb-2 text-xs font-medium text-muted-foreground">Attachments</p>
@@ -735,10 +784,12 @@ export function QuoteComparisonTab({
                   </div>
                 ) : null}
                 {emailDetail.bodyHtml ? (
-                  <div
-                    className="prose prose-sm max-w-none dark:prose-invert [&_a]:text-primary"
-                    dangerouslySetInnerHTML={{ __html: emailDetail.bodyHtml }}
-                  />
+                  <div className="max-w-full overflow-x-auto">
+                    <div
+                      className="email-html-body text-sm leading-relaxed text-foreground [&_a]:text-primary [&_img]:max-w-full [&_img]:h-auto"
+                      dangerouslySetInnerHTML={{ __html: quoteEmailHtmlToInject }}
+                    />
+                  </div>
                 ) : emailDetail.body ? (
                   <pre className="font-sans whitespace-pre-wrap text-sm">{emailDetail.body}</pre>
                 ) : (

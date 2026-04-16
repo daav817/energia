@@ -15,9 +15,10 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "@/components/communications/RichTextEditor";
 import { composeEmailBodyHasContent } from "@/components/communications/compose-email-form";
+import { appendEmailBodyLayoutFix } from "@/lib/email-html-display";
 
 /** Replace cid:... references in HTML with attachment URLs so embedded images display. */
-function replaceCidWithAttachmentUrls(
+export function replaceCidWithAttachmentUrls(
   bodyHtml: string,
   messageId: string,
   inlineImages: Record<string, { attachmentId: string; mimeType: string }>
@@ -730,16 +731,20 @@ export function EmailDetailPanel({
           </p>
         </div>
       ) : detail?.bodyHtml ? (
-        <div
-          className="prose prose-sm max-w-none dark:prose-invert"
-          dangerouslySetInnerHTML={{
-            __html: replaceCidWithAttachmentUrls(
-              detail.bodyHtml,
-              email.id,
-              detail.inlineImages ?? {}
-            ),
-          }}
-        />
+        <div className="max-w-full overflow-x-auto">
+          <div
+            className="email-html-body text-sm leading-relaxed text-foreground dark:text-foreground [&_a]:text-primary [&_img]:max-w-full [&_img]:h-auto"
+            dangerouslySetInnerHTML={{
+              __html: appendEmailBodyLayoutFix(
+                replaceCidWithAttachmentUrls(
+                  detail.bodyHtml,
+                  email.id,
+                  detail.inlineImages ?? {}
+                )
+              ),
+            }}
+          />
+        </div>
       ) : (
         <pre className="whitespace-pre-wrap text-sm">{detail?.body || "No content"}</pre>
       )}

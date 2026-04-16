@@ -127,7 +127,6 @@ export default function RfpQuotesPage() {
   const [supplierReadEmailDetail, setSupplierReadEmailDetail] = useState<SupplierInboxEmailDetail | null>(null);
   const [supplierReadEmailLoading, setSupplierReadEmailLoading] = useState(false);
   const [insertQuoteRowBusy, setInsertQuoteRowBusy] = useState(false);
-  const [comparisonPicksSaveBusy, setComparisonPicksSaveBusy] = useState(false);
   const [rfpSwitchBusy, setRfpSwitchBusy] = useState(false);
   const lastHydratedRfpIdRef = useRef<string | null>(null);
 
@@ -208,10 +207,19 @@ export default function RfpQuotesPage() {
               }))
               .filter((a) => a.attachmentId)
           : [];
+        const rawInline = data.inlineImages;
+        const inlineImages: SupplierInboxEmailDetail["inlineImages"] =
+          rawInline != null && typeof rawInline === "object" && !Array.isArray(rawInline)
+            ? (rawInline as SupplierInboxEmailDetail["inlineImages"])
+            : {};
+
         setSupplierReadEmailDetail({
           subject: String(data.subject ?? ""),
+          from: String(data.from ?? ""),
+          date: String(data.date ?? ""),
           bodyHtml: String(data.bodyHtml ?? ""),
           body: String(data.body ?? ""),
+          inlineImages,
           attachments,
         });
       } catch {
@@ -274,35 +282,51 @@ export default function RfpQuotesPage() {
       options?: { refreshList?: boolean }
     ): Promise<{ ok: boolean }> => {
       const payload = serializeQuoteComparisonPicks(picks);
-      const res = await fetch(`/api/rfp/${encodeURIComponent(rfpId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quoteComparisonPicks: payload }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      try {
+        const res = await fetch(`/api/rfp/${encodeURIComponent(rfpId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ quoteComparisonPicks: payload }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) {
+          toast({
+            message: typeof data.error === "string" ? data.error : "Could not save picks",
+            variant: "error",
+          });
+          return { ok: false };
+        }
+        if (options?.refreshList !== false) {
+          try {
+            await loadRfpRequests();
+          } catch (reloadErr) {
+            console.error("loadRfpRequests after saving picks:", reloadErr);
+            toast({
+              message: "Quote picks were saved, but the RFP list could not be refreshed. Try “Refresh list”.",
+              variant: "default",
+            });
+          }
+        }
+        return { ok: true };
+      } catch (e) {
+        console.error("persistComparisonPicksForRfp:", e);
+        const isNetwork =
+          e instanceof TypeError &&
+          (e.message === "Failed to fetch" || /fetch|network|load failed/i.test(e.message));
         toast({
-          message: typeof data.error === "string" ? data.error : "Could not save picks",
+          message: isNetwork
+            ? "Could not reach the server. Check your connection, VPN, or whether the app is running (e.g. after a deploy or dev restart), then try again."
+            : e instanceof Error
+              ? e.message
+              : "Could not save picks",
           variant: "error",
         });
         return { ok: false };
       }
-      if (options?.refreshList !== false) await loadRfpRequests();
-      return { ok: true };
     },
     [toast, loadRfpRequests]
   );
-
-  const handleSaveComparisonPicks = useCallback(async () => {
-    if (!selectedRfpId) return;
-    setComparisonPicksSaveBusy(true);
-    try {
-      const { ok } = await persistComparisonPicksForRfp(selectedRfpId, pickByTerm);
-      if (ok) toast({ message: "Saved quote picks for this RFP.", variant: "success" });
-    } finally {
-      setComparisonPicksSaveBusy(false);
-    }
-  }, [selectedRfpId, pickByTerm, persistComparisonPicksForRfp, toast]);
 
   const persistAndClearWorkspace = useCallback(async () => {
     const previousId = selectedRfpIdRef.current;
@@ -541,7 +565,7 @@ export default function RfpQuotesPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex w-full min-w-0 shrink-0 flex-wrap items-end gap-2 gap-y-2 border-b border-border/60 pb-3">
-        <div className="grid w-full max-w-[min(100%,10rem)] shrink-0 gap-1">
+        <div className="grid w-full max-w-[min(100%,40rem)] shrink-0 gap-1">
           <Label className="text-xs">RFP</Label>
           <Select
             value={selectedRfpId ? selectedRfpId : RFP_SELECT_NONE}
@@ -594,19 +618,19 @@ export default function RfpQuotesPage() {
             <RotateCcw className="mr-1 h-4 w-4" />
             Reset
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-full"
+            disabled={!selectedRequest}
+            title="RFP details"
+            onClick={() => setRfpInfoOpen(true)}
+          >
+            <Info className="h-4 w-4" aria-hidden />
+            <span className="sr-only">RFP details</span>
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="ml-auto h-9 w-9 shrink-0 rounded-full"
-          disabled={!selectedRequest}
-          title="RFP details"
-          onClick={() => setRfpInfoOpen(true)}
-        >
-          <Info className="h-4 w-4" aria-hidden />
-          <span className="sr-only">RFP details</span>
-        </Button>
       </div>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border-border/60 shadow-sm">
@@ -665,8 +689,6 @@ export default function RfpQuotesPage() {
                     onInsertQuoteRow={handleInsertQuoteRow}
                     insertQuoteRowBusy={insertQuoteRowBusy}
                     quotesLoading={loading}
-                    onSaveComparisonPicks={handleSaveComparisonPicks}
-                    comparisonPicksSaveBusy={comparisonPicksSaveBusy}
                     manualRows={EMPTY_MANUAL_ROWS}
                     selectedEmailId={supplierReadEmailId}
                     onSelectedEmailIdChange={setSupplierReadEmailId}
