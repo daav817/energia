@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { RichTextEditor } from "@/components/communications/RichTextEditor";
 import {
   Select,
   SelectContent,
@@ -62,6 +62,8 @@ type ContractRenewalEmailDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contractId: string | null;
+  /** When sending from Contract Workflow, updates this row only (not other contracts for the same customer). */
+  workflowRowId?: string | null;
   /** Called after a successful send (before the dialog closes). */
   onAfterSend?: () => void;
 };
@@ -232,7 +234,7 @@ function applyStoredOrLegacyTemplate(
 }
 
 export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProps) {
-  const { open, onOpenChange, contractId, onAfterSend } = props;
+  const { open, onOpenChange, contractId, workflowRowId, onAfterSend } = props;
   const [contract, setContract] = useState<ContractApi | null>(null);
   const [contactDirectory, setContactDirectory] = useState<ContactLike[]>([]);
   const [loading, setLoading] = useState(false);
@@ -245,7 +247,9 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
   const [cc, setCc] = useState("");
   const [subject, setSubject] = useState("");
   const [htmlBody, setHtmlBody] = useState("");
-  const [bodyMode, setBodyMode] = useState<"preview" | "html" | "decoded">("preview");
+  const [bodyMode, setBodyMode] = useState<"rich" | "html" | "decoded">("rich");
+  /** Bumps when body is loaded from template so RichTextEditor resets innerHTML from props. */
+  const [bodySourceRevision, setBodySourceRevision] = useState(0);
   /** Blocks template Select from re-applying during initial load (avoids wiping subject/body). */
   const suppressTemplateReapplyRef = useRef(false);
 
@@ -320,7 +324,8 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
       setTo(toAddr);
       setSubject(subj);
       setHtmlBody(html);
-      setBodyMode("preview");
+      setBodyMode("rich");
+      setBodySourceRevision((n) => n + 1);
     } catch (e) {
       setContract(null);
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -366,7 +371,8 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
         setTo(toAddr);
         setSubject(subj);
         setHtmlBody(html);
-        setBodyMode("preview");
+        setBodyMode("rich");
+        setBodySourceRevision((n) => n + 1);
       })();
     },
     [contract, contactDirectory, accountLinesFromRfp]
@@ -398,6 +404,14 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ renewalReminderSentAt: new Date().toISOString() }),
+        }).catch(() => {});
+      }
+      const wfId = workflowRowId?.trim();
+      if (wfId) {
+        await fetch(`/api/contract-workflow/${encodeURIComponent(wfId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ renewalReminderEmailSent: true }),
         }).catch(() => {});
       }
       onAfterSend?.();
@@ -484,11 +498,14 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
                   <Button
                     type="button"
                     size="sm"
-                    variant={bodyMode === "preview" ? "secondary" : "outline"}
+                    variant={bodyMode === "rich" ? "secondary" : "outline"}
                     className="h-8 text-xs"
-                    onClick={() => setBodyMode("preview")}
+                    onClick={() => {
+                      if (bodyMode !== "rich") setBodySourceRevision((n) => n + 1);
+                      setBodyMode("rich");
+                    }}
                   >
-                    Preview
+                    Visual editor
                   </Button>
                   <Button
                     type="button"
@@ -511,14 +528,16 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
                   </Button>
                 </div>
               </div>
-              {bodyMode === "preview" ? (
-                <div
-                  className={cn(
-                    "min-h-[240px] max-h-[min(50vh,420px)] overflow-y-auto rounded-md border border-input bg-card px-4 py-3 text-sm",
-                    "[&_a]:text-primary [&_a]:underline [&_p]:mb-3 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
-                  )}
-                  dangerouslySetInnerHTML={{ __html: htmlBody }}
-                />
+              {bodyMode === "rich" ? (
+                <div className="flex min-h-[240px] h-[min(50vh,420px)] max-h-[min(50vh,420px)] flex-col overflow-hidden rounded-md border border-input bg-card">
+                  <RichTextEditor
+                    fillHeight
+                    initialHtml={htmlBody}
+                    resetKey={`renewal-${contract.id}-${templateId}-${bodySourceRevision}`}
+                    onChangeHtml={setHtmlBody}
+                    disabled={loading || sending}
+                  />
+                </div>
               ) : bodyMode === "decoded" ? (
                 <textarea
                   readOnly
@@ -536,7 +555,8 @@ export function ContractRenewalEmailDialog(props: ContractRenewalEmailDialogProp
               )}
               {bodyMode === "decoded" && (
                 <p className="text-xs text-muted-foreground">
-                  Character references are decoded for readability. Use <strong>HTML source</strong> to edit markup.
+                  Character references are decoded for readability. Use <strong>Visual editor</strong> or{" "}
+                  <strong>HTML source</strong> to edit.
                 </p>
               )}
             </div>

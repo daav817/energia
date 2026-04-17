@@ -216,6 +216,7 @@ export const ContractWorkflowRowScalarFieldEnum = {
   contractOutcome: 'contractOutcome',
   lastWorkflowRefreshAt: 'lastWorkflowRefreshAt',
   renewalReminderNotApplicableAt: 'renewalReminderNotApplicableAt',
+  renewalReminderEmailSentAt: 'renewalReminderEmailSentAt',
   rfpSentOverrideAt: 'rfpSentOverrideAt',
   quoteSummaryOverrideAt: 'quoteSummaryOverrideAt',
   createdAt: 'createdAt',

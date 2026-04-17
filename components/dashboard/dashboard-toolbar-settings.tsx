@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +76,11 @@ function customerKey(c: ContractIncomeRow): string {
 }
 
 export function DashboardToolbarSettings() {
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const emailTemplatesHref = `/email-templates?returnTo=${encodeURIComponent(
+    pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "")
+  )}`;
   const [archivesOpen, setArchivesOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -217,7 +223,7 @@ export function DashboardToolbarSettings() {
           <DropdownMenuItem onSelect={() => setProfileOpen(true)}>Profile</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setSummaryOpen(true)}>Brokerage summary</DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/email-templates" className="no-underline">
+            <Link href={emailTemplatesHref} className="no-underline">
               Email templates
             </Link>
           </DropdownMenuItem>

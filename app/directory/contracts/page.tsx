@@ -41,6 +41,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -162,6 +163,14 @@ const EMPTY_CONTRACT_FORM = {
 /** Customer notes for this contract row only (stored on Contract.notes). */
 function contractRowNotes(c: Contract): string {
   return (c.notes ?? "").trim() ? String(c.notes) : "";
+}
+
+/** Linked file for the Contract Doc column: attached document row, else signed contract URL on the contract. */
+function contractRowLinkedDocUrl(c: Contract): string {
+  const doc = c.documents?.find((d) => d.type === "CONTRACT") || c.documents?.[0];
+  const fromDoc = (doc?.googleDriveUrl || "").trim();
+  if (fromDoc) return fromDoc;
+  return (c.signedContractDriveUrl || "").trim();
 }
 
 function contractHasAccountRows(c: Contract): boolean {
@@ -459,8 +468,7 @@ export default function ContractsPage() {
   const [contactModal, setContactModal] = useState<Contact | null>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>(getStoredColumnOrder);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
-  const [linkDocContract, setLinkDocContract] = useState<Contract | null>(null);
-  const [linkDocUrl, setLinkDocUrl] = useState("");
+  const [contractDocPreview, setContractDocPreview] = useState<{ url: string; subtitle: string } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
@@ -1081,27 +1089,14 @@ export default function ContractsPage() {
     window.open(`/rfp?${q.toString()}`, "_blank", "noopener,noreferrer");
   }
 
-  const handleLinkDocument = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!linkDocContract) return;
-    try {
-      const res = await fetch("/api/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `Contract ${linkDocContract.customer?.company || linkDocContract.customer?.name} - ${linkDocContract.supplier?.name}`,
-          type: "CONTRACT",
-          googleDriveUrl: linkDocUrl.trim() || null,
-          contractId: linkDocContract.id,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      setLinkDocContract(null);
-      setLinkDocUrl("");
-      fetchContracts();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to link document");
+  const handleContractDocColumnClick = (c: Contract) => {
+    const url = contractRowLinkedDocUrl(c);
+    if (url) {
+      const subtitle = `${c.customer?.company || c.customer?.name || "Customer"} · ${c.supplier?.name || "Supplier"}`;
+      setContractDocPreview({ url, subtitle });
+      return;
     }
+    openEdit(c);
   };
 
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1416,7 +1411,7 @@ export default function ContractsPage() {
             onArchive={handleArchive}
             onOpenContact={openContactModal}
             onOpenSupplier={openSupplierModal}
-            onLinkDocument={setLinkDocContract}
+            onContractDocClick={handleContractDocColumnClick}
             onEdit={openEdit}
             onSendRenewalEmail={(c) => setRenewalEmailContractId(c.id)}
             onOpenContractAccounts={(c) => setAccountsModalContract(c)}
@@ -1477,7 +1472,7 @@ export default function ContractsPage() {
             onArchive={handleArchive}
             onOpenContact={openContactModal}
             onOpenSupplier={openSupplierModal}
-            onLinkDocument={setLinkDocContract}
+            onContractDocClick={handleContractDocColumnClick}
             onEdit={undefined}
             onSendRenewalEmail={(c) => setRenewalEmailContractId(c.id)}
             onOpenContractAccounts={(c) => setAccountsModalContract(c)}
@@ -1733,29 +1728,12 @@ export default function ContractsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!linkDocContract} onOpenChange={(open) => !open && setLinkDocContract(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Link Contract Document</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleLinkDocument} className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label>Google Drive URL</Label>
-              <Input
-                placeholder="https://drive.google.com/..."
-                value={linkDocUrl}
-                onChange={(e) => setLinkDocUrl(e.target.value)}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setLinkDocContract(null)}>
-                Cancel
-              </Button>
-              <Button type="submit">Link Document</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ContractDocumentViewerDialog
+        open={contractDocPreview != null}
+        onOpenChange={(open) => !open && setContractDocPreview(null)}
+        url={contractDocPreview?.url ?? ""}
+        subtitle={contractDocPreview?.subtitle}
+      />
 
       <ManageColumnsDialog
         open={manageColumnsOpen}
@@ -1876,7 +1854,7 @@ function ContractsTable({
   onArchive,
   onOpenContact,
   onOpenSupplier,
-  onLinkDocument,
+  onContractDocClick,
   onEdit,
   onSendRenewalEmail,
   onOpenContractAccounts,
@@ -1905,7 +1883,7 @@ function ContractsTable({
   onArchive: (id: string) => void;
   onOpenContact: (id: string) => void;
   onOpenSupplier: (supplier: Contract["supplier"]) => void;
-  onLinkDocument: (contract: Contract) => void;
+  onContractDocClick: (contract: Contract) => void;
   onEdit?: (c: Contract) => void;
   onSendRenewalEmail?: (c: Contract) => void;
   onOpenContractAccounts?: (c: Contract) => void;
@@ -1989,7 +1967,7 @@ function ContractsTable({
                   const company = c.customer?.company || c.customer?.name || "—";
                   const estIncome = calcEstIncomePerYear(c);
                   const estTotal = calcEstTotalValue(c);
-                  const doc = c.documents?.find((d) => d.type === "CONTRACT") || c.documents?.[0];
+                  const linkedDocUrl = contractRowLinkedDocUrl(c);
                   const stickyRowBg = expired
                     ? "bg-slate-200 dark:bg-slate-700"
                     : needsDetail
@@ -2129,22 +2107,22 @@ function ContractsTable({
                           {colId === "signedDate" && formatDate(c.signedDate)}
                           {colId === "totalMeters" && (c.totalMeters != null ? c.totalMeters : "—")}
                           {colId === "document" && (
-                            doc?.googleDriveUrl ? (
-                              <a
-                                href={doc.googleDriveUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            linkedDocUrl ? (
+                              <button
+                                type="button"
                                 className="text-primary hover:underline inline-flex items-center gap-1"
+                                onClick={() => onContractDocClick(c)}
+                                title="View contract document"
                               >
                                 <FileText className="h-4 w-4" />
                                 <ExternalLink className="h-3 w-3" />
-                              </a>
+                              </button>
                             ) : (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="text-muted-foreground"
-                                onClick={() => onLinkDocument(c)}
+                                onClick={() => onContractDocClick(c)}
                               >
                                 Link
                               </Button>
@@ -2536,6 +2514,72 @@ function isContractPdfLike(url: string, previewFile: File | null): boolean {
   if (/\/file\/d\/[^/]+/.test(lower)) return true;
   if (/drive\.google\.com/.test(lower) && /[?&]id=/.test(lower)) return true;
   return false;
+}
+
+function ContractDocumentViewerDialog({
+  open,
+  onOpenChange,
+  url,
+  subtitle,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  url: string;
+  subtitle?: string;
+}) {
+  const trimmed = (url || "").trim();
+  const isPdf = trimmed ? isContractPdfLike(trimmed, null) : false;
+  const previewSrc = isPdf ? contractPdfPreviewSrc(trimmed) : trimmed;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[min(90vh,920px)] w-[min(95vw,56rem)] max-w-[min(95vw,56rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(95vw,56rem)]">
+        <DialogHeader className="shrink-0 border-b px-6 py-4 text-left">
+          <DialogTitle>Contract document</DialogTitle>
+          {subtitle ? <DialogDescription>{subtitle}</DialogDescription> : null}
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+          {!trimmed ? (
+            <p className="text-sm text-muted-foreground">No document URL.</p>
+          ) : isPdf ? (
+            <div className="rounded-md border bg-muted/30" style={{ minHeight: "min(70vh, 640px)" }}>
+              <iframe title="Contract document" className="h-[min(70vh,640px)] w-full border-0" src={previewSrc} />
+            </div>
+          ) : (
+            <div
+              className="flex justify-center overflow-auto rounded-md border bg-muted/30 p-2"
+              style={{ minHeight: "min(50vh, 400px)" }}
+            >
+              <img
+                src={previewSrc}
+                alt="Contract document"
+                className="h-auto max-h-[70vh] w-full max-w-full object-contain"
+              />
+            </div>
+          )}
+        </div>
+        <DialogFooter className="shrink-0 border-t px-6 py-4 sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          {trimmed ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => {
+                const tabUrl = isPdf ? contractPdfPreviewSrc(trimmed) : trimmed;
+                window.open(tabUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              Open in new tab
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 type ContractFormState = {

@@ -35,6 +35,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   lists: TaskCreateListOption[];
   defaultListId: string;
+  /** YYYY-MM-DD for all-day due date when opening the dialog */
+  defaultDueDate?: string | null;
   onCreated?: (listId: string) => void;
 };
 
@@ -43,6 +45,7 @@ export function TaskCreateDialog({
   onOpenChange,
   lists,
   defaultListId,
+  defaultDueDate,
   onCreated,
 }: Props) {
   const [form, setForm] = useState({
@@ -60,11 +63,13 @@ export function TaskCreateDialog({
 
   useEffect(() => {
     if (!open) return;
+    const due =
+      defaultDueDate && /^\d{4}-\d{2}-\d{2}$/.test(defaultDueDate) ? defaultDueDate : "";
     setForm({
       title: "",
       description: "",
       allDay: true,
-      dueDate: "",
+      dueDate: due,
       dueAt: "",
       repeat: "",
       starred: false,
@@ -73,7 +78,7 @@ export function TaskCreateDialog({
       contactId: "",
       contractId: "",
     });
-  }, [open, defaultListId, lists]);
+  }, [open, defaultListId, lists, defaultDueDate]);
 
   const submitCreate = async (e: React.FormEvent) => {
     e.preventDefault();

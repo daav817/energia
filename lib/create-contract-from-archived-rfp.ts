@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { EnergyType, PriceUnit, Prisma } from "@/generated/prisma/client";
 import { getOrCreatePlaceholderSupplierId } from "@/lib/placeholder-supplier";
+import { resolveCustomerIdForArchivedRfp } from "@/lib/resolve-customer-id-for-archived-rfp";
 
 function priceUnitFromRfp(rfp: { brokerMarginUnit: PriceUnit | null; energyType: EnergyType }): PriceUnit {
   const u = rfp.brokerMarginUnit;
@@ -44,7 +45,7 @@ export async function createContractFromArchivedRfp(rfpId: string): Promise<stri
   });
   if (existing) return existing.id;
 
-  const rfp = await prisma.rfpRequest.findUnique({
+  let rfp = await prisma.rfpRequest.findUnique({
     where: { id: rfpId },
     include: {
       accountLines: { orderBy: { sortOrder: "asc" } },
@@ -55,6 +56,27 @@ export async function createContractFromArchivedRfp(rfpId: string): Promise<stri
       suppliers: { select: { id: true } },
     },
   });
+  if (!rfp) return null;
+  if (!rfp.customerId) {
+    const resolved = await resolveCustomerIdForArchivedRfp(rfpId);
+    if (resolved) {
+      await prisma.rfpRequest.update({
+        where: { id: rfpId },
+        data: { customerId: resolved },
+      });
+      rfp = await prisma.rfpRequest.findUnique({
+        where: { id: rfpId },
+        include: {
+          accountLines: { orderBy: { sortOrder: "asc" } },
+          quotes: {
+            select: { supplierId: true, isBestOffer: true },
+            orderBy: [{ termMonths: "asc" }, { rate: "asc" }],
+          },
+          suppliers: { select: { id: true } },
+        },
+      });
+    }
+  }
   if (!rfp?.customerId) return null;
 
   const energyType = rfp.energyType as EnergyType;

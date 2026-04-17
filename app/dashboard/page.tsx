@@ -31,7 +31,6 @@ import { Input } from "@/components/ui/input";
 import { DayAgendaDialog } from "@/components/schedule/day-agenda-dialog";
 import { ScheduleContractModal } from "@/components/schedule/schedule-contract-modal";
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog";
-import { ContractRenewalEmailDialog } from "@/components/contracts/contract-renewal-email-dialog";
 import { ContractWorkflowPanel } from "@/components/contract-workflow/contract-workflow-panel";
 import { formatGoogleTasksSyncMessage } from "@/lib/google-tasks-sync-message";
 import { persistTasksOrder, reorderIdList } from "@/lib/tasks-reorder";
@@ -189,10 +188,19 @@ function emailSenderSortKey(from: string): string {
   return from.trim().toLowerCase();
 }
 
-function emailSenderDisplayLabel(from: string): string {
-  const m = /^(.+?)\s*<[^>]+>\s*$/.exec(from.trim());
-  if (m) return m[1].replace(/^"|"$/g, "").trim();
-  return from.trim() || "Unknown sender";
+/** Display name and email from a From: header (e.g. `Name <addr@x.com>` or a bare address). */
+function emailSenderNameAndAddress(from: string): { name: string; email: string | null } {
+  const raw = from.trim();
+  const angle = /^(.+?)\s*<([^>]+)>\s*$/.exec(raw);
+  if (angle) {
+    const namePart = angle[1].replace(/^"|"$/g, "").trim();
+    const emailPart = angle[2].trim();
+    return {
+      name: namePart || emailPart,
+      email: namePart ? emailPart : null,
+    };
+  }
+  return { name: raw || "Unknown sender", email: null };
 }
 
 function eventDayKey(e: { startAt: string; allDay: boolean }): string {
@@ -268,31 +276,6 @@ type ContractRow = {
   /** Set when merged from GET contracts?mergeRecentExpiredDays */
   isRecentExpired?: boolean;
 };
-
-function contractExpirationDateOnly(c: ContractRow): Date | null {
-  const k = parseApiDateOnlyKey(String(c.expirationDate));
-  if (!k) return null;
-  return new Date(k + "T12:00:00");
-}
-
-/** Expiration date is before today (local). */
-function isContractExpired(c: ContractRow): boolean {
-  const exp = contractExpirationDateOnly(c);
-  if (!exp) return false;
-  const today = startOfLocalDay(new Date());
-  return exp < today;
-}
-
-/** Expired in the previous calendar month (not necessarily within last 30 days). */
-function isPreviousCalendarMonthExpiredContract(c: ContractRow): boolean {
-  const exp = contractExpirationDateOnly(c);
-  if (!exp) return false;
-  const today = startOfLocalDay(new Date());
-  if (exp >= today) return false;
-  const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const prevEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
-  return exp >= prev && exp <= prevEnd;
-}
 
 type LicenseRow = {
   id: string;
@@ -371,16 +354,15 @@ export default function DashboardPage() {
   const [pendingRfpQuotes, setPendingRfpQuotes] = useState<PendingRfpQuoteRow[]>([]);
   const [dashPendingRfpTab, setDashPendingRfpTab] = useState<"rfp" | "workflow">("rfp");
   const [dashPendingTabHydrated, setDashPendingTabHydrated] = useState(false);
-  const [contractExpSearch, setContractExpSearch] = useState("");
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractModalId, setContractModalId] = useState<string | null>(null);
   const [wideLayout, setWideLayout] = useState(true);
   const [taskSyncing, setTaskSyncing] = useState(false);
-  const [showPrevMonthExpiredContracts, setShowPrevMonthExpiredContracts] = useState(false);
-  const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
   const [emailSenderCollapsed, setEmailSenderCollapsed] = useState<Record<string, boolean>>({});
   const [dashTaskCreateOpen, setDashTaskCreateOpen] = useState(false);
   const [dashTaskCreateListId, setDashTaskCreateListId] = useState<string>("");
+  /** YYYY-MM-DD when opening new-task from day agenda */
+  const [dashTaskCreatePrefillDue, setDashTaskCreatePrefillDue] = useState<string | null>(null);
   const [dashTaskSearch, setDashTaskSearch] = useState("");
   const [dashTaskDetail, setDashTaskDetail] = useState<TaskDto | null>(null);
   /** Immediate "done" styling; API runs after DASH_TASK_COMPLETE_DELAY_MS. */
@@ -822,73 +804,7 @@ export default function DashboardPage() {
     return map;
   }, [licensesForSchedule]);
 
-  const contractsGroupedByMonthYear = useMemo(() => {
-    const sorted = [...contracts].sort(
-      (a, b) =>
-        parseApiDateOnlyKey(String(a.expirationDate)).localeCompare(
-          parseApiDateOnlyKey(String(b.expirationDate))
-        ) || (a.customer?.name ?? "").localeCompare(b.customer?.name ?? "")
-    );
-    const groups = new Map<string, { label: string; items: ContractRow[] }>();
-    for (const c of sorted) {
-      const key = parseApiDateOnlyKey(String(c.expirationDate));
-      if (!key) continue;
-      const ym = key.slice(0, 7);
-      if (!groups.has(ym)) {
-        const [y, m] = ym.split("-").map(Number);
-        groups.set(ym, {
-          label: new Date(y, m - 1, 1).toLocaleString("en-US", {
-            month: "long",
-            year: "numeric",
-          }),
-          items: [],
-        });
-      }
-      groups.get(ym)!.items.push(c);
-    }
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [contracts]);
-
-  const contractsGroupedByMonthYearFiltered = useMemo(() => {
-    const q = contractExpSearch.trim().toLowerCase();
-    const tokens = q.split(/\s+/).filter(Boolean);
-    const hidePrevMonth = !showPrevMonthExpiredContracts && !q;
-
-    return contractsGroupedByMonthYear
-      .map(([ym, group]) => {
-        let items = group.items;
-        if (hidePrevMonth) {
-          items = items.filter((c) => !isPreviousCalendarMonthExpiredContract(c));
-        }
-        if (tokens.length) {
-          items = items.filter((c) => {
-            const exp = parseApiDateOnlyKey(String(c.expirationDate));
-            const expD = exp
-              ? new Date(exp + "T12:00:00").toLocaleDateString().toLowerCase()
-              : "";
-            const hay = [
-              c.customer?.name,
-              c.supplier?.name,
-              (c.energyType ?? "").replaceAll("_", " "),
-              exp,
-              expD,
-              c.isRecentExpired ? "recent expired" : "",
-              isContractExpired(c) ? "expired" : "",
-              group.label,
-              ym,
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase();
-            return tokens.every((t) => hay.includes(t));
-          });
-        }
-        return [ym, { ...group, items }] as const;
-      })
-      .filter(([, g]) => g.items.length > 0);
-  }, [contractsGroupedByMonthYear, contractExpSearch, showPrevMonthExpiredContracts]);
-
-  const licensesGroupedByMonthYear = useMemo(() => {
+  const licensesGroupedForCalendarFooter = useMemo(() => {
     const sorted = [...licensesForSchedule].sort(
       (a, b) =>
         parseApiDateOnlyKey(String(a.expirationDate)).localeCompare(
@@ -1017,13 +933,6 @@ export default function DashboardPage() {
         year: "numeric",
       }),
     [dashYear, dashMonth]
-  );
-
-  const flashDayOnCalendar = useCallback(
-    (dateKey: string) => {
-      router.push(`/schedule?flashDate=${encodeURIComponent(dateKey)}`);
-    },
-    [router]
   );
 
   const listSource = useMemo(() => {
@@ -1201,326 +1110,12 @@ export default function DashboardPage() {
           autoSaveId="energia-dashboard-cols"
           className="flex-1 min-h-[280px] lg:min-h-0"
         >
-          <Panel defaultSize={wideLayout ? 48 : 100} minSize={wideLayout ? 22 : 10}>
+          <Panel defaultSize={wideLayout ? 44 : 100} minSize={wideLayout ? 22 : 10}>
             <PanelGroup
               direction="vertical"
               autoSaveId="energia-dashboard-left-stack"
               className="flex h-full min-h-0 flex-col gap-2"
             >
-              <Panel defaultSize={50} minSize={18} className="min-h-0">
-                <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
-            <CardHeader className="py-2 px-3 pb-2 shrink-0 space-y-2 border-b border-border/40">
-              <div className="flex rounded-md border border-border/60 bg-muted/30 p-0.5 gap-0.5 w-fit">
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    dashEmailTab === "inbox"
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => setDashEmailTab("inbox")}
-                >
-                  Inbox
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    dashEmailTab === "search"
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => emailSearchResults != null && setDashEmailTab("search")}
-                  disabled={emailSearchResults == null}
-                  title={
-                    lastEmailSearchQuery
-                      ? `Last search: ${lastEmailSearchQuery}`
-                      : "Run a search to see results here"
-                  }
-                >
-                  Results
-                  {emailSearchResults != null ? ` (${emailSearchResults.length})` : ""}
-                </button>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-1 min-w-0">
-                  <span className="text-[10px] text-muted-foreground shrink-0 mr-0.5">Show:</span>
-                  {([1, 7, 14, 30] as const).map((d) => (
-                    <Button
-                      key={d}
-                      type="button"
-                      size="sm"
-                      variant={emailScopeDays === d ? "default" : "outline"}
-                      className="h-7 px-2 text-[10px]"
-                      onClick={() => setEmailScopeDays(d)}
-                    >
-                      {d === 1 ? (
-                        <>
-                          Today
-                          {dashEmailTab === "inbox" && emailScopeDays === 1 ? (
-                            <span className="ml-1 tabular-nums opacity-90">({listSource.length})</span>
-                          ) : null}
-                        </>
-                      ) : (
-                        `${d} days`
-                      )}
-                    </Button>
-                  ))}
-                </div>
-                {showEmailDaySeparators ? (
-                  <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[10px] px-2"
-                      onClick={() => setEmailDayCollapsed({})}
-                    >
-                      Expand all days
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[10px] px-2"
-                      onClick={() =>
-                        setEmailDayCollapsed(
-                          Object.fromEntries(emailsGroupedByDay.map(([k]) => [k, true]))
-                        )
-                      }
-                    >
-                      Collapse all days
-                    </Button>
-                  </div>
-                ) : dashEmailTab === "inbox" && emailScopeDays === 1 && emailsGroupedBySenderToday ? (
-                  <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-[10px]"
-                      onClick={() => setEmailSenderCollapsed({})}
-                    >
-                      Expand all senders
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-[10px]"
-                      onClick={() =>
-                        setEmailSenderCollapsed(
-                          Object.fromEntries(emailsGroupedBySenderToday.map(([k]) => [k, true]))
-                        )
-                      }
-                    >
-                      Collapse all senders
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex gap-1.5 items-center min-w-0 flex-1">
-                <div className="relative flex-1 min-w-0">
-                  <Search
-                    className="pointer-events-none absolute left-2 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <Input
-                    className={cn(
-                      "h-8 w-full text-xs pl-8",
-                      emailSearchInput ? "pr-8" : "pr-2"
-                    )}
-                    placeholder="Search… (same as Gmail / Emails page)"
-                    value={emailSearchInput}
-                    onChange={(e) => setEmailSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void runDashEmailSearch();
-                    }}
-                    aria-label="Search emails"
-                  />
-                  {emailSearchInput ? (
-                    <button
-                      type="button"
-                      className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label="Clear search"
-                      onClick={() => setEmailSearchInput("")}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-8 shrink-0 text-xs"
-                  disabled={emailSearching || !emailSearchInput.trim()}
-                  onClick={() => void runDashEmailSearch()}
-                >
-                  {emailSearching ? "…" : "Search"}
-                </Button>
-                {emailSearchResults != null ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs shrink-0"
-                    onClick={() => clearDashEmailSearch()}
-                  >
-                    Clear results
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            </CardHeader>
-            <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
-              {listSource.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-2 py-4">
-                  {dashEmailTab === "search"
-                    ? "No results in this date window. Widen the day range or clear filters."
-                    : "No messages in this date range."}
-                </p>
-              ) : emailsGroupedBySenderToday ? (
-                <div className="space-y-2 py-1">
-                  <p className="px-2 text-[10px] text-muted-foreground">
-                    {listSource.length} message{listSource.length === 1 ? "" : "s"} today · grouped by sender
-                  </p>
-                  {emailsGroupedBySenderToday.map(([senderKey, msgs]) => {
-                    const collapsed = !!emailSenderCollapsed[senderKey];
-                    const label = emailSenderDisplayLabel(msgs[0]?.from ?? senderKey);
-                    return (
-                      <div key={senderKey} className="space-y-0">
-                        <button
-                          type="button"
-                          className={cn(
-                            "sticky top-0 z-[1] -mx-1 mb-1 flex w-full items-center gap-2 border-l-4 border-sky-500 bg-muted/95 px-2 py-1.5 text-left text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm",
-                            "border-y border-r border-border/50 rounded-r-md hover:bg-muted transition-colors"
-                          )}
-                          onClick={() =>
-                            setEmailSenderCollapsed((s) => ({ ...s, [senderKey]: !collapsed }))
-                          }
-                          aria-expanded={!collapsed}
-                        >
-                          {collapsed ? (
-                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className="min-w-0 truncate font-medium">{label}</span>
-                          <span className="h-px flex-1 bg-border/80" aria-hidden />
-                          <span className="text-[10px] font-normal text-muted-foreground tabular-nums">
-                            {msgs.length}
-                          </span>
-                        </button>
-                        {!collapsed ? (
-                          <ul className="space-y-0 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
-                            {msgs.map((m) => (
-                              <li key={m.id}>
-                                <button
-                                  type="button"
-                                  className="block w-full px-2 py-1.5 text-left hover:bg-muted/80 bg-background/50"
-                                  title={m.subject}
-                                  onClick={() => setEmailModalId(m.id)}
-                                >
-                                  <p className="text-xs font-medium truncate">
-                                    {m.subject || "(No subject)"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : showEmailDaySeparators ? (
-                <div className="space-y-2 py-1">
-                  {emailsGroupedByDay.map(([dayKey, msgs]) => {
-                    const collapsed = !!emailDayCollapsed[dayKey];
-                    return (
-                      <div key={dayKey} className="space-y-0">
-                        <button
-                          type="button"
-                          className={cn(
-                            "sticky top-0 z-[1] -mx-1 mb-1 flex w-full items-center gap-2 border-l-4 border-primary bg-muted/95 px-2 py-1.5 text-left text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm",
-                            "border-y border-r border-border/50 rounded-r-md hover:bg-muted transition-colors"
-                          )}
-                          onClick={() =>
-                            setEmailDayCollapsed((s) => ({
-                              ...s,
-                              [dayKey]: !collapsed,
-                            }))
-                          }
-                          aria-expanded={!collapsed}
-                        >
-                          {collapsed ? (
-                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className="tabular-nums text-muted-foreground shrink-0">
-                            {dayKey === "_nodate"
-                              ? "—"
-                              : new Date(dayKey + "T12:00:00").toLocaleDateString(undefined, {
-                                  weekday: "long",
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                          </span>
-                          <span className="h-px flex-1 bg-border/80" aria-hidden />
-                          <span className="text-[10px] font-normal text-muted-foreground">
-                            {msgs.length} message{msgs.length === 1 ? "" : "s"}
-                          </span>
-                        </button>
-                        {!collapsed ? (
-                          <ul className="space-y-0 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
-                            {msgs.map((m) => (
-                              <li key={m.id}>
-                                <button
-                                  type="button"
-                                  className="block w-full px-2 py-1.5 text-left hover:bg-muted/80 bg-background/50"
-                                  title={m.subject}
-                                  onClick={() => setEmailModalId(m.id)}
-                                >
-                                  <p className="text-xs font-medium truncate">
-                                    {m.subject || "(No subject)"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <ul className="space-y-0 divide-y divide-border/50 rounded-md border border-border/30 overflow-hidden">
-                  {listSource.map((m) => (
-                    <li key={m.id}>
-                      <button
-                        type="button"
-                        className="block w-full px-2 py-1.5 text-left hover:bg-muted/80"
-                        title={m.subject}
-                        onClick={() => setEmailModalId(m.id)}
-                      >
-                        <p className="text-xs font-medium truncate">{m.subject || "(No subject)"}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-                </Card>
-              </Panel>
-              <PanelResizeHandle className={resizeHandleClass} />
               <Panel defaultSize={50} minSize={22} className="min-h-0">
                 <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
             <CardHeader className="py-2 px-3 pb-2 shrink-0 space-y-2 border-b border-border/30">
@@ -1667,6 +1262,7 @@ export default function DashboardPage() {
                   quote due (RFP)
                 </span>
               </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {dashCalView === "year" ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 flex-1 min-h-0 overflow-y-auto text-[10px]">
                   {yearMonthSummary.map(({ month, count }) => (
@@ -1953,19 +1549,482 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+              </div>
+              {licensesGroupedForCalendarFooter.length > 0 ? (
+                <div className="mt-1 shrink-0 space-y-1.5 border-t border-border/40 pt-2">
+                  <p className="px-1 text-[10px] font-semibold text-violet-900 dark:text-violet-100">
+                    License certification &amp; yearly renewal fees
+                  </p>
+                  <div className="max-h-32 space-y-2 overflow-y-auto px-1 pb-1">
+                    {licensesGroupedForCalendarFooter.map(([ym, group]) => (
+                      <div key={ym} className="space-y-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                          {group.label}
+                        </p>
+                        <ul className="space-y-1">
+                          {group.items.map((l) => {
+                            const exp = parseApiDateOnlyKey(String(l.expirationDate));
+                            const expD = exp ? new Date(exp + "T12:00:00") : null;
+                            return (
+                              <li
+                                key={l.id}
+                                className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[10px]"
+                              >
+                                <span className="min-w-0 truncate text-foreground">
+                                  {l.licenseType} {l.licenseNumber}
+                                </span>
+                                {expD ? (
+                                  <Link
+                                    href={`/schedule?flashDate=${encodeURIComponent(exp)}`}
+                                    className="shrink-0 tabular-nums text-muted-foreground hover:text-primary hover:underline"
+                                  >
+                                    {expD.toLocaleDateString()}
+                                  </Link>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+                </Card>
+              </Panel>
+              <PanelResizeHandle className={resizeHandleClass} />
+              <Panel defaultSize={50} minSize={18} className="min-h-0">
+                <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-sm">
+            <CardHeader className="py-2 px-3 pb-2 shrink-0 space-y-2 border-b border-border/40">
+              <div className="flex rounded-md border border-border/60 bg-muted/30 p-0.5 gap-0.5 w-fit">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    dashEmailTab === "inbox"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDashEmailTab("inbox")}
+                >
+                  Inbox
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    dashEmailTab === "search"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => emailSearchResults != null && setDashEmailTab("search")}
+                  disabled={emailSearchResults == null}
+                  title={
+                    lastEmailSearchQuery
+                      ? `Last search: ${lastEmailSearchQuery}`
+                      : "Run a search to see results here"
+                  }
+                >
+                  Results
+                  {emailSearchResults != null ? ` (${emailSearchResults.length})` : ""}
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1 min-w-0">
+                  <span className="text-[10px] text-muted-foreground shrink-0 mr-0.5">Show:</span>
+                  {([1, 7, 14, 30] as const).map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      variant={emailScopeDays === d ? "default" : "outline"}
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => setEmailScopeDays(d)}
+                    >
+                      {d === 1 ? (
+                        <>
+                          Today
+                          {dashEmailTab === "inbox" && emailScopeDays === 1 ? (
+                            <span className="ml-1 tabular-nums opacity-90">({listSource.length})</span>
+                          ) : null}
+                        </>
+                      ) : (
+                        `${d} days`
+                      )}
+                    </Button>
+                  ))}
+                </div>
+                {showEmailDaySeparators ? (
+                  <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() => setEmailDayCollapsed({})}
+                    >
+                      Expand all days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() =>
+                        setEmailDayCollapsed(
+                          Object.fromEntries(emailsGroupedByDay.map(([k]) => [k, true]))
+                        )
+                      }
+                    >
+                      Collapse all days
+                    </Button>
+                  </div>
+                ) : dashEmailTab === "inbox" && emailScopeDays === 1 && emailsGroupedBySenderToday ? (
+                  <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => setEmailSenderCollapsed({})}
+                    >
+                      Expand all senders
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() =>
+                        setEmailSenderCollapsed(
+                          Object.fromEntries(emailsGroupedBySenderToday.map(([k]) => [k, true]))
+                        )
+                      }
+                    >
+                      Collapse all senders
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex gap-1.5 items-center min-w-0 flex-1">
+                <div className="relative flex-1 min-w-0">
+                  <Search
+                    className="pointer-events-none absolute left-2 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    className={cn(
+                      "h-8 w-full text-xs pl-8",
+                      emailSearchInput ? "pr-8" : "pr-2"
+                    )}
+                    placeholder="Search… (same as Gmail / Emails page)"
+                    value={emailSearchInput}
+                    onChange={(e) => setEmailSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void runDashEmailSearch();
+                    }}
+                    aria-label="Search emails"
+                  />
+                  {emailSearchInput ? (
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="Clear search"
+                      onClick={() => setEmailSearchInput("")}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 shrink-0 text-xs"
+                  disabled={emailSearching || !emailSearchInput.trim()}
+                  onClick={() => void runDashEmailSearch()}
+                >
+                  {emailSearching ? "…" : "Search"}
+                </Button>
+                {emailSearchResults != null ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => clearDashEmailSearch()}
+                  >
+                    Clear results
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            </CardHeader>
+            <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
+              {listSource.length === 0 ? (
+                <p className="text-xs text-muted-foreground px-2 py-4">
+                  {dashEmailTab === "search"
+                    ? "No results in this date window. Widen the day range or clear filters."
+                    : "No messages in this date range."}
+                </p>
+              ) : emailsGroupedBySenderToday ? (
+                <div className="space-y-2 py-1">
+                  <p className="px-2 text-[10px] text-muted-foreground">
+                    {listSource.length} message{listSource.length === 1 ? "" : "s"} today · grouped by sender
+                  </p>
+                  {emailsGroupedBySenderToday.map(([senderKey, msgs]) => {
+                    const collapsed = !!emailSenderCollapsed[senderKey];
+                    const { name: senderName, email: senderEmail } = emailSenderNameAndAddress(
+                      msgs[0]?.from ?? senderKey
+                    );
+                    return (
+                      <div key={senderKey} className="space-y-0">
+                        <button
+                          type="button"
+                          className={cn(
+                            "sticky top-0 z-[1] -mx-1 mb-1 flex w-full items-center gap-2 border-l-4 border-sky-500 bg-muted/95 px-2 py-1.5 text-left text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm",
+                            "border-y border-r border-border/50 rounded-r-md hover:bg-muted transition-colors"
+                          )}
+                          onClick={() =>
+                            setEmailSenderCollapsed((s) => ({ ...s, [senderKey]: !collapsed }))
+                          }
+                          aria-expanded={!collapsed}
+                        >
+                          {collapsed ? (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <div className="min-w-0 flex-1 text-left">
+                            <div className="truncate font-medium leading-tight">{senderName}</div>
+                            {senderEmail ? (
+                              <div className="truncate text-[10px] font-normal text-muted-foreground">
+                                {senderEmail}
+                              </div>
+                            ) : null}
+                          </div>
+                          <span className="h-px flex-1 bg-border/80" aria-hidden />
+                          <span className="text-[10px] font-normal text-muted-foreground tabular-nums">
+                            {msgs.length}
+                          </span>
+                        </button>
+                        {!collapsed ? (
+                          <ul className="space-y-0 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
+                            {msgs.map((m) => (
+                              <li key={m.id}>
+                                <button
+                                  type="button"
+                                  className="block w-full px-2 py-1.5 text-left hover:bg-muted/80 bg-background/50"
+                                  title={m.subject}
+                                  onClick={() => setEmailModalId(m.id)}
+                                >
+                                  <p className="text-xs font-medium truncate">
+                                    {m.subject || "(No subject)"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : showEmailDaySeparators ? (
+                <div className="space-y-2 py-1">
+                  {emailsGroupedByDay.map(([dayKey, msgs]) => {
+                    const collapsed = !!emailDayCollapsed[dayKey];
+                    return (
+                      <div key={dayKey} className="space-y-0">
+                        <button
+                          type="button"
+                          className={cn(
+                            "sticky top-0 z-[1] -mx-1 mb-1 flex w-full items-center gap-2 border-l-4 border-primary bg-muted/95 px-2 py-1.5 text-left text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm",
+                            "border-y border-r border-border/50 rounded-r-md hover:bg-muted transition-colors"
+                          )}
+                          onClick={() =>
+                            setEmailDayCollapsed((s) => ({
+                              ...s,
+                              [dayKey]: !collapsed,
+                            }))
+                          }
+                          aria-expanded={!collapsed}
+                        >
+                          {collapsed ? (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="tabular-nums text-muted-foreground shrink-0">
+                            {dayKey === "_nodate"
+                              ? "—"
+                              : new Date(dayKey + "T12:00:00").toLocaleDateString(undefined, {
+                                  weekday: "long",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                          </span>
+                          <span className="h-px flex-1 bg-border/80" aria-hidden />
+                          <span className="text-[10px] font-normal text-muted-foreground">
+                            {msgs.length} message{msgs.length === 1 ? "" : "s"}
+                          </span>
+                        </button>
+                        {!collapsed ? (
+                          <ul className="space-y-0 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
+                            {msgs.map((m) => (
+                              <li key={m.id}>
+                                <button
+                                  type="button"
+                                  className="block w-full px-2 py-1.5 text-left hover:bg-muted/80 bg-background/50"
+                                  title={m.subject}
+                                  onClick={() => setEmailModalId(m.id)}
+                                >
+                                  <p className="text-xs font-medium truncate">
+                                    {m.subject || "(No subject)"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <ul className="space-y-0 divide-y divide-border/50 rounded-md border border-border/30 overflow-hidden">
+                  {listSource.map((m) => (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        className="block w-full px-2 py-1.5 text-left hover:bg-muted/80"
+                        title={m.subject}
+                        onClick={() => setEmailModalId(m.id)}
+                      >
+                        <p className="text-xs font-medium truncate">{m.subject || "(No subject)"}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{m.from}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
                 </Card>
               </Panel>
             </PanelGroup>
           </Panel>
           <PanelResizeHandle className={resizeHandleClass} />
-          <Panel defaultSize={wideLayout ? 26 : 38} minSize={15} className="min-h-0">
+          <Panel defaultSize={wideLayout ? 56 : 100} minSize={15} className="min-h-0">
             <PanelGroup
               direction="vertical"
-              autoSaveId="energia-dashboard-mid-stack"
+              autoSaveId="energia-dashboard-pipeline-tasks"
               className="flex h-full min-h-0 flex-col gap-2"
             >
-              <Panel defaultSize={55} minSize={22} className="min-h-0">
+              <Panel defaultSize={64} minSize={28} className="min-h-0">
+                <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
+                       <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-col gap-2 space-y-0">
+              <div className="flex flex-row flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <CardTitle className="text-sm font-semibold">Pipeline</CardTitle>
+                  <CardDescription className="text-[11px]">
+                    Pending RFPs and quotes, or contract renewal workflow.
+                  </CardDescription>
+                </div>
+                {dashPendingRfpTab === "rfp" ? (
+                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
+                    <Link href="/rfp">RFP Generator</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
+                    <Link href="/directory/contracts/workflow">Full workflow</Link>
+                  </Button>
+                )}
+              </div>
+              <div
+                role="tablist"
+                aria-label="Pipeline section"
+                className="flex w-full rounded-md border border-border/60 bg-muted/40 p-0.5"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={dashPendingRfpTab === "rfp"}
+                  className={cn(
+                    "flex-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
+                    dashPendingRfpTab === "rfp"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDashPendingRfpTab("rfp")}
+                >
+                  Pending RFPs &amp; quotes
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={dashPendingRfpTab === "workflow"}
+                  className={cn(
+                    "flex-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
+                    dashPendingRfpTab === "workflow"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDashPendingRfpTab("workflow")}
+                >
+                  Contract workflow
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1 flex flex-col">
+              {dashPendingRfpTab === "rfp" ? (
+                pendingRfpQuotes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-1 py-2">Nothing pending in this category.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {pendingRfpQuotes.map((row) => (
+                      <li
+                        key={`${row.kind}-${row.id}-${row.at}`}
+                        className="rounded-md border border-border/50 bg-background/60 px-2 py-1.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[11px] font-medium leading-tight">
+                            {row.kind === "rfp" ? "RFP sent" : "Quote summary"}{" "}
+                            <span className="text-foreground">— {row.label}</span>
+                          </p>
+                          <span className="text-[9px] text-muted-foreground tabular-nums shrink-0">
+                            {new Date(row.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{row.sub}</p>
+                        <div className="mt-1.5">
+                          <Link
+                            href={`/quotes?rfpRequestId=${encodeURIComponent(row.id)}`}
+                            className="text-[10px] font-medium text-primary hover:underline"
+                          >
+                            Open quotes
+                          </Link>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : (
+                <div className="flex min-h-0 flex-1 flex-col pt-1">
+                  <ContractWorkflowPanel compact showHeading={false} />
+                </div>
+              )}
+            </CardContent>
+                </Card>
+              </Panel>
+              <PanelResizeHandle className={resizeHandleClass} />
+              <Panel defaultSize={36} minSize={18} className="min-h-0">
                 <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
             <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <CardTitle className="text-sm font-semibold">Tasks</CardTitle>
@@ -2071,6 +2130,7 @@ export default function DashboardPage() {
                             className="h-7 px-2 text-[10px] shrink-0"
                             onClick={() => {
                               setDashTaskCreateListId(list.id);
+                              setDashTaskCreatePrefillDue(null);
                               setDashTaskCreateOpen(true);
                             }}
                           >
@@ -2225,296 +2285,6 @@ export default function DashboardPage() {
             </CardContent>
                 </Card>
               </Panel>
-              <PanelResizeHandle className={resizeHandleClass} />
-              <Panel defaultSize={45} minSize={18} className="min-h-0">
-                <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/60 shadow-sm">
-                       <CardHeader className="py-2 px-3 pb-1 shrink-0 flex flex-col gap-2 space-y-0">
-              <div className="flex flex-row flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <CardTitle className="text-sm font-semibold">Pipeline</CardTitle>
-                  <CardDescription className="text-[11px]">
-                    Pending RFPs and quotes, or contract renewal workflow.
-                  </CardDescription>
-                </div>
-                {dashPendingRfpTab === "rfp" ? (
-                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
-                    <Link href="/rfp">RFP Generator</Link>
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" asChild>
-                    <Link href="/directory/contracts/workflow">Full workflow</Link>
-                  </Button>
-                )}
-              </div>
-              <div
-                role="tablist"
-                aria-label="Pipeline section"
-                className="flex w-full rounded-md border border-border/60 bg-muted/40 p-0.5"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={dashPendingRfpTab === "rfp"}
-                  className={cn(
-                    "flex-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
-                    dashPendingRfpTab === "rfp"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => setDashPendingRfpTab("rfp")}
-                >
-                  Pending RFPs &amp; quotes
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={dashPendingRfpTab === "workflow"}
-                  className={cn(
-                    "flex-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
-                    dashPendingRfpTab === "workflow"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => setDashPendingRfpTab("workflow")}
-                >
-                  Contract workflow
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 min-h-0 overflow-y-auto px-2 py-1 flex flex-col">
-              {dashPendingRfpTab === "rfp" ? (
-                pendingRfpQuotes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground px-1 py-2">Nothing pending in this category.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {pendingRfpQuotes.map((row) => (
-                      <li
-                        key={`${row.kind}-${row.id}-${row.at}`}
-                        className="rounded-md border border-border/50 bg-background/60 px-2 py-1.5"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-[11px] font-medium leading-tight">
-                            {row.kind === "rfp" ? "RFP sent" : "Quote summary"}{" "}
-                            <span className="text-foreground">— {row.label}</span>
-                          </p>
-                          <span className="text-[9px] text-muted-foreground tabular-nums shrink-0">
-                            {new Date(row.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{row.sub}</p>
-                        <div className="mt-1.5">
-                          <Link
-                            href={`/quotes?rfpRequestId=${encodeURIComponent(row.id)}`}
-                            className="text-[10px] font-medium text-primary hover:underline"
-                          >
-                            Open quotes
-                          </Link>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )
-              ) : (
-                <div className="flex min-h-0 flex-1 flex-col pt-1">
-                  <ContractWorkflowPanel compact showHeading={false} />
-                </div>
-              )}
-            </CardContent>
-                </Card>
-              </Panel>
-            </PanelGroup>
-          </Panel>
-          <PanelResizeHandle className={resizeHandleClass} />
-          <Panel defaultSize={wideLayout ? 26 : 32} minSize={14} className="min-h-0">
-            <PanelGroup
-              direction="vertical"
-              autoSaveId="energia-dashboard-contracts-licenses"
-              className="flex h-full min-h-0 flex-col gap-2"
-            >
-              <Panel defaultSize={58} minSize={22} className="min-h-0">
-              <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/50 shadow-sm rounded-xl">
-            <CardHeader className="shrink-0 pb-2 border-b border-border/40 space-y-3">
-              <div className="flex flex-row items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-semibold leading-none">Contract expirations</h3>
-                  <CardDescription className="text-[11px] mt-1">
-                    All active contracts, grouped by expiration month.
-                  </CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" className="h-8 text-xs shrink-0" asChild>
-                  <Link href="/schedule">Schedule</Link>
-                </Button>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
-                <Input
-                  type="search"
-                  placeholder="Search customer, supplier, energy, date…"
-                  className="h-9 pl-9 text-sm"
-                  value={contractExpSearch}
-                  onChange={(e) => setContractExpSearch(e.target.value)}
-                  aria-label="Filter contract expirations"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant={showPrevMonthExpiredContracts ? "secondary" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setShowPrevMonthExpiredContracts((v) => !v)}
-                >
-                  {showPrevMonthExpiredContracts ? "Hide" : "Show"} prior-month expired
-                </Button>
-                <span className="text-[10px] text-muted-foreground">
-                  Recently lapsed in the last 30 days are included for search; they appear with an expired style.
-                </span>
-              </div>
-
-
-            </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3 space-y-6 text-sm">
-              {contractsGroupedByMonthYear.length === 0 ? (
-                <p className="text-muted-foreground text-xs">No active contracts.</p>
-              ) : contractsGroupedByMonthYearFiltered.length === 0 ? (
-                <p className="text-muted-foreground text-xs">No contracts match your search.</p>
-              ) : (
-                contractsGroupedByMonthYearFiltered.map(([ym, group]) => (
-                  <section key={ym} className="space-y-2">
-                    <h4 className="sticky top-0 z-[1] -mx-1 bg-card/95 px-1 py-1 text-xs font-bold uppercase tracking-wide text-primary backdrop-blur">
-                      {group.label}
-                    </h4>
-                    <ul className="space-y-2 pl-0">
-                      {group.items.map((c) => {
-                        const exp = parseApiDateOnlyKey(String(c.expirationDate));
-                        const expD = exp ? new Date(exp + "T12:00:00") : null;
-                        const expired = isContractExpired(c) || c.isRecentExpired;
-                        return (
-                          <li
-                            key={c.id}
-                            className={cn(
-                              "rounded-lg border px-3 py-2 transition-colors hover:bg-muted/35 space-y-2",
-                              expired
-                                ? "border-dashed border-amber-700/50 bg-amber-50/60 dark:border-amber-500/40 dark:bg-amber-950/25"
-                                : "border-border/40 bg-muted/20"
-                            )}
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium leading-snug text-sm flex-1 min-w-0">
-                                {c.customer?.name ?? "Customer"} → {c.supplier?.name ?? "Supplier"}
-                              </p>
-                              {expired ? (
-                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
-                                  Expired
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="text-muted-foreground text-xs">
-                              {(c.energyType ?? "").replaceAll("_", " ")} ·{" "}
-                              {expD ? expD.toLocaleDateString() : "—"}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => {
-                                  const k = parseApiDateOnlyKey(String(c.expirationDate));
-                                  if (k) flashDayOnCalendar(k);
-                                }}
-                              >
-                                Show on calendar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => setRenewalEmailContractId(c.id)}
-                              >
-                                Send email
-                              </Button>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="h-8 text-xs"
-                                type="button"
-                                onClick={() => {
-                                  setContractModalId(c.id);
-                                  setContractModalOpen(true);
-                                }}
-                              >
-                                Open contract
-                              </Button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-                ))
-              )}
-            </CardContent>
-              </Card>
-              </Panel>
-              <PanelResizeHandle className={resizeHandleClass} />
-              <Panel defaultSize={42} minSize={18} className="min-h-0">
-              <Card className="flex h-full min-h-0 flex-col overflow-hidden border-violet-200/60 dark:border-violet-900/40 border-border/50 shadow-sm rounded-xl">
-            <CardHeader className="pb-2 border-b border-border/40 shrink-0">
-              <h3 className="text-base font-semibold leading-none text-violet-900 dark:text-violet-100">
-                License Certification and Yearly Renewal Fees
-              </h3>
-              <CardDescription className="text-[11px]">
-                All licenses, grouped by expiration. Also shown on the calendar (violet).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 min-h-0 overflow-y-auto pt-3 space-y-6 text-sm">
-              {licensesGroupedByMonthYear.length === 0 ? (
-                <p className="text-muted-foreground text-xs">No licenses.</p>
-              ) : (
-                licensesGroupedByMonthYear.map(([ym, group]) => (
-                  <section key={ym} className="space-y-2">
-                    <h4 className="sticky top-0 z-[1] -mx-1 bg-card/95 px-1 py-1 text-xs font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300 backdrop-blur">
-                      {group.label}
-                    </h4>
-                    <ul className="space-y-2">
-                      {group.items.map((l) => {
-                        const exp = parseApiDateOnlyKey(String(l.expirationDate));
-                        const expD = exp ? new Date(exp + "T12:00:00") : null;
-                        return (
-                          <li
-                            key={l.id}
-                            className="rounded-lg border border-violet-200/50 bg-violet-50/50 dark:bg-violet-950/30 px-3 py-2 space-y-2"
-                          >
-                            <p className="font-medium text-sm">
-                              {l.licenseType} {l.licenseNumber}
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                              {expD ? expD.toLocaleDateString() : "—"}
-                            </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs"
-                              onClick={() => {
-                                const k = parseApiDateOnlyKey(String(l.expirationDate));
-                                if (k) flashDayOnCalendar(k);
-                              }}
-                            >
-                              Show on calendar
-                            </Button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-                ))
-              )}
-            </CardContent>
-              </Card>
-              </Panel>
             </PanelGroup>
           </Panel>
         </PanelGroup>
@@ -2528,19 +2298,19 @@ export default function DashboardPage() {
           }}
         />
 
-        <ContractRenewalEmailDialog
-          contractId={renewalEmailContractId}
-          open={renewalEmailContractId != null}
-          onOpenChange={(o) => {
-            if (!o) setRenewalEmailContractId(null);
-          }}
-        />
-
         <DayAgendaDialog
           open={dashAgendaOpen}
           onOpenChange={(o) => {
             setDashAgendaOpen(o);
             if (!o) setDashAgendaDate(null);
+          }}
+          onAddTask={() => {
+            const d = dashAgendaDate;
+            setDashAgendaOpen(false);
+            setDashAgendaDate(null);
+            setDashTaskCreatePrefillDue(d ? localDateKey(d) : null);
+            setDashTaskCreateListId(taskLists[0]?.id ?? "");
+            setDashTaskCreateOpen(true);
           }}
           dayLabel={
             dashAgendaDate
@@ -2623,10 +2393,14 @@ export default function DashboardPage() {
           open={dashTaskCreateOpen}
           onOpenChange={(o) => {
             setDashTaskCreateOpen(o);
-            if (!o) setDashTaskCreateListId("");
+            if (!o) {
+              setDashTaskCreateListId("");
+              setDashTaskCreatePrefillDue(null);
+            }
           }}
           lists={taskLists}
           defaultListId={dashTaskCreateListId}
+          defaultDueDate={dashTaskCreatePrefillDue}
           onCreated={() => void load()}
         />
 
@@ -2718,22 +2492,6 @@ export default function DashboardPage() {
           </DialogContent>
         </Dialog>
 
-        {/* News — thin strip so the page does not scroll on typical viewports */}
-        <Card className="shrink-0 flex flex-col border-border/60 shadow-sm">
-          <CardHeader className="py-2 px-3 pb-1 flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-sm font-semibold">News</CardTitle>
-              <CardDescription className="text-[11px]">Energy &amp; macro headlines</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" className="h-8 text-xs" asChild>
-              <Link href="/news">Open news</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="px-3 pb-2 text-xs text-muted-foreground">
-            Use the News page for feeds and market context. This panel links there so the dashboard stays
-            compact.
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

@@ -52,6 +52,8 @@ export type DayAgendaDialogProps = {
   contracts: ContractMini[];
   licenses: LicenseMini[];
   onAddEvent: () => void;
+  /** Dashboard: open task creation (e.g. pre-filled with the selected day). */
+  onAddTask?: () => void;
   onEditEvent: (id: string) => void;
   onEditTask: (id: string) => void;
   onOpenContract: (id: string) => void;
@@ -94,6 +96,7 @@ export function DayAgendaDialog({
   contracts,
   licenses,
   onAddEvent,
+  onAddTask,
   onEditEvent,
   onEditTask,
   onOpenContract,
@@ -319,17 +322,24 @@ export function DayAgendaDialog({
                 </div>
               )}
             </div>
-            <DialogFooter className="gap-2 sm:justify-between">
+            <DialogFooter className="gap-2 sm:flex-col sm:items-stretch sm:justify-start md:flex-row md:justify-between">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
-              {variant === "dashboard" && scheduleDayHref ? (
-                <Button variant="default" asChild>
-                  <Link href={scheduleDayHref}>Open in calendar</Link>
-                </Button>
-              ) : (
-                <Button onClick={onAddEvent}>Add event</Button>
-              )}
+              <div className="flex flex-wrap gap-2 justify-end">
+                {variant === "dashboard" && onAddTask ? (
+                  <Button type="button" variant="secondary" onClick={() => onAddTask()}>
+                    Add task
+                  </Button>
+                ) : null}
+                {variant === "dashboard" && scheduleDayHref ? (
+                  <Button variant="default" asChild>
+                    <Link href={scheduleDayHref}>Open in calendar</Link>
+                  </Button>
+                ) : (
+                  <Button onClick={onAddEvent}>Add event</Button>
+                )}
+              </div>
             </DialogFooter>
           </>
         )}

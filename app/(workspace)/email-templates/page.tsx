@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { RotateCcw, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,14 @@ import {
   EmailTemplatesEditor,
   type EmailTemplatesEditorHandle,
 } from "@/components/email-templates/email-templates-editor";
-export default function EmailTemplatesPage() {
+import {
+  parseReturnToFromSearchParam,
+  readStoredEmailTemplatesReturnPath,
+} from "@/lib/email-templates-return";
+
+function EmailTemplatesDialogInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(true);
   const [saveNotice, setSaveNotice] = useState(false);
   const editorRef = useRef<EmailTemplatesEditorHandle>(null);
@@ -21,12 +27,22 @@ export default function EmailTemplatesPage() {
     return () => window.clearTimeout(t);
   }, [saveNotice]);
 
+  const navigateAfterClose = () => {
+    const returnPath =
+      parseReturnToFromSearchParam(searchParams.get("returnTo")) ?? readStoredEmailTemplatesReturnPath();
+    if (returnPath) {
+      router.push(returnPath);
+      return;
+    }
+    router.push("/dashboard");
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) router.push("/inbox");
+        if (!next) navigateAfterClose();
       }}
     >
       <DialogContent className="flex h-[min(92vh,920px)] max-h-[92vh] w-[min(96vw,1400px)] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[96vw]">
@@ -76,5 +92,13 @@ export default function EmailTemplatesPage() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export default function EmailTemplatesPage() {
+  return (
+    <Suspense fallback={null}>
+      <EmailTemplatesDialogInner />
+    </Suspense>
   );
 }

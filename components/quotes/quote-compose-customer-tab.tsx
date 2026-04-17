@@ -696,28 +696,55 @@ export function QuoteComposeCustomerTab({
       hasSentCustomerQuoteThisSessionRef.current = true;
       setQuoteSendBanner({ variant: isResend ? "resent" : "sent", to: toAddr });
 
-      if (recordQuoteSummaryOnSend && rfpRequestId) {
-        const sentAt = new Date().toISOString();
+      /** Always persist the sent message on the RFP (same shape as Save draft) so it survives reload/archive. */
+      if (rfpRequestId) {
+        const persistBody: Record<string, unknown> = {
+          customerQuoteEmailDraft: {
+            to,
+            cc,
+            subject,
+            htmlBody,
+            templateId,
+            recordQuoteSummaryOnSend,
+          },
+        };
+        if (recordQuoteSummaryOnSend) {
+          persistBody.quoteSummarySentAt = new Date().toISOString();
+        }
         const patchRes = await fetch(`/api/rfp/${encodeURIComponent(rfpRequestId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quoteSummarySentAt: sentAt }),
+          body: JSON.stringify(persistBody),
         });
         const patchData = await patchRes.json().catch(() => ({}));
         if (!patchRes.ok) {
           toast({
-            message: `Sent to ${toAddr}, but could not record quote summary time (${typeof patchData.error === "string" ? patchData.error : "save failed"}).`,
+            message: `Sent to ${toAddr}, but could not save the email copy on this RFP (${typeof patchData.error === "string" ? patchData.error : "save failed"}).`,
             variant: "error",
           });
           onQuoteEmailSent?.();
           return;
         }
+        lastAppliedServerDraftCanonRef.current = canonicalCustomerQuoteDraftJson({
+          to,
+          cc,
+          subject,
+          htmlBody,
+          templateId,
+          recordQuoteSummaryOnSend,
+        });
+      }
+
+      if (recordQuoteSummaryOnSend) {
         toast({
-          message: `Sent to ${toAddr}. Quote summary “sent” time recorded for the dashboard.`,
+          message: `Sent to ${toAddr}. Quote email saved on the RFP; quote summary “sent” time recorded for the dashboard.`,
           variant: "success",
         });
       } else {
-        toast({ message: `Sent to ${toAddr}.`, variant: "success" });
+        toast({
+          message: `Sent to ${toAddr}. Quote email saved on this RFP.`,
+          variant: "success",
+        });
       }
       onQuoteEmailSent?.();
     } catch (e) {

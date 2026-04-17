@@ -209,6 +209,8 @@ model ContractWorkflowRow {
 
   /// User marked renewal reminder as not applicable (no prior contract / no email needed).
   renewalReminderNotApplicableAt DateTime? @map("renewal_reminder_not_applicable_at")
+  /// Renewal reminder email recorded for this workflow row (scoped per contract; not shared across a customer’s other contracts).
+  renewalReminderEmailSentAt DateTime? @map("renewal_reminder_email_sent_at")
   /// Manual “RFP sent” when linking or timestamps are insufficient.
   rfpSentOverrideAt DateTime? @map("rfp_sent_override_at")
   /// Manual “quote summary sent” override for the linked RFP.

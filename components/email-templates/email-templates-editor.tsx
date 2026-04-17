@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, Plus, Trash2 } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
@@ -122,6 +122,15 @@ export const EmailTemplatesEditor = forwardRef<EmailTemplatesEditorHandle, Email
     contract: true,
   });
   const [bodyInsert, setBodyInsert] = useState<{ nonce: number; html: string } | null>(null);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
+  const subjectSelRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+
+  const syncSubjectSelection = useCallback((el: HTMLInputElement) => {
+    subjectSelRef.current = {
+      start: el.selectionStart ?? 0,
+      end: el.selectionEnd ?? 0,
+    };
+  }, []);
 
   useEffect(() => {
     const list = loadEmailTemplates();
@@ -131,6 +140,12 @@ export const EmailTemplatesEditor = forwardRef<EmailTemplatesEditorHandle, Email
   }, []);
 
   const selected = templates.find((t) => t.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!selected) return;
+    const len = (selected.subject ?? "").length;
+    subjectSelRef.current = { start: len, end: len };
+  }, [selected?.id]);
 
   useEffect(() => {
     if (!selected) setPreviewOpen(false);
@@ -164,11 +179,24 @@ export const EmailTemplatesEditor = forwardRef<EmailTemplatesEditorHandle, Email
       if (placeholderTarget === "subject") {
         if (!selectedId) return;
         persist((prev) =>
-          prev.map((t) =>
-            t.id === selectedId
-              ? { ...t, subject: (t.subject || "") + piece, updatedAt: new Date().toISOString() }
-              : t
-          )
+          prev.map((t) => {
+            if (t.id !== selectedId) return t;
+            const s = t.subject ?? "";
+            let { start, end } = subjectSelRef.current;
+            if (start > end) [start, end] = [end, start];
+            start = Math.max(0, Math.min(start, s.length));
+            end = Math.max(0, Math.min(end, s.length));
+            const next = s.slice(0, start) + piece + s.slice(end);
+            const caret = start + piece.length;
+            subjectSelRef.current = { start: caret, end: caret };
+            queueMicrotask(() => {
+              const el = subjectInputRef.current;
+              if (!el) return;
+              el.focus();
+              el.setSelectionRange(caret, caret);
+            });
+            return { ...t, subject: next, updatedAt: new Date().toISOString() };
+          })
         );
         return;
       }
@@ -343,9 +371,15 @@ export const EmailTemplatesEditor = forwardRef<EmailTemplatesEditorHandle, Email
                     <Label htmlFor="tpl-subject">Subject</Label>
                     <Input
                       id="tpl-subject"
+                      ref={subjectInputRef}
                       value={selected.subject}
+                      onSelect={(e) => syncSubjectSelection(e.currentTarget)}
+                      onKeyUp={(e) => syncSubjectSelection(e.currentTarget)}
+                      onMouseUp={(e) => syncSubjectSelection(e.currentTarget)}
                       onChange={(e) => {
-                        const v = e.target.value;
+                        const el = e.currentTarget;
+                        const v = el.value;
+                        syncSubjectSelection(el);
                         const id = selected.id;
                         persist((prev) => prev.map((t) => (t.id === id ? { ...t, subject: v } : t)));
                       }}
@@ -375,8 +409,8 @@ export const EmailTemplatesEditor = forwardRef<EmailTemplatesEditorHandle, Email
                     <div className="flex min-h-0 flex-col gap-2">
                       <Label>Placeholders</Label>
                       <p className="text-[11px] text-muted-foreground">
-                        Open a group, then click a field. Choose whether to append to the subject line or insert into the
-                        body at the cursor.
+                        Open a group, then click a field. Choose whether to insert into the subject at the text cursor or
+                        into the body at the editor cursor.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Button

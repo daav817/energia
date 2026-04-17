@@ -80,6 +80,8 @@ type WorkflowRowApi = {
   contractOutcome: string;
   lastWorkflowRefreshAt: string | null;
   renewalReminderNotApplicableAt: string | null;
+  /** Set when a renewal email is recorded for this workflow row (per contract). */
+  renewalReminderEmailSentAt: string | null;
   rfpSentOverrideAt: string | null;
   quoteSummaryOverrideAt: string | null;
   contract: {
@@ -102,6 +104,13 @@ type WorkflowRowApi = {
   customer: { id: string; name: string; company: string | null } | null;
   linkedRfp: LinkedRfp;
 };
+
+/** Renewal column: N/A, or email sent for this row only (not other contracts for the same customer). */
+function isRenewalReminderStepDone(row: WorkflowRowApi): boolean {
+  if (row.renewalReminderNotApplicableAt) return true;
+  if (row.renewalReminderEmailSentAt) return true;
+  return false;
+}
 
 type CompanyOpt = {
   id: string;
@@ -193,8 +202,7 @@ function workflowRowStarted(row: WorkflowRowApi): boolean {
   const rfpSent = autoRfpSent || Boolean(row.rfpSentOverrideAt);
   const autoQuoteSent = afterRefresh(row.linkedRfp?.quoteSummarySentAt ?? null, refreshIso);
   const quoteSent = autoQuoteSent || Boolean(row.quoteSummaryOverrideAt);
-  const renewalDone =
-    Boolean(c?.renewalReminderSentAt) || Boolean(row.renewalReminderNotApplicableAt);
+  const renewalDone = isRenewalReminderStepDone(row);
 
   if (renewalDone) return true;
   if (row.receivedBillsAt) return true;
@@ -410,6 +418,7 @@ export function ContractWorkflowPanel({
   const [loading, setLoading] = useState(true);
   const [archivedView, setArchivedView] = useState(false);
   const [renewalContractId, setRenewalContractId] = useState<string | null>(null);
+  const [renewalWorkflowRowId, setRenewalWorkflowRowId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [companies, setCompanies] = useState<CompanyOpt[]>([]);
   const [addCustomerId, setAddCustomerId] = useState("");
@@ -898,8 +907,7 @@ export function ContractWorkflowPanel({
       const rfpSent = autoRfpSent || Boolean(row.rfpSentOverrideAt);
       const autoQuoteSent = afterRefresh(row.linkedRfp?.quoteSummarySentAt ?? null, refreshIso);
       const quoteSent = autoQuoteSent || Boolean(row.quoteSummaryOverrideAt);
-      const renewalDone =
-        Boolean(c?.renewalReminderSentAt) || Boolean(row.renewalReminderNotApplicableAt);
+      const renewalDone = isRenewalReminderStepDone(row);
       const isNewRow = !c;
       const strikethrough = row.contractOutcome === "end_pursuit";
       const rfpId = row.linkedRfpRequestId || row.linkedRfp?.id || "";
@@ -1002,7 +1010,7 @@ export function ContractWorkflowPanel({
             ) : renewalDone ? (
               <div className="flex flex-col items-center gap-1">
                 <StepCheck done compact={compact} />
-                {!archivedView && !c!.renewalReminderSentAt && row.renewalReminderNotApplicableAt ? (
+                {!archivedView && !row.renewalReminderEmailSentAt && row.renewalReminderNotApplicableAt ? (
                   <button
                     type="button"
                     className="text-[10px] text-primary hover:underline"
@@ -1024,7 +1032,10 @@ export function ContractWorkflowPanel({
                     "h-7 border-destructive/60 text-destructive hover:bg-destructive/10",
                     compact ? "text-[10px] px-1.5" : "text-xs"
                   )}
-                  onClick={() => setRenewalContractId(c!.id)}
+                  onClick={() => {
+                    setRenewalContractId(c!.id);
+                    setRenewalWorkflowRowId(row.id);
+                  }}
                 >
                   <Mail className={cn("mr-1", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
                   {!compact ? "Send renewal email" : "Send"}
@@ -1402,9 +1413,13 @@ export function ContractWorkflowPanel({
       <ContractRenewalEmailDialog
         open={renewalContractId != null}
         onOpenChange={(o) => {
-          if (!o) setRenewalContractId(null);
+          if (!o) {
+            setRenewalContractId(null);
+            setRenewalWorkflowRowId(null);
+          }
         }}
         contractId={renewalContractId}
+        workflowRowId={renewalWorkflowRowId}
         onAfterSend={() => void loadRows()}
       />
 

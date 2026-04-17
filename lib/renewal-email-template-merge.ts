@@ -23,32 +23,82 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function rowHasColumnValue(rows: ContractAccountTemplateRow[], raw: (r: ContractAccountTemplateRow) => string): boolean {
+  return rows.some((r) => raw(r).trim() !== "");
+}
+
+type AccountTableCol = {
+  header: string;
+  align: "left" | "right";
+  /** Raw value used to decide if the column is omitted (column is kept only if any row is non-empty). */
+  raw: (r: ContractAccountTemplateRow) => string;
+  /** Cell HTML for one row (may use placeholders like — when the column is kept but this cell is empty). */
+  cellHtml: (r: ContractAccountTemplateRow) => string;
+};
+
+const ACCOUNT_TABLE_COLS: AccountTableCol[] = [
+  {
+    header: "Account ID",
+    align: "left",
+    raw: (r) => (r.accountId ?? "").trim(),
+    cellHtml: (r) => escapeHtml((r.accountId ?? "").trim()),
+  },
+  {
+    header: "Utility",
+    align: "left",
+    raw: (r) => (r.ldcUtility ?? "").trim(),
+    cellHtml: (r) => escapeHtml((r.ldcUtility ?? "").trim() || "—"),
+  },
+  {
+    header: "Service address",
+    align: "left",
+    raw: (r) => (r.serviceAddress ?? "").trim(),
+    cellHtml: (r) => escapeHtml((r.serviceAddress ?? "").trim()),
+  },
+  {
+    header: "Annual usage",
+    align: "right",
+    raw: (r) => (r.annualUsage ?? "").trim(),
+    cellHtml: (r) => escapeHtml((r.annualUsage ?? "").trim() || "—"),
+  },
+  {
+    header: "Avg monthly usage",
+    align: "right",
+    raw: (r) => (r.avgMonthlyUsage ?? "").trim(),
+    cellHtml: (r) => escapeHtml((r.avgMonthlyUsage ?? "").trim() || "—"),
+  },
+];
+
 /**
  * HTML table for email bodies. Returns empty string when there are no rows (omit from template).
+ * Omits any column that has no data in every row (so blank columns are not shown).
  */
 export function buildContractAccountsTableHtml(rows: ContractAccountTemplateRow[]): string {
   if (!rows.length) return "";
-  const body = rows
+  const cols = ACCOUNT_TABLE_COLS.filter((c) => rowHasColumnValue(rows, c.raw));
+  if (!cols.length) return "";
+  const th = cols
     .map(
-      (r) =>
-        `<tr>` +
-        `<td style="border:1px solid #ccc;padding:6px;">${escapeHtml(r.accountId)}</td>` +
-        `<td style="border:1px solid #ccc;padding:6px;">${escapeHtml((r.ldcUtility ?? "").trim() || "—")}</td>` +
-        `<td style="border:1px solid #ccc;padding:6px;">${escapeHtml((r.serviceAddress ?? "").trim())}</td>` +
-        `<td style="border:1px solid #ccc;padding:6px;text-align:right;">${escapeHtml((r.annualUsage ?? "").trim() || "—")}</td>` +
-        `<td style="border:1px solid #ccc;padding:6px;text-align:right;">${escapeHtml((r.avgMonthlyUsage ?? "").trim() || "—")}</td>` +
-        `</tr>`
+      (c) =>
+        `<th style="border:1px solid #ccc;padding:6px;text-align:${c.align};background:#f5f5f5;">${escapeHtml(
+          c.header
+        )}</th>`
     )
+    .join("");
+  const body = rows
+    .map((r) => {
+      const tds = cols
+        .map((c) => {
+          const ta = c.align === "right" ? "text-align:right;" : "";
+          return `<td style="border:1px solid #ccc;padding:6px;${ta}">${c.cellHtml(r)}</td>`;
+        })
+        .join("");
+      return `<tr>${tds}</tr>`;
+    })
     .join("");
   return (
     `<table role="presentation" style="border-collapse:collapse;width:100%;max-width:640px;font-size:14px;margin:8px 0;">` +
-    `<thead><tr>` +
-    `<th style="border:1px solid #ccc;padding:6px;text-align:left;background:#f5f5f5;">Account ID</th>` +
-    `<th style="border:1px solid #ccc;padding:6px;text-align:left;background:#f5f5f5;">Utility</th>` +
-    `<th style="border:1px solid #ccc;padding:6px;text-align:left;background:#f5f5f5;">Service address</th>` +
-    `<th style="border:1px solid #ccc;padding:6px;text-align:right;background:#f5f5f5;">Annual usage</th>` +
-    `<th style="border:1px solid #ccc;padding:6px;text-align:right;background:#f5f5f5;">Avg monthly usage</th>` +
-    `</tr></thead><tbody>${body}</tbody></table>`
+    `<thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`
   );
 }
 
@@ -95,7 +145,8 @@ export const EMAIL_TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
   greetingFirstName: "Jordan",
   supplierName: "Sample Power & Gas LLC",
   energyLabel: "Electric",
-  energyType: "ELECTRIC",
+  energyType: "Electric",
+  energyTypeRaw: "ELECTRIC",
   rateLabel: "$0.084500 / kWh",
   contractStartDate: "4/1/2024",
   contractEndDate: "3/31/2026",
@@ -238,7 +289,8 @@ export function buildRenewalTemplateVariables(
     greetingFirstName: greet || contactName.split(/\s+/)[0] || contactName,
     supplierName: c.supplier.name,
     energyLabel: formatEnergyType(c.energyType),
-    energyType: c.energyType,
+    energyType: formatEnergyType(c.energyType),
+    energyTypeRaw: c.energyType,
     rateLabel: formatRate(c),
     contractStartDate: formatLocaleDateFromStoredDay(c.startDate),
     contractEndDate: formatLocaleDateFromStoredDay(c.expirationDate),

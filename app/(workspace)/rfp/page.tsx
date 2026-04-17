@@ -911,7 +911,7 @@ export default function RfpGeneratorPage() {
   const [archivedRfqs, setArchivedRfqs] = useState<RecentRfp[]>([]);
   const [recentUnsubmittedExpanded, setRecentUnsubmittedExpanded] = useState(true);
   const [recentSubmittedExpanded, setRecentSubmittedExpanded] = useState(true);
-  const [recentArchivedExpanded, setRecentArchivedExpanded] = useState(true);
+  const [recentArchivedExpanded, setRecentArchivedExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [baselineFingerprint, setBaselineFingerprint] = useState<string | null>(null);
   const [renewalEmailContractId, setRenewalEmailContractId] = useState<string | null>(null);
@@ -3209,8 +3209,8 @@ export default function RfpGeneratorPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)] xl:items-start">
-        <form id="rfp-workspace-form" onSubmit={handleSend} className="space-y-6">
+      <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)] xl:items-stretch">
+        <form id="rfp-workspace-form" onSubmit={handleSend} className="min-h-0 space-y-6">
           <Card>
             <CardHeader className="pb-4">
               <CardDescription className="flex items-start gap-2 text-base text-foreground">
@@ -4122,14 +4122,14 @@ export default function RfpGeneratorPage() {
           </Card>
         </form>
 
-        <div className="flex min-h-0 min-w-0 w-full flex-col gap-6 self-start xl:sticky xl:top-24 xl:min-h-0 xl:h-[calc(100dvh-7rem)] xl:max-h-[calc(100dvh-7rem)]">
+        <div className="flex min-h-0 min-w-0 w-full flex-col gap-6 self-start overflow-hidden xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)] xl:h-[calc(100dvh-7rem)]">
           <PanelGroup
             direction="vertical"
             autoSaveId="energia-rfp-checklist-recent-split"
             className={cn(
-              "flex min-w-0 flex-col",
+              "flex min-h-0 min-w-0 flex-col overflow-hidden",
               "min-h-[min(68dvh,560px)] max-xl:shrink-0",
-              "xl:min-h-0 xl:flex-1"
+              "h-full max-xl:max-h-[min(92dvh,720px)] xl:flex-1"
             )}
           >
             <Panel defaultSize={38} minSize={18} className="min-h-0 flex flex-col">
@@ -4190,7 +4190,92 @@ export default function RfpGeneratorPage() {
                 Unsubmitted entries are saved from the form; submitted entries have had supplier emails sent.
               </CardDescription>
             </CardHeader>
-            <CardContent className="min-h-0 flex-1 space-y-8 overflow-y-auto overscroll-contain pr-1">
+            <CardContent className="min-h-0 flex-1 space-y-8 overflow-y-auto overscroll-contain pr-1 pb-6">
+              <section className="space-y-3">
+                <button
+                  type="button"
+                  className="flex w-full items-start justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left hover:bg-muted/40"
+                  onClick={() => setRecentArchivedExpanded((v) => !v)}
+                  aria-expanded={recentArchivedExpanded}
+                >
+                  <div className="min-w-0 flex items-start gap-2">
+                    {recentArchivedExpanded ? (
+                      <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    ) : (
+                      <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    )}
+                    <div>
+                      <h3 className="text-sm font-semibold">
+                        Archived
+                        {archivedRfqs.length > 0 ? (
+                          <span className="ml-1.5 font-normal text-muted-foreground">
+                            ({archivedRfqs.length})
+                          </span>
+                        ) : null}
+                      </h3>
+                      {recentArchivedExpanded ? (
+                        <p className="text-xs text-muted-foreground">
+                          Historical RFPs removed from the active list. Open one to review details when preparing a
+                          new contract cycle.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {recentArchivedExpanded ? "Collapse" : "Expand"}
+                  </span>
+                </button>
+                {recentArchivedExpanded ? (
+                  archivedRfqs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No archived RFPs yet.</p>
+                  ) : (
+                    archivedRfqs.map((rfp) => (
+                      <div key={rfp.id} className="rounded-lg border border-dashed p-4 opacity-90">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · {rfp.status}
+                            </p>
+                          </div>
+                          <span className="text-right text-xs text-muted-foreground">
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/85">
+                              Quote due
+                            </span>
+                            {rfp.quoteDueDate ? formatLocaleDateFromStoredDay(rfp.quoteDueDate) : "Not set"}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void loadSavedRfpIntoForm(rfp.id)}
+                          >
+                            Open in form
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await fetch(`/api/rfp/${rfp.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ archive: false }),
+                              });
+                              await loadPageData();
+                            }}
+                          >
+                            Unarchive
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )
+                ) : null}
+              </section>
+
               <section className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -4480,124 +4565,6 @@ export default function RfpGeneratorPage() {
                         </div>
                       </div>
                     ))}
-              </section>
-
-              <section className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">Archived</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Historical RFPs removed from the active list. Open one to review details when preparing a new contract
-                      cycle.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 gap-1 text-xs"
-                    onClick={() => setRecentArchivedExpanded((v) => !v)}
-                    aria-expanded={recentArchivedExpanded}
-                  >
-                    {recentArchivedExpanded ? (
-                      <ChevronDown className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" aria-hidden />
-                    )}
-                    {recentArchivedExpanded ? "Collapse" : "Expand"}
-                  </Button>
-                </div>
-                {archivedRfqs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No archived RFPs yet.</p>
-                ) : recentArchivedExpanded ? (
-                  archivedRfqs.map((rfp) => (
-                    <div key={rfp.id} className="rounded-lg border border-dashed p-4 opacity-90">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium">{rfpListCustomerTitle(rfp)}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"} · {rfp.status}
-                          </p>
-                        </div>
-                        <span className="text-right text-xs text-muted-foreground">
-                          <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/85">
-                            Quote due
-                          </span>
-                          {rfp.quoteDueDate ? formatLocaleDateFromStoredDay(rfp.quoteDueDate) : "Not set"}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void loadSavedRfpIntoForm(rfp.id)}
-                        >
-                          Open in form
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            await fetch(`/api/rfp/${rfp.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ archive: false }),
-                            });
-                            await loadPageData();
-                          }}
-                        >
-                          Unarchive
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  archivedRfqs.map((rfp) => (
-                    <div
-                      key={rfp.id}
-                      className="flex flex-col gap-2 rounded-md border border-dashed px-3 py-2 text-xs opacity-90 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <span className="font-medium">{rfpListCompanyLine(rfp)}</span>
-                        <span className="text-muted-foreground">{rfpContactPersonLine(rfp)}</span>
-                        <span>{rfp.energyType === "ELECTRIC" ? "Electric" : "Natural gas"}</span>
-                        <span className="text-muted-foreground">
-                          Due:{" "}
-                          {rfp.quoteDueDate ? formatLocaleDateFromStoredDay(rfp.quoteDueDate) : "—"}
-                        </span>
-                      </div>
-                      <div className="flex shrink-0 flex-wrap gap-1">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          className="h-8 text-xs"
-                          onClick={() => void loadSavedRfpIntoForm(rfp.id)}
-                        >
-                          Open in form
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={async () => {
-                            await fetch(`/api/rfp/${rfp.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ archive: false }),
-                            });
-                            await loadPageData();
-                          }}
-                        >
-                          Unarchive
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
               </section>
             </CardContent>
           </Card>

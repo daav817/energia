@@ -42,7 +42,14 @@ export const EMAIL_TEMPLATE_PLACEHOLDER_TREE: TemplatePlaceholderNode[] = [
     label: "Contract",
     children: [
       { kind: "field", id: "energyLabel", label: "Energy type (Electric / Gas)", token: "{{energyLabel}}" },
-      { kind: "field", id: "energyTypeRaw", label: "Energy type (raw enum)", token: "{{energyType}}" },
+      {
+        kind: "field",
+        id: "energyType",
+        label: "Energy type (same as label, for {{energyType}})",
+        token: "{{energyType}}",
+        description: 'Renders "Electric" or "Natural Gas" (not the raw ELECTRIC / NATURAL_GAS enum).',
+      },
+      { kind: "field", id: "energyTypeRaw", label: "Energy type (raw enum: ELECTRIC / NATURAL_GAS)", token: "{{energyTypeRaw}}" },
       { kind: "field", id: "rateLabel", label: "Rate (formatted)", token: "{{rateLabel}}" },
       { kind: "field", id: "contractStartDate", label: "Start date", token: "{{contractStartDate}}" },
       { kind: "field", id: "contractEndDate", label: "End / expiration date", token: "{{contractEndDate}}" },

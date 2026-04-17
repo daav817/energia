@@ -39,6 +39,7 @@ export type ContractWorkflowRowMinAggregateOutputType = {
   contractOutcome: string | null
   lastWorkflowRefreshAt: Date | null
   renewalReminderNotApplicableAt: Date | null
+  renewalReminderEmailSentAt: Date | null
   rfpSentOverrideAt: Date | null
   quoteSummaryOverrideAt: Date | null
   createdAt: Date | null
@@ -60,6 +61,7 @@ export type ContractWorkflowRowMaxAggregateOutputType = {
   contractOutcome: string | null
   lastWorkflowRefreshAt: Date | null
   renewalReminderNotApplicableAt: Date | null
+  renewalReminderEmailSentAt: Date | null
   rfpSentOverrideAt: Date | null
   quoteSummaryOverrideAt: Date | null
   createdAt: Date | null
@@ -81,6 +83,7 @@ export type ContractWorkflowRowCountAggregateOutputType = {
   contractOutcome: number
   lastWorkflowRefreshAt: number
   renewalReminderNotApplicableAt: number
+  renewalReminderEmailSentAt: number
   rfpSentOverrideAt: number
   quoteSummaryOverrideAt: number
   createdAt: number
@@ -104,6 +107,7 @@ export type ContractWorkflowRowMinAggregateInputType = {
   contractOutcome?: true
   lastWorkflowRefreshAt?: true
   renewalReminderNotApplicableAt?: true
+  renewalReminderEmailSentAt?: true
   rfpSentOverrideAt?: true
   quoteSummaryOverrideAt?: true
   createdAt?: true
@@ -125,6 +129,7 @@ export type ContractWorkflowRowMaxAggregateInputType = {
   contractOutcome?: true
   lastWorkflowRefreshAt?: true
   renewalReminderNotApplicableAt?: true
+  renewalReminderEmailSentAt?: true
   rfpSentOverrideAt?: true
   quoteSummaryOverrideAt?: true
   createdAt?: true
@@ -146,6 +151,7 @@ export type ContractWorkflowRowCountAggregateInputType = {
   contractOutcome?: true
   lastWorkflowRefreshAt?: true
   renewalReminderNotApplicableAt?: true
+  renewalReminderEmailSentAt?: true
   rfpSentOverrideAt?: true
   quoteSummaryOverrideAt?: true
   createdAt?: true
@@ -240,6 +246,7 @@ export type ContractWorkflowRowGroupByOutputType = {
   contractOutcome: string
   lastWorkflowRefreshAt: Date | null
   renewalReminderNotApplicableAt: Date | null
+  renewalReminderEmailSentAt: Date | null
   rfpSentOverrideAt: Date | null
   quoteSummaryOverrideAt: Date | null
   createdAt: Date
@@ -282,6 +289,7 @@ export type ContractWorkflowRowWhereInput = {
   contractOutcome?: Prisma.StringFilter<"ContractWorkflowRow"> | string
   lastWorkflowRefreshAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   rfpSentOverrideAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   quoteSummaryOverrideAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ContractWorkflowRow"> | Date | string
@@ -306,6 +314,7 @@ export type ContractWorkflowRowOrderByWithRelationInput = {
   contractOutcome?: Prisma.SortOrder
   lastWorkflowRefreshAt?: Prisma.SortOrderInput | Prisma.SortOrder
   renewalReminderNotApplicableAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  renewalReminderEmailSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   rfpSentOverrideAt?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryOverrideAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -333,6 +342,7 @@ export type ContractWorkflowRowWhereUniqueInput = Prisma.AtLeast<{
   contractOutcome?: Prisma.StringFilter<"ContractWorkflowRow"> | string
   lastWorkflowRefreshAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   rfpSentOverrideAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   quoteSummaryOverrideAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ContractWorkflowRow"> | Date | string
@@ -357,6 +367,7 @@ export type ContractWorkflowRowOrderByWithAggregationInput = {
   contractOutcome?: Prisma.SortOrder
   lastWorkflowRefreshAt?: Prisma.SortOrderInput | Prisma.SortOrder
   renewalReminderNotApplicableAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  renewalReminderEmailSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   rfpSentOverrideAt?: Prisma.SortOrderInput | Prisma.SortOrder
   quoteSummaryOverrideAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -384,6 +395,7 @@ export type ContractWorkflowRowScalarWhereWithAggregatesInput = {
   contractOutcome?: Prisma.StringWithAggregatesFilter<"ContractWorkflowRow"> | string
   lastWorkflowRefreshAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ContractWorkflowRow"> | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ContractWorkflowRow"> | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ContractWorkflowRow"> | Date | string | null
   rfpSentOverrideAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ContractWorkflowRow"> | Date | string | null
   quoteSummaryOverrideAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ContractWorkflowRow"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ContractWorkflowRow"> | Date | string
@@ -402,6 +414,7 @@ export type ContractWorkflowRowCreateInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -426,6 +439,7 @@ export type ContractWorkflowRowUncheckedCreateInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -444,6 +458,7 @@ export type ContractWorkflowRowUpdateInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -468,6 +483,7 @@ export type ContractWorkflowRowUncheckedUpdateInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -489,6 +505,7 @@ export type ContractWorkflowRowCreateManyInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -507,6 +524,7 @@ export type ContractWorkflowRowUpdateManyMutationInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -528,6 +546,7 @@ export type ContractWorkflowRowUncheckedUpdateManyInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -564,6 +583,7 @@ export type ContractWorkflowRowCountOrderByAggregateInput = {
   contractOutcome?: Prisma.SortOrder
   lastWorkflowRefreshAt?: Prisma.SortOrder
   renewalReminderNotApplicableAt?: Prisma.SortOrder
+  renewalReminderEmailSentAt?: Prisma.SortOrder
   rfpSentOverrideAt?: Prisma.SortOrder
   quoteSummaryOverrideAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -585,6 +605,7 @@ export type ContractWorkflowRowMaxOrderByAggregateInput = {
   contractOutcome?: Prisma.SortOrder
   lastWorkflowRefreshAt?: Prisma.SortOrder
   renewalReminderNotApplicableAt?: Prisma.SortOrder
+  renewalReminderEmailSentAt?: Prisma.SortOrder
   rfpSentOverrideAt?: Prisma.SortOrder
   quoteSummaryOverrideAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -606,6 +627,7 @@ export type ContractWorkflowRowMinOrderByAggregateInput = {
   contractOutcome?: Prisma.SortOrder
   lastWorkflowRefreshAt?: Prisma.SortOrder
   renewalReminderNotApplicableAt?: Prisma.SortOrder
+  renewalReminderEmailSentAt?: Prisma.SortOrder
   rfpSentOverrideAt?: Prisma.SortOrder
   quoteSummaryOverrideAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -734,6 +756,7 @@ export type ContractWorkflowRowCreateWithoutCustomerInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -756,6 +779,7 @@ export type ContractWorkflowRowUncheckedCreateWithoutCustomerInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -806,6 +830,7 @@ export type ContractWorkflowRowScalarWhereInput = {
   contractOutcome?: Prisma.StringFilter<"ContractWorkflowRow"> | string
   lastWorkflowRefreshAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   rfpSentOverrideAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   quoteSummaryOverrideAt?: Prisma.DateTimeNullableFilter<"ContractWorkflowRow"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ContractWorkflowRow"> | Date | string
@@ -824,6 +849,7 @@ export type ContractWorkflowRowCreateWithoutContractInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -846,6 +872,7 @@ export type ContractWorkflowRowUncheckedCreateWithoutContractInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -880,6 +907,7 @@ export type ContractWorkflowRowUpdateWithoutContractInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -902,6 +930,7 @@ export type ContractWorkflowRowUncheckedUpdateWithoutContractInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -920,6 +949,7 @@ export type ContractWorkflowRowCreateWithoutLinkedRfpInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -942,6 +972,7 @@ export type ContractWorkflowRowUncheckedCreateWithoutLinkedRfpInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -976,6 +1007,7 @@ export type ContractWorkflowRowUpdateWithoutLinkedRfpInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -998,6 +1030,7 @@ export type ContractWorkflowRowUncheckedUpdateWithoutLinkedRfpInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1018,6 +1051,7 @@ export type ContractWorkflowRowCreateManyCustomerInput = {
   contractOutcome?: string
   lastWorkflowRefreshAt?: Date | string | null
   renewalReminderNotApplicableAt?: Date | string | null
+  renewalReminderEmailSentAt?: Date | string | null
   rfpSentOverrideAt?: Date | string | null
   quoteSummaryOverrideAt?: Date | string | null
   createdAt?: Date | string
@@ -1036,6 +1070,7 @@ export type ContractWorkflowRowUpdateWithoutCustomerInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1058,6 +1093,7 @@ export type ContractWorkflowRowUncheckedUpdateWithoutCustomerInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1078,6 +1114,7 @@ export type ContractWorkflowRowUncheckedUpdateManyWithoutCustomerInput = {
   contractOutcome?: Prisma.StringFieldUpdateOperationsInput | string
   lastWorkflowRefreshAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   renewalReminderNotApplicableAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  renewalReminderEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rfpSentOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   quoteSummaryOverrideAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1101,6 +1138,7 @@ export type ContractWorkflowRowSelect<ExtArgs extends runtime.Types.Extensions.I
   contractOutcome?: boolean
   lastWorkflowRefreshAt?: boolean
   renewalReminderNotApplicableAt?: boolean
+  renewalReminderEmailSentAt?: boolean
   rfpSentOverrideAt?: boolean
   quoteSummaryOverrideAt?: boolean
   createdAt?: boolean
@@ -1125,6 +1163,7 @@ export type ContractWorkflowRowSelectCreateManyAndReturn<ExtArgs extends runtime
   contractOutcome?: boolean
   lastWorkflowRefreshAt?: boolean
   renewalReminderNotApplicableAt?: boolean
+  renewalReminderEmailSentAt?: boolean
   rfpSentOverrideAt?: boolean
   quoteSummaryOverrideAt?: boolean
   createdAt?: boolean
@@ -1149,6 +1188,7 @@ export type ContractWorkflowRowSelectUpdateManyAndReturn<ExtArgs extends runtime
   contractOutcome?: boolean
   lastWorkflowRefreshAt?: boolean
   renewalReminderNotApplicableAt?: boolean
+  renewalReminderEmailSentAt?: boolean
   rfpSentOverrideAt?: boolean
   quoteSummaryOverrideAt?: boolean
   createdAt?: boolean
@@ -1173,13 +1213,14 @@ export type ContractWorkflowRowSelectScalar = {
   contractOutcome?: boolean
   lastWorkflowRefreshAt?: boolean
   renewalReminderNotApplicableAt?: boolean
+  renewalReminderEmailSentAt?: boolean
   rfpSentOverrideAt?: boolean
   quoteSummaryOverrideAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ContractWorkflowRowOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "contractId" | "customerId" | "energyType" | "displayLabel" | "workflowArchived" | "workflowArchivedAt" | "receivedBillsAt" | "rfpQuoteClosedAt" | "newContractAmendedAt" | "linkedRfpRequestId" | "contractOutcome" | "lastWorkflowRefreshAt" | "renewalReminderNotApplicableAt" | "rfpSentOverrideAt" | "quoteSummaryOverrideAt" | "createdAt" | "updatedAt", ExtArgs["result"]["contractWorkflowRow"]>
+export type ContractWorkflowRowOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "contractId" | "customerId" | "energyType" | "displayLabel" | "workflowArchived" | "workflowArchivedAt" | "receivedBillsAt" | "rfpQuoteClosedAt" | "newContractAmendedAt" | "linkedRfpRequestId" | "contractOutcome" | "lastWorkflowRefreshAt" | "renewalReminderNotApplicableAt" | "renewalReminderEmailSentAt" | "rfpSentOverrideAt" | "quoteSummaryOverrideAt" | "createdAt" | "updatedAt", ExtArgs["result"]["contractWorkflowRow"]>
 export type ContractWorkflowRowInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   contract?: boolean | Prisma.ContractWorkflowRow$contractArgs<ExtArgs>
   customer?: boolean | Prisma.ContractWorkflowRow$customerArgs<ExtArgs>
@@ -1236,6 +1277,10 @@ export type $ContractWorkflowRowPayload<ExtArgs extends runtime.Types.Extensions
      * User marked renewal reminder as not applicable (no prior contract / no email needed).
      */
     renewalReminderNotApplicableAt: Date | null
+    /**
+     * Renewal reminder email recorded for this workflow row (scoped per contract; not shared across a customer’s other contracts).
+     */
+    renewalReminderEmailSentAt: Date | null
     /**
      * Manual “RFP sent” when linking or timestamps are insufficient.
      */
@@ -1686,6 +1731,7 @@ export interface ContractWorkflowRowFieldRefs {
   readonly contractOutcome: Prisma.FieldRef<"ContractWorkflowRow", 'String'>
   readonly lastWorkflowRefreshAt: Prisma.FieldRef<"ContractWorkflowRow", 'DateTime'>
   readonly renewalReminderNotApplicableAt: Prisma.FieldRef<"ContractWorkflowRow", 'DateTime'>
+  readonly renewalReminderEmailSentAt: Prisma.FieldRef<"ContractWorkflowRow", 'DateTime'>
   readonly rfpSentOverrideAt: Prisma.FieldRef<"ContractWorkflowRow", 'DateTime'>
   readonly quoteSummaryOverrideAt: Prisma.FieldRef<"ContractWorkflowRow", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ContractWorkflowRow", 'DateTime'>

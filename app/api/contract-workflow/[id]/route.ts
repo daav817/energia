@@ -73,6 +73,12 @@ export async function PATCH(
       data.renewalReminderNotApplicableAt = null;
     }
 
+    if (body.renewalReminderEmailSent === true) {
+      data.renewalReminderEmailSentAt = new Date();
+    } else if (body.renewalReminderEmailSent === false) {
+      data.renewalReminderEmailSentAt = null;
+    }
+
     if (body.rfpSentOverride === true) {
       data.rfpSentOverrideAt = new Date();
     } else if (body.rfpSentOverride === false) {

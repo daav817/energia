@@ -4,6 +4,32 @@ import { prisma } from "@/lib/prisma";
 import { createContractFromArchivedRfp } from "@/lib/create-contract-from-archived-rfp";
 import { applyWorkflowClosedFromArchivedRfp } from "@/lib/contract-workflow-sync";
 import { parseCustomerQuoteEmailDraft } from "@/lib/customer-quote-email-draft";
+import { resolveCustomerIdForArchivedRfp } from "@/lib/resolve-customer-id-for-archived-rfp";
+
+/** Include shape reused after PATCH so follow-up updates return the same JSON shape as GET. */
+const RFP_PATCH_INCLUDE: Prisma.RfpRequestInclude = {
+  customer: { select: { id: true, name: true, company: true } },
+  customerContact: {
+    select: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      emails: { select: { email: true }, orderBy: { order: "asc" } },
+      phone: true,
+      company: true,
+      label: true,
+      customerId: true,
+    },
+  },
+  suppliers: { select: { id: true, name: true, email: true } },
+  accountLines: { orderBy: { sortOrder: "asc" } },
+  quotes: {
+    include: { supplier: { select: { id: true, name: true } } },
+    orderBy: [{ termMonths: "asc" }, { rate: "asc" }],
+  },
+};
 
 export async function GET(
   _request: NextRequest,
@@ -13,29 +39,7 @@ export async function GET(
     const { id } = await params;
     const request = await prisma.rfpRequest.findUnique({
       where: { id },
-      include: {
-        customer: { select: { id: true, name: true, company: true } },
-        customerContact: {
-          select: {
-            id: true,
-            name: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            emails: { select: { email: true }, orderBy: { order: "asc" } },
-            phone: true,
-            company: true,
-            label: true,
-            customerId: true,
-          },
-        },
-        suppliers: { select: { id: true, name: true, email: true } },
-        accountLines: { orderBy: { sortOrder: "asc" } },
-        quotes: {
-          include: { supplier: { select: { id: true, name: true } } },
-          orderBy: [{ termMonths: "asc" }, { rate: "asc" }],
-        },
-      },
+      include: RFP_PATCH_INCLUDE,
     });
 
     if (!request) {
@@ -163,40 +167,33 @@ export async function PATCH(
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
-    const updated = await prisma.rfpRequest.update({
+    let updated = await prisma.rfpRequest.update({
       where: { id },
       data,
-      include: {
-        customer: { select: { id: true, name: true, company: true } },
-        customerContact: {
-          select: {
-            id: true,
-            name: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            emails: { select: { email: true }, orderBy: { order: "asc" } },
-            phone: true,
-            company: true,
-            label: true,
-            customerId: true,
-          },
-        },
-        suppliers: { select: { id: true, name: true, email: true } },
-        accountLines: { orderBy: { sortOrder: "asc" } },
-        quotes: {
-          include: { supplier: { select: { id: true, name: true } } },
-          orderBy: [{ termMonths: "asc" }, { rate: "asc" }],
-        },
-      },
+      include: RFP_PATCH_INCLUDE,
     });
+
+    /**
+     * Denormalized `customerId` is required for contracts. Resolve from workflow link, contacts,
+     * or quote-email draft recipients when the FK was never set (Quotes workspace often only stores draft To/Cc).
+     */
+    if (body.archive === true && !updated.customerId) {
+      const resolvedCustomerId = await resolveCustomerIdForArchivedRfp(id);
+      if (resolvedCustomerId) {
+        updated = await prisma.rfpRequest.update({
+          where: { id },
+          data: { customerId: resolvedCustomerId },
+          include: RFP_PATCH_INCLUDE,
+        });
+      }
+    }
 
     let createdContractId: string | null = null;
     let archiveSkippedContractReason: string | null = null;
     if (body.archive === true) {
       if (!updated.customerId) {
         archiveSkippedContractReason =
-          "No CRM customer is linked to this RFP, so no contract was auto-created. Link a customer and archive again, or add a contract manually.";
+          "No CRM customer could be resolved from this RFP (pick a customer on the RFP, or use a linked contact that is tied to a customer company), so no contract was auto-created. You can add a contract manually.";
       } else {
         createdContractId = await createContractFromArchivedRfp(id);
         if (!createdContractId) {
