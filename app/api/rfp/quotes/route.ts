@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { PriceUnit } from "@/generated/prisma/client";
+import { PriceUnit, RfpQuoteComparisonBucket } from "@/generated/prisma/client";
 
 /**
  * GET /api/rfp/quotes
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       estimatedContractValue,
       isBestOffer,
       notes,
+      comparisonBucket: comparisonBucketBody,
     } = body;
 
     if (!supplierId || rate === undefined || !priceUnit || !termMonths) {
@@ -84,6 +85,14 @@ export async function POST(request: NextRequest) {
         ? parseFloat(estimatedContractValue)
         : null;
 
+    let resolvedComparisonBucket: RfpQuoteComparisonBucket | null = null;
+    if (
+      comparisonBucketBody === "ELECTRIC_FIXED_CAPACITY_ADJUST" ||
+      comparisonBucketBody === "ELECTRIC_CAPACITY_PASS_THROUGH"
+    ) {
+      resolvedComparisonBucket = comparisonBucketBody as RfpQuoteComparisonBucket;
+    }
+
     if (rfpRequestId) {
       const rfpRequest = await prisma.rfpRequest.findUnique({
         where: { id: rfpRequestId },
@@ -95,6 +104,12 @@ export async function POST(request: NextRequest) {
 
       if (!rfpRequest) {
         return NextResponse.json({ error: "RFP request not found" }, { status: 404 });
+      }
+
+      if (rfpRequest.energyType === "NATURAL_GAS") {
+        resolvedComparisonBucket = null;
+      } else if (rfpRequest.energyType === "ELECTRIC" && !resolvedComparisonBucket) {
+        resolvedComparisonBucket = RfpQuoteComparisonBucket.ELECTRIC_FIXED_CAPACITY_ADJUST;
       }
 
       const supplierAllowed = rfpRequest.suppliers.some((supplier) => supplier.id === supplierId);
@@ -129,6 +144,7 @@ export async function POST(request: NextRequest) {
       rate: parseFloat(rate),
       priceUnit: priceUnit as PriceUnit,
       termMonths: termMonthsValue,
+      comparisonBucket: resolvedComparisonBucket,
       brokerMargin: brokerMargin ? parseFloat(brokerMargin) : null,
       totalMargin: computedTotalMargin,
       estimatedContractValue: computedEstimatedContractValue,
@@ -143,6 +159,7 @@ export async function POST(request: NextRequest) {
               rfpRequestId: String(rfpRequestId),
               supplierId: String(supplierId),
               termMonths: termMonthsValue,
+              comparisonBucket: resolvedComparisonBucket,
             },
             select: { id: true },
           })
@@ -187,5 +204,111 @@ export async function POST(request: NextRequest) {
       { error: "Failed to create quote" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * DELETE /api/rfp/quotes
+ * Remove all quote rows for one supplier × term cell (shows as "—" in the UI; does not store zero).
+ * Body: { rfpRequestId, supplierId, termMonths, comparisonBucket? }
+ * - Natural gas: omit comparisonBucket (stored as null on rows).
+ * - Electric — Fixed Capacity Adjust table: "ELECTRIC_FIXED_CAPACITY_ADJUST" (also clears legacy rows with null bucket).
+ * - Electric — Capacity Pass-Through: "ELECTRIC_CAPACITY_PASS_THROUGH".
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { rfpRequestId, supplierId, termMonths, comparisonBucket: comparisonBucketBody } = body as {
+      rfpRequestId?: string;
+      supplierId?: string;
+      termMonths?: unknown;
+      comparisonBucket?: string | null;
+    };
+
+    if (!rfpRequestId?.trim() || !supplierId?.trim() || termMonths === undefined || termMonths === null) {
+      return NextResponse.json(
+        { error: "rfpRequestId, supplierId, and termMonths are required" },
+        { status: 400 }
+      );
+    }
+
+    const termMonthsValue = parseInt(String(termMonths), 10);
+    if (!Number.isFinite(termMonthsValue) || termMonthsValue <= 0) {
+      return NextResponse.json({ error: "Invalid termMonths" }, { status: 400 });
+    }
+
+    const rfpRequest = await prisma.rfpRequest.findUnique({
+      where: { id: rfpRequestId },
+      select: {
+        id: true,
+        energyType: true,
+        suppliers: { select: { id: true } },
+      },
+    });
+
+    if (!rfpRequest) {
+      return NextResponse.json({ error: "RFP request not found" }, { status: 404 });
+    }
+
+    if (!rfpRequest.suppliers.some((s) => s.id === supplierId)) {
+      return NextResponse.json(
+        { error: "Supplier is not attached to this RFP request" },
+        { status: 400 }
+      );
+    }
+
+    if (rfpRequest.energyType === "NATURAL_GAS") {
+      const deleted = await prisma.rfpQuote.deleteMany({
+        where: {
+          rfpRequestId,
+          supplierId,
+          termMonths: termMonthsValue,
+          comparisonBucket: null,
+        },
+      });
+      return NextResponse.json({ deleted: deleted.count });
+    }
+
+    if (comparisonBucketBody === "ELECTRIC_CAPACITY_PASS_THROUGH") {
+      const deleted = await prisma.rfpQuote.deleteMany({
+        where: {
+          rfpRequestId,
+          supplierId,
+          termMonths: termMonthsValue,
+          comparisonBucket: RfpQuoteComparisonBucket.ELECTRIC_CAPACITY_PASS_THROUGH,
+        },
+      });
+      return NextResponse.json({ deleted: deleted.count });
+    }
+
+    if (
+      comparisonBucketBody === "ELECTRIC_FIXED_CAPACITY_ADJUST" ||
+      comparisonBucketBody === null ||
+      comparisonBucketBody === undefined
+    ) {
+      const deleted = await prisma.rfpQuote.deleteMany({
+        where: {
+          rfpRequestId,
+          supplierId,
+          termMonths: termMonthsValue,
+          OR: [
+            { comparisonBucket: RfpQuoteComparisonBucket.ELECTRIC_FIXED_CAPACITY_ADJUST },
+            { comparisonBucket: null },
+          ],
+        },
+      });
+      return NextResponse.json({ deleted: deleted.count });
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "For electric RFPs, comparisonBucket must be ELECTRIC_FIXED_CAPACITY_ADJUST or ELECTRIC_CAPACITY_PASS_THROUGH",
+      },
+      { status: 400 }
+    );
+  } catch (err) {
+    console.error("RFP quote delete error:", err);
+    return NextResponse.json({ error: "Failed to delete quote row(s)" }, { status: 500 });
   }
 }

@@ -27,6 +27,14 @@ export const PriceUnit = {
 export type PriceUnit = (typeof PriceUnit)[keyof typeof PriceUnit]
 
 
+export const RfpQuoteComparisonBucket = {
+  ELECTRIC_FIXED_CAPACITY_ADJUST: 'ELECTRIC_FIXED_CAPACITY_ADJUST',
+  ELECTRIC_CAPACITY_PASS_THROUGH: 'ELECTRIC_CAPACITY_PASS_THROUGH'
+} as const
+
+export type RfpQuoteComparisonBucket = (typeof RfpQuoteComparisonBucket)[keyof typeof RfpQuoteComparisonBucket]
+
+
 export const TaskStatus = {
   PENDING: 'PENDING',
   IN_PROGRESS: 'IN_PROGRESS',

@@ -460,6 +460,23 @@ export type EnumPriceUnitNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumPriceUnitNullableFilter<$PrismaModel>
 }
 
+export type EnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.RfpQuoteComparisonBucket | Prisma.EnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel> | $Enums.RfpQuoteComparisonBucket | null
+}
+
+export type EnumRfpQuoteComparisonBucketNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.RfpQuoteComparisonBucket | Prisma.EnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableWithAggregatesFilter<$PrismaModel> | $Enums.RfpQuoteComparisonBucket | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel>
+}
+
 export type EnumEmailDirectionFilter<$PrismaModel = never> = {
   equals?: $Enums.EmailDirection | Prisma.EnumEmailDirectionFieldRefInput<$PrismaModel>
   in?: $Enums.EmailDirection[] | Prisma.ListEnumEmailDirectionFieldRefInput<$PrismaModel>
@@ -907,6 +924,23 @@ export type NestedEnumPriceUnitNullableWithAggregatesFilter<$PrismaModel = never
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumPriceUnitNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumPriceUnitNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.RfpQuoteComparisonBucket | Prisma.EnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel> | $Enums.RfpQuoteComparisonBucket | null
+}
+
+export type NestedEnumRfpQuoteComparisonBucketNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.RfpQuoteComparisonBucket | Prisma.EnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RfpQuoteComparisonBucket[] | Prisma.ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableWithAggregatesFilter<$PrismaModel> | $Enums.RfpQuoteComparisonBucket | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumRfpQuoteComparisonBucketNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumEmailDirectionFilter<$PrismaModel = never> = {

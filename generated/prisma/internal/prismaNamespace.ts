@@ -2564,6 +2564,7 @@ export const RfpQuoteScalarFieldEnum = {
   rate: 'rate',
   priceUnit: 'priceUnit',
   termMonths: 'termMonths',
+  comparisonBucket: 'comparisonBucket',
   brokerMargin: 'brokerMargin',
   totalMargin: 'totalMargin',
   estimatedContractValue: 'estimatedContractValue',
@@ -2915,6 +2916,20 @@ export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'J
  * Reference to a field of type 'QueryMode'
  */
 export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
+ * Reference to a field of type 'RfpQuoteComparisonBucket'
+ */
+export type EnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RfpQuoteComparisonBucket'>
+    
+
+
+/**
+ * Reference to a field of type 'RfpQuoteComparisonBucket[]'
+ */
+export type ListEnumRfpQuoteComparisonBucketFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RfpQuoteComparisonBucket[]'>
     
 
 

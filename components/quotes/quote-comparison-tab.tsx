@@ -13,41 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { QuoteComparisonTableBlock } from "@/components/quotes/quote-comparison-table-block";
+import { dthToMcf, mcfToDth } from "@/lib/gas-mcf-dth";
 import { replaceCidWithAttachmentUrls } from "@/components/communications/EmailDetailPanel";
 import { appendEmailBodyLayoutFix } from "@/lib/email-html-display";
 import { gmailFromToken } from "@/lib/gmail-query";
-import {
-  combinedAnnualUsageFromAccounts,
-  impliedMonthlyEnergyCostUsd,
-  totalContractValueUsd,
-  unitLabelForEnergy,
-} from "@/lib/rfp-quote-math";
+import type { ComparisonRfpQuote, ManualQuoteRow, TermPick } from "@/components/quotes/quote-types";
 
-export type ComparisonRfpQuote = {
-  id: string;
-  rate: number;
-  priceUnit: string;
-  termMonths: number;
-  supplier: { id: string; name: string };
-};
-
-export type TermPick = { kind: "quote"; quoteId: string } | { kind: "manual"; rowId: string };
-
-export type ManualQuoteRow = {
-  id: string;
-  supplierName: string;
-  rates: Partial<Record<number, string>>;
-  units: Partial<Record<number, string>>;
-};
+export type { ComparisonRfpQuote, ManualQuoteRow, TermPick } from "@/components/quotes/quote-types";
 
 type SummaryRfp = {
   id: string;
@@ -110,15 +84,6 @@ function sanitizeWholeMonthsInput(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 
-/** Formats stored quote rates for the comparison table (up to five fractional digits). */
-function formatComparisonTableRate(rate: number): string {
-  if (!Number.isFinite(rate)) return "—";
-  const rounded = Math.round(rate * 1e5) / 1e5;
-  let s = rounded.toFixed(QUOTE_RATE_INPUT_MAX_DECIMALS);
-  s = s.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
-  return `$${s}`;
-}
-
 function parseMessageListDateMs(dateHeader: string): number | null {
   const t = Date.parse(dateHeader);
   return Number.isFinite(t) ? t : null;
@@ -141,9 +106,12 @@ export function QuoteComparisonTab({
   quotes,
   pickByTerm,
   onPick,
+  electricTables,
+  energyDisplayTitle,
   defaultPriceUnit,
   onInsertQuoteRow,
   insertQuoteRowBusy,
+  onClearQuoteRow,
   quotesLoading = false,
   manualRows = [],
   selectedEmailId,
@@ -152,12 +120,35 @@ export function QuoteComparisonTab({
   emailDetailLoading,
 }: {
   rfp: SummaryRfp;
+  /** Full quote list (e.g. for reference); table(s) may use filtered subsets. */
   quotes: ComparisonRfpQuote[];
   pickByTerm: Partial<Record<number, TermPick>>;
   onPick: (termMonths: number, pick: TermPick | null) => void;
+  /** When set, RFP is electric: two comparison tables with separate picks. */
+  electricTables?: {
+    quotesFixed: ComparisonRfpQuote[];
+    quotesPass: ComparisonRfpQuote[];
+    pickFixed: Partial<Record<number, TermPick>>;
+    pickPass: Partial<Record<number, TermPick>>;
+    onPickFixed: (termMonths: number, pick: TermPick | null) => void;
+    onPickPass: (termMonths: number, pick: TermPick | null) => void;
+  };
+  /** e.g. "Electric" | "Natural gas" — shown above Enter quote */
+  energyDisplayTitle: string;
   defaultPriceUnit: string;
-  onInsertQuoteRow: (payload: { supplierId: string; termMonths: number; rate: number }) => Promise<void>;
+  onInsertQuoteRow: (payload: {
+    supplierId: string;
+    termMonths: number;
+    rate: number;
+    comparisonBucket?: "ELECTRIC_FIXED_CAPACITY_ADJUST" | "ELECTRIC_CAPACITY_PASS_THROUGH" | null;
+  }) => Promise<void>;
   insertQuoteRowBusy: boolean;
+  /** Delete quote row(s) for one supplier × term (cell shows —). */
+  onClearQuoteRow?: (payload: {
+    supplierId: string;
+    termMonths: number;
+    comparisonBucket?: "ELECTRIC_FIXED_CAPACITY_ADJUST" | "ELECTRIC_CAPACITY_PASS_THROUGH";
+  }) => void | Promise<void>;
   /** True while refetching quote rows — keeps this panel mounted so insert controls are not reset. */
   quotesLoading?: boolean;
   manualRows?: ManualQuoteRow[];
@@ -183,6 +174,16 @@ export function QuoteComparisonTab({
   const [inboxLoading, setInboxLoading] = useState(false);
   const [inboxError, setInboxError] = useState<string | null>(null);
   const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
+  const [displayUnit, setDisplayUnit] = useState("KWH");
+  const [gasConvertDirection, setGasConvertDirection] = useState<"mcfToDth" | "dthToMcf">("mcfToDth");
+  const [comparisonElectricTab, setComparisonElectricTab] = useState<"fixed" | "pass">("fixed");
+  const [electricInsertTarget, setElectricInsertTarget] = useState<"fixed" | "pass">("fixed");
+
+  useEffect(() => {
+    setDisplayUnit(rfp.energyType === "ELECTRIC" ? "KWH" : "MCF");
+    setComparisonElectricTab("fixed");
+    setElectricInsertTarget("fixed");
+  }, [rfp.id, rfp.energyType]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -195,19 +196,6 @@ export function QuoteComparisonTab({
 
   const panelResizeHandleClass =
     "relative w-1.5 mx-0.5 rounded-sm bg-border/80 outline-none hover:bg-primary/40 data-[panel-group-direction=vertical]:h-1.5 data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:mx-0 data-[panel-group-direction=vertical]:my-0.5";
-
-  const baseTerms = useMemo(() => {
-    const fromReq =
-      rfp.requestedTerms
-        ?.filter((t): t is { kind: "months"; months: number } => t.kind === "months")
-        .map((t) => t.months) ?? [];
-    const fromQuotes = [...new Set(quotes.map((q) => q.termMonths))].sort((a, b) => a - b);
-    return [...new Set([...fromReq, ...fromQuotes])].sort((a, b) => a - b);
-  }, [rfp.requestedTerms, quotes]);
-
-  const annualUsage = useMemo(() => combinedAnnualUsageFromAccounts(rfp.accountLines), [rfp.accountLines]);
-
-  const supplierRows = useMemo(() => rfp.suppliers, [rfp.suppliers]);
 
   useEffect(() => {
     if (rfp.suppliers.length === 0) {
@@ -240,11 +228,26 @@ export function QuoteComparisonTab({
 
   const handleInsertQuoteRowClick = async () => {
     if (!canInsertQuoteRow || resolvedInsertTermMonths == null || resolvedInsertRate == null) return;
+    const comparisonBucket =
+      rfp.energyType === "ELECTRIC"
+        ? electricInsertTarget === "fixed"
+          ? ("ELECTRIC_FIXED_CAPACITY_ADJUST" as const)
+          : ("ELECTRIC_CAPACITY_PASS_THROUGH" as const)
+        : undefined;
     await onInsertQuoteRow({
       supplierId: selectedSupplierId,
       termMonths: resolvedInsertTermMonths,
       rate: resolvedInsertRate,
+      ...(comparisonBucket ? { comparisonBucket } : {}),
     });
+  };
+
+  const applyGasUnitConversion = () => {
+    const r = Number.parseFloat(rateInput);
+    if (!Number.isFinite(r)) return;
+    const out = gasConvertDirection === "mcfToDth" ? mcfToDth(r) : dthToMcf(r);
+    const rounded = Math.round(out * 1e5) / 1e5;
+    setRateInput(String(rounded));
   };
 
   useEffect(() => {
@@ -346,90 +349,6 @@ export function QuoteComparisonTab({
     return () => window.clearInterval(intervalId);
   }, [compareRightTab, loadInbox]);
 
-  const quotesBySupplierTerm = useMemo(() => {
-    const map = new Map<string, ComparisonRfpQuote[]>();
-    for (const q of quotes) {
-      const k = `${q.supplier.id}:${q.termMonths}`;
-      const arr = map.get(k) ?? [];
-      arr.push(q);
-      map.set(k, arr);
-    }
-    for (const [k, arr] of map) {
-      arr.sort((a, b) => Number(a.rate) - Number(b.rate));
-      map.set(k, arr);
-    }
-    return map;
-  }, [quotes]);
-
-  /** Lowest best rate per term column (across suppliers) for highlighting. */
-  const lowestRateByTermColumn = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const term of baseTerms) {
-      let min = Number.POSITIVE_INFINITY;
-      for (const s of supplierRows) {
-        const list = quotesBySupplierTerm.get(`${s.id}:${term}`) ?? [];
-        if (list.length === 0) continue;
-        const r = Number(list[0]!.rate);
-        if (Number.isFinite(r) && r < min) min = r;
-      }
-      if (min < Number.POSITIVE_INFINITY) map.set(term, min);
-    }
-    return map;
-  }, [supplierRows, baseTerms, quotesBySupplierTerm]);
-
-  const cyclePick = (supplierId: string, termMonths: number) => {
-    const list = quotesBySupplierTerm.get(`${supplierId}:${termMonths}`) ?? [];
-    if (list.length === 0) return;
-    const cur = pickByTerm[termMonths];
-    if (!cur || cur.kind !== "quote") {
-      onPick(termMonths, { kind: "quote", quoteId: list[0]!.id });
-      return;
-    }
-    const idx = list.findIndex((q) => q.id === cur.quoteId);
-    if (idx < 0) {
-      onPick(termMonths, { kind: "quote", quoteId: list[0]!.id });
-      return;
-    }
-    const next = list[(idx + 1) % list.length]!;
-    if (next.id === cur.quoteId) {
-      onPick(termMonths, null);
-    } else {
-      onPick(termMonths, { kind: "quote", quoteId: next.id });
-    }
-  };
-
-  const footerForTerm = (termMonths: number) => {
-    const pick = pickByTerm[termMonths];
-    if (!pick) {
-      return {
-        total: null as number | null,
-        monthly: null as number | null,
-        supplierName: null as string | null,
-      };
-    }
-    if (pick.kind === "quote") {
-      const q = quotes.find((x) => x.id === pick.quoteId);
-      if (!q) return { total: null, monthly: null, supplierName: null };
-      const r = Number(q.rate);
-      return {
-        total: totalContractValueUsd({ baseRatePerUnit: r, termMonths, annualUsage }),
-        monthly: impliedMonthlyEnergyCostUsd({ baseRatePerUnit: r, annualUsage }),
-        supplierName: q.supplier.name,
-      };
-    }
-    const row = manualRows.find((m) => m.id === pick.rowId);
-    if (!row) return { total: null, monthly: null, supplierName: null };
-    const raw = row.rates[termMonths];
-    const r = raw != null ? Number.parseFloat(String(raw)) : NaN;
-    const name = row.supplierName.trim() || null;
-    if (!Number.isFinite(r)) return { total: null, monthly: null, supplierName: name };
-    return {
-      total: totalContractValueUsd({ baseRatePerUnit: r, termMonths, annualUsage }),
-      monthly: impliedMonthlyEnergyCostUsd({ baseRatePerUnit: r, annualUsage }),
-      supplierName: name,
-    };
-  };
-
   const filteredInboxMessages = useMemo(() => {
     let rows = inboxMessages;
     const u = emailUserFilter.trim().toLowerCase();
@@ -467,147 +386,101 @@ export function QuoteComparisonTab({
 
   const quoteTableSection = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 space-y-2 border-b border-border bg-muted/15 p-3">
-        <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium">Quote comparison table</p>
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              Enter quote adds or updates the rate for that supplier and term on this RFP. Green outline = lowest rate in
-              that term column. Click a cell to choose the yellow highlight for the customer quote — your selection is
-              saved to this RFP automatically when you click. Use{" "}
-              <span className="font-medium text-foreground">Refresh list</span> in the bar above if you need the RFP
-              dropdown to reload from the server.
-            </p>
-            {quotesLoading ? (
-              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                Refreshing rates…
-              </p>
-            ) : null}
+      {electricTables ? (
+        <div className="shrink-0 border-b border-border bg-muted/15 p-2">
+          <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 bg-background/80 p-0.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-8 shrink-0 px-3 text-xs",
+                comparisonElectricTab === "fixed"
+                  ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                  : "text-muted-foreground"
+              )}
+              onClick={() => setComparisonElectricTab("fixed")}
+            >
+              Fixed Capacity Adjust
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-8 shrink-0 px-3 text-xs",
+                comparisonElectricTab === "pass"
+                  ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                  : "text-muted-foreground"
+              )}
+              onClick={() => setComparisonElectricTab("pass")}
+            >
+              Capacity Pass-Through
+            </Button>
+          </div>
         </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="min-w-0 overflow-x-auto">
-          <Table className="w-full min-w-[28rem] border-collapse text-sm [&_tbody>tr]:border-0 [&_thead>tr]:border-0 [&_th]:border [&_th]:border-border/80 [&_td]:border [&_td]:border-border/80 [&_thead_th]:bg-muted/40">
-            <TableHeader className="[&_tr]:border-b-0">
-              <TableRow className="border-0 hover:bg-transparent [&_th]:h-9 [&_th]:py-1">
-                <TableHead className="w-[min(11rem,26vw)] min-w-[8rem] max-w-[16rem] pl-3 pr-6 text-left text-sm font-semibold">
-                  Supplier
-                </TableHead>
-                {baseTerms.map((t, i) => (
-                  <TableHead
-                    key={t}
-                    className={`w-[4.25rem] min-w-[4rem] max-w-[5rem] px-1 text-center text-sm font-semibold ${i === 0 ? "pl-3" : ""}`}
-                  >
-                    {t} mo
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {supplierRows.map((s) => (
-                <TableRow key={s.id} className="border-0 hover:bg-muted/30 [&_td]:py-1">
-                  <TableCell className="max-w-[16rem] truncate px-3 py-1 pr-6 text-sm font-medium leading-snug">
-                    {s.name}
-                  </TableCell>
-                  {baseTerms.map((term, i) => {
-                    const list = quotesBySupplierTerm.get(`${s.id}:${term}`) ?? [];
-                    const pick = pickByTerm[term];
-                    const chosen = pick?.kind === "quote" ? quotes.find((q) => q.id === pick.quoteId) : null;
-                    const isOn =
-                      chosen != null &&
-                      chosen.supplier.id === s.id &&
-                      chosen.termMonths === term &&
-                      list.length > 0;
-                    const displayQuote =
-                      chosen &&
-                      chosen.supplier.id === s.id &&
-                      chosen.termMonths === term &&
-                      list.some((q) => q.id === chosen.id)
-                        ? chosen
-                        : list[0];
-                    const display = displayQuote ? formatComparisonTableRate(Number(displayQuote.rate)) : "—";
-                    const colMin = lowestRateByTermColumn.get(term);
-                    const colBest = list[0];
-                    const colBestRate = colBest != null ? Number(colBest.rate) : null;
-                    const isColLowest =
-                      colBestRate != null &&
-                      colMin != null &&
-                      Number.isFinite(colBestRate) &&
-                      Number.isFinite(colMin) &&
-                      Math.abs(colBestRate - colMin) <= 1e-9;
-                    return (
-                      <TableCell
-                        key={term}
-                        className="p-0 text-center align-middle"
-                      >
-                        <button
-                          type="button"
-                          disabled={list.length === 0}
-                          onClick={() => cyclePick(s.id, term)}
-                          title={
-                            list.length === 0
-                              ? undefined
-                              : isOn
-                                ? "Selected for customer quote email (click to change or clear)"
-                                : "Click to select this rate for the customer quote email"
-                          }
-                          className={cn(
-                            "w-full min-h-[2.25rem] rounded px-1 py-1 text-xs tabular-nums leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                            isOn
-                              ? "bg-yellow-300 font-semibold text-foreground shadow-md ring-2 ring-yellow-500 ring-offset-1 ring-offset-background dark:bg-yellow-500/35 dark:ring-yellow-400"
-                              : "hover:bg-muted/80",
-                            isColLowest &&
-                              "shadow-[0_0_7px_rgba(57,255,20,0.65)] outline outline-2 outline-[#39ff14] outline-offset-0 dark:shadow-[0_0_9px_rgba(57,255,20,0.5)]"
-                          )}
-                        >
-                          {display}
-                          {list.length > 1 ? (
-                            <span className="mt-0.5 block text-[10px] font-normal leading-none text-muted-foreground">
-                              {list.length} offers · click
-                            </span>
-                          ) : null}
-                        </button>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      ) : null}
+      {electricTables ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {comparisonElectricTab === "fixed" ? (
+            <QuoteComparisonTableBlock
+              rfp={rfp}
+              quotes={electricTables.quotesFixed}
+              pickByTerm={electricTables.pickFixed}
+              onPick={electricTables.onPickFixed}
+              defaultPriceUnit={defaultPriceUnit}
+              manualRows={manualRows}
+              quotesLoading={quotesLoading}
+              quoteTableMutationBusy={insertQuoteRowBusy}
+              onClearQuoteCell={
+                onClearQuoteRow
+                  ? (supplierId, termMonths) =>
+                      onClearQuoteRow({
+                        supplierId,
+                        termMonths,
+                        comparisonBucket: "ELECTRIC_FIXED_CAPACITY_ADJUST",
+                      })
+                  : undefined
+              }
+            />
+          ) : (
+            <QuoteComparisonTableBlock
+              rfp={rfp}
+              quotes={electricTables.quotesPass}
+              pickByTerm={electricTables.pickPass}
+              onPick={electricTables.onPickPass}
+              defaultPriceUnit={defaultPriceUnit}
+              manualRows={manualRows}
+              quotesLoading={quotesLoading}
+              quoteTableMutationBusy={insertQuoteRowBusy}
+              onClearQuoteCell={
+                onClearQuoteRow
+                  ? (supplierId, termMonths) =>
+                      onClearQuoteRow({
+                        supplierId,
+                        termMonths,
+                        comparisonBucket: "ELECTRIC_CAPACITY_PASS_THROUGH",
+                      })
+                  : undefined
+              }
+            />
+          )}
         </div>
-        <div className="grid gap-2 border-t bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-4">
-          {baseTerms.map((term) => {
-            const foot = footerForTerm(term);
-            return (
-              <div key={term} className="space-y-1 rounded border bg-background p-3 text-xs">
-                <p className="text-sm font-semibold leading-none">{term} months</p>
-                <p className="text-muted-foreground">
-                  Total (est.):{" "}
-                  <span className="font-medium tabular-nums text-foreground">
-                    {foot.total != null ? `$${foot.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}
-                  </span>
-                </p>
-                <p className="text-muted-foreground">
-                  Monthly (est.):{" "}
-                  <span className="font-medium tabular-nums text-foreground">
-                    {foot.monthly != null
-                      ? `$${foot.monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                      : "—"}
-                  </span>
-                </p>
-                {foot.supplierName ? (
-                  <p className="text-muted-foreground">
-                    Supplier: <span className="font-medium text-foreground">{foot.supplierName}</span>
-                  </p>
-                ) : null}
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  {annualUsage.toLocaleString()} {unitLabelForEnergy(defaultPriceUnit)}/yr
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      ) : (
+        <QuoteComparisonTableBlock
+          rfp={rfp}
+          quotes={quotes}
+          pickByTerm={pickByTerm}
+          onPick={onPick}
+          defaultPriceUnit={defaultPriceUnit}
+          manualRows={manualRows}
+          quotesLoading={quotesLoading}
+          quoteTableMutationBusy={insertQuoteRowBusy}
+          onClearQuoteCell={
+            onClearQuoteRow ? (supplierId, termMonths) => onClearQuoteRow({ supplierId, termMonths }) : undefined
+          }
+        />
+      )}
     </div>
   );
 
@@ -813,6 +686,76 @@ export function QuoteComparisonTab({
         <Panel defaultSize={22} minSize={14} maxSize={32} className="min-h-0 min-w-0 border-r border-border bg-muted/10">
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quote data entry</p>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-2">
+              <p className="text-sm font-semibold leading-tight text-foreground">{energyDisplayTitle}</p>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs whitespace-nowrap">Unit</Label>
+                <Select value={displayUnit} onValueChange={setDisplayUnit}>
+                  <SelectTrigger className="h-8 w-[5.75rem] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rfp.energyType === "ELECTRIC" ? (
+                      <SelectItem value="KWH">kWh</SelectItem>
+                    ) : (
+                      <>
+                        <SelectItem value="MCF">MCF</SelectItem>
+                        <SelectItem value="DTH">DTH</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {rfp.energyType === "NATURAL_GAS" ? (
+              <div className="space-y-2 rounded-md border border-dashed border-border/70 bg-background/80 p-2">
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Convert the value in the rate field (1 MCF = 1.032 DTH). Display only — does not change saved quotes.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select
+                    value={gasConvertDirection}
+                    onValueChange={(v) => setGasConvertDirection(v as "mcfToDth" | "dthToMcf")}
+                  >
+                    <SelectTrigger className="h-8 w-[10.5rem] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mcfToDth">MCF → DTH</SelectItem>
+                      <SelectItem value="dthToMcf">DTH → MCF</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" size="sm" variant="secondary" className="h-8 text-xs" onClick={applyGasUnitConversion}>
+                    Convert rate
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {electricTables ? (
+              <div className="space-y-1.5 rounded-md border border-border/60 p-2">
+                <p className="text-[11px] font-medium text-muted-foreground">Enter quote into</p>
+                <label className="flex cursor-pointer items-center gap-2 text-xs">
+                  <input
+                    type="radio"
+                    name="electric-insert"
+                    checked={electricInsertTarget === "fixed"}
+                    onChange={() => setElectricInsertTarget("fixed")}
+                    className="h-3.5 w-3.5"
+                  />
+                  Fixed Capacity Adjust
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-xs">
+                  <input
+                    type="radio"
+                    name="electric-insert"
+                    checked={electricInsertTarget === "pass"}
+                    onChange={() => setElectricInsertTarget("pass")}
+                    className="h-3.5 w-3.5"
+                  />
+                  Capacity Pass-Through
+                </label>
+              </div>
+            ) : null}
             <div className="grid gap-1.5">
               <Label className="text-xs">Supplier</Label>
               <Select

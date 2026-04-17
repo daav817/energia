@@ -33,19 +33,18 @@ export function EmailAttachmentDriveUploadButton({
     if (!folderUrl && !resolvedId) return;
     setUploading(true);
     try {
-      const res = await fetch(
-        `/api/emails/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachment.attachmentId)}/upload-to-drive`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            folderUrl: folderUrl || undefined,
-            folderId: resolvedId || undefined,
-            filename: attachment.filename || "attachment",
-            mimeType: attachment.mimeType || "application/octet-stream",
-          }),
-        }
-      );
+      const res = await fetch("/api/emails/attachments/upload-to-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          attachmentId: attachment.attachmentId,
+          folderUrl: folderUrl || undefined,
+          folderId: resolvedId || undefined,
+          filename: attachment.filename || "attachment",
+          mimeType: attachment.mimeType || "application/octet-stream",
+        }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Upload failed");
       const link = typeof data.webViewLink === "string" ? data.webViewLink : null;

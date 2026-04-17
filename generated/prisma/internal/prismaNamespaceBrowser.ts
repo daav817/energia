@@ -415,6 +415,7 @@ export const RfpQuoteScalarFieldEnum = {
   rate: 'rate',
   priceUnit: 'priceUnit',
   termMonths: 'termMonths',
+  comparisonBucket: 'comparisonBucket',
   brokerMargin: 'brokerMargin',
   totalMargin: 'totalMargin',
   estimatedContractValue: 'estimatedContractValue',

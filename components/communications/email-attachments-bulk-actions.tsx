@@ -117,19 +117,18 @@ export function EmailAttachmentsBulkActions({
       let ok = 0;
       for (let i = 0; i < attachments.length; i++) {
         const att = attachments[i];
-        const res = await fetch(
-          `/api/emails/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(att.attachmentId)}/upload-to-drive`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              folderUrl: folderUrl || undefined,
-              folderId: resolvedId || undefined,
-              filename: att.filename || "attachment",
-              mimeType: att.mimeType || "application/octet-stream",
-            }),
-          }
-        );
+        const res = await fetch("/api/emails/attachments/upload-to-drive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messageId,
+            attachmentId: att.attachmentId,
+            folderUrl: folderUrl || undefined,
+            folderId: resolvedId || undefined,
+            filename: att.filename || "attachment",
+            mimeType: att.mimeType || "application/octet-stream",
+          }),
+        });
         if (!res.ok) {
           const detail = await readApiErrorResponse(res);
           throw new Error(`${detail} (${att.filename || att.attachmentId})`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, Info, RefreshCw, RotateCcw } from "lucide-react";
@@ -43,7 +43,11 @@ import type { QuoteWorkspaceSnapshotV1 } from "@/lib/quote-workspace-snapshot";
 import { cn } from "@/lib/utils";
 import { useAppToast } from "@/components/app-toast-provider";
 import { formatLocaleDateFromStoredDay } from "@/lib/calendar-date";
-import { hydrateQuoteComparisonPicks, serializeQuoteComparisonPicks } from "@/lib/quote-comparison-picks";
+import {
+  hydrateFullQuotePicks,
+  persistPayloadForEnergyType,
+  type ElectricDualPicks,
+} from "@/lib/quote-comparison-picks";
 import { rfpListLabelWithEnergy } from "@/lib/rfp-request-label";
 
 type RfpQuote = ComparisonRfpQuote & {
@@ -52,6 +56,7 @@ type RfpQuote = ComparisonRfpQuote & {
   estimatedContractValue: number | null;
   isBestOffer: boolean;
   notes: string | null;
+  comparisonBucket?: string | null;
 };
 
 type RfpRequestSummary = {
@@ -108,8 +113,14 @@ export default function RfpQuotesPage() {
   >([]);
   const [primaryContactId, setPrimaryContactId] = useState("");
   const [pickByTerm, setPickByTerm] = useState<Partial<Record<number, TermPick>>>({});
+  const [electricPickFixed, setElectricPickFixed] = useState<Partial<Record<number, TermPick>>>({});
+  const [electricPickPass, setElectricPickPass] = useState<Partial<Record<number, TermPick>>>({});
   const pickByTermRef = useRef(pickByTerm);
   pickByTermRef.current = pickByTerm;
+  const electricPickFixedRef = useRef(electricPickFixed);
+  electricPickFixedRef.current = electricPickFixed;
+  const electricPickPassRef = useRef(electricPickPass);
+  electricPickPassRef.current = electricPickPass;
   const selectedRfpIdRef = useRef(selectedRfpId);
   selectedRfpIdRef.current = selectedRfpId;
 
@@ -135,6 +146,16 @@ export default function RfpQuotesPage() {
   const [rfpInfoOpen, setRfpInfoOpen] = useState(false);
 
   const selectedRequest = rfpRequests.find((request) => request.id === selectedRfpId) ?? null;
+  const quotesElectricFixed = useMemo(() => {
+    if (!selectedRequest || selectedRequest.energyType !== "ELECTRIC") return quotes;
+    return quotes.filter(
+      (q) => !q.comparisonBucket || q.comparisonBucket === "ELECTRIC_FIXED_CAPACITY_ADJUST"
+    );
+  }, [quotes, selectedRequest]);
+  const quotesElectricPass = useMemo(() => {
+    if (!selectedRequest || selectedRequest.energyType !== "ELECTRIC") return [];
+    return quotes.filter((q) => q.comparisonBucket === "ELECTRIC_CAPACITY_PASS_THROUGH");
+  }, [quotes, selectedRequest]);
   const defaultUnit = selectedRequest ? defaultPriceUnitForRequest(selectedRequest) : "MCF";
   const energyLabel = selectedRequest?.energyType === "ELECTRIC" ? "Electric" : "Natural gas";
   const energyLabelSubject = selectedRequest?.energyType === "ELECTRIC" ? "Electric" : "Natural Gas";
@@ -172,13 +193,18 @@ export default function RfpQuotesPage() {
   useEffect(() => {
     if (!selectedRfpId) {
       setPickByTerm({});
+      setElectricPickFixed({});
+      setElectricPickPass({});
       lastHydratedRfpIdRef.current = null;
       return;
     }
     if (lastHydratedRfpIdRef.current === selectedRfpId) return;
     const row = rfpRequests.find((r) => r.id === selectedRfpId);
     if (!row) return;
-    setPickByTerm(hydrateQuoteComparisonPicks(row.quoteComparisonPicks));
+    const { single, electric } = hydrateFullQuotePicks(row.quoteComparisonPicks, row.energyType);
+    setPickByTerm(single);
+    setElectricPickFixed(electric.fixed);
+    setElectricPickPass(electric.passThrough);
     lastHydratedRfpIdRef.current = selectedRfpId;
   }, [selectedRfpId, rfpRequests]);
 
@@ -278,10 +304,21 @@ export default function RfpQuotesPage() {
   const persistComparisonPicksForRfp = useCallback(
     async (
       rfpId: string,
-      picks: Partial<Record<number, TermPick>>,
-      options?: { refreshList?: boolean }
+      options?: {
+        refreshList?: boolean;
+        /** When omitted, uses current React state via refs (may be stale inside concurrent updates). */
+        overrideGas?: Partial<Record<number, TermPick>>;
+        overrideDual?: ElectricDualPicks;
+      }
     ): Promise<{ ok: boolean }> => {
-      const payload = serializeQuoteComparisonPicks(picks);
+      const row = rfpRequests.find((r) => r.id === rfpId);
+      const energy = row?.energyType ?? "NATURAL_GAS";
+      const gas = options?.overrideGas ?? pickByTermRef.current;
+      const dual: ElectricDualPicks = options?.overrideDual ?? {
+        fixed: electricPickFixedRef.current,
+        passThrough: electricPickPassRef.current,
+      };
+      const payload = persistPayloadForEnergyType(energy, gas, dual);
       try {
         const res = await fetch(`/api/rfp/${encodeURIComponent(rfpId)}`, {
           method: "PATCH",
@@ -325,16 +362,15 @@ export default function RfpQuotesPage() {
         return { ok: false };
       }
     },
-    [toast, loadRfpRequests]
+    [toast, loadRfpRequests, rfpRequests]
   );
 
   const persistAndClearWorkspace = useCallback(async () => {
     const previousId = selectedRfpIdRef.current;
-    const picks = pickByTermRef.current;
     if (previousId) {
       setRfpSwitchBusy(true);
       try {
-        const { ok } = await persistComparisonPicksForRfp(previousId, picks);
+        const { ok } = await persistComparisonPicksForRfp(previousId);
         if (!ok) return;
         toast({ message: "Saved quote picks. Workspace cleared.", variant: "success" });
       } finally {
@@ -344,6 +380,8 @@ export default function RfpQuotesPage() {
     setSelectedRfpId("");
     lastHydratedRfpIdRef.current = null;
     setPickByTerm({});
+    setElectricPickFixed({});
+    setElectricPickPass({});
     setQuotes([]);
     setLoading(false);
     setSupplierReadEmailId(null);
@@ -358,11 +396,10 @@ export default function RfpQuotesPage() {
         return;
       }
       const previousId = selectedRfpIdRef.current;
-      const picks = pickByTermRef.current;
       if (previousId && previousId !== value) {
         setRfpSwitchBusy(true);
         try {
-          const { ok } = await persistComparisonPicksForRfp(previousId, picks);
+          const { ok } = await persistComparisonPicksForRfp(previousId);
           if (!ok) return;
         } finally {
           setRfpSwitchBusy(false);
@@ -377,14 +414,16 @@ export default function RfpQuotesPage() {
     void loadRfpRequests();
   }, [loadRfpRequests]);
 
-  const fetchQuotes = async (rfpRequestId?: string) => {
+  const fetchQuotes = useCallback(async (rfpRequestId?: string): Promise<RfpQuote[]> => {
     setLoading(true);
     const query = rfpRequestId ? `?rfpRequestId=${encodeURIComponent(rfpRequestId)}` : "";
     const res = await fetch(`/api/rfp/quotes${query}`);
     const data = await res.json();
-    setQuotes(Array.isArray(data) ? data : []);
+    const next = Array.isArray(data) ? (data as RfpQuote[]) : [];
+    setQuotes(next);
     setLoading(false);
-  };
+    return next;
+  }, []);
 
   const handleSaveQuoteRecipients = async () => {
     if (!selectedRequest) return;
@@ -435,24 +474,65 @@ export default function RfpQuotesPage() {
     }
   };
 
-  const onPick = useCallback(
+  const onPickGas = useCallback(
     (termMonths: number, pick: TermPick | null) => {
-      let next: Partial<Record<number, TermPick>> | undefined;
       setPickByTerm((prev) => {
         const updated = { ...prev };
         if (pick == null) delete updated[termMonths];
         else updated[termMonths] = pick;
-        next = updated;
+        const id = selectedRfpIdRef.current;
+        if (id) void persistComparisonPicksForRfp(id, { refreshList: false, overrideGas: updated });
         return updated;
       });
-      const id = selectedRfpIdRef.current;
-      if (id && next) void persistComparisonPicksForRfp(id, next, { refreshList: false });
+    },
+    [persistComparisonPicksForRfp]
+  );
+
+  const onPickElectricFixed = useCallback(
+    (termMonths: number, pick: TermPick | null) => {
+      setElectricPickFixed((prev) => {
+        const updated = { ...prev };
+        if (pick == null) delete updated[termMonths];
+        else updated[termMonths] = pick;
+        const id = selectedRfpIdRef.current;
+        if (id) {
+          void persistComparisonPicksForRfp(id, {
+            refreshList: false,
+            overrideDual: { fixed: updated, passThrough: electricPickPassRef.current },
+          });
+        }
+        return updated;
+      });
+    },
+    [persistComparisonPicksForRfp]
+  );
+
+  const onPickElectricPass = useCallback(
+    (termMonths: number, pick: TermPick | null) => {
+      setElectricPickPass((prev) => {
+        const updated = { ...prev };
+        if (pick == null) delete updated[termMonths];
+        else updated[termMonths] = pick;
+        const id = selectedRfpIdRef.current;
+        if (id) {
+          void persistComparisonPicksForRfp(id, {
+            refreshList: false,
+            overrideDual: { fixed: electricPickFixedRef.current, passThrough: updated },
+          });
+        }
+        return updated;
+      });
     },
     [persistComparisonPicksForRfp]
   );
 
   const handleInsertQuoteRow = useCallback(
-    async (payload: { supplierId: string; termMonths: number; rate: number }) => {
+    async (payload: {
+      supplierId: string;
+      termMonths: number;
+      rate: number;
+      comparisonBucket?: "ELECTRIC_FIXED_CAPACITY_ADJUST" | "ELECTRIC_CAPACITY_PASS_THROUGH" | null;
+    }) => {
       if (!selectedRfpId) return;
       setInsertQuoteRowBusy(true);
       try {
@@ -470,6 +550,7 @@ export default function RfpQuotesPage() {
             rate: payload.rate,
             priceUnit: unit,
             termMonths: payload.termMonths,
+            ...(payload.comparisonBucket ? { comparisonBucket: payload.comparisonBucket } : {}),
             ...(brokerMargin != null ? { brokerMargin } : {}),
           }),
         });
@@ -488,7 +569,99 @@ export default function RfpQuotesPage() {
         setInsertQuoteRowBusy(false);
       }
     },
-    [selectedRfpId, selectedRequest, toast]
+    [selectedRfpId, selectedRequest, toast, fetchQuotes]
+  );
+
+  const handleClearQuoteRow = useCallback(
+    async (payload: {
+      supplierId: string;
+      termMonths: number;
+      comparisonBucket?: "ELECTRIC_FIXED_CAPACITY_ADJUST" | "ELECTRIC_CAPACITY_PASS_THROUGH";
+    }) => {
+      if (!selectedRfpId || !selectedRequest) return;
+      setInsertQuoteRowBusy(true);
+      try {
+        const res = await fetch("/api/rfp/quotes", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rfpRequestId: selectedRfpId,
+            supplierId: payload.supplierId,
+            termMonths: payload.termMonths,
+            ...(selectedRequest.energyType === "ELECTRIC" && payload.comparisonBucket
+              ? { comparisonBucket: payload.comparisonBucket }
+              : {}),
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string; deleted?: number };
+        if (!res.ok) {
+          toast({
+            message: typeof data.error === "string" ? data.error : "Could not clear quote cell",
+            variant: "error",
+          });
+          return;
+        }
+        const nextQuotes = await fetchQuotes(selectedRfpId);
+        const validIds = new Set(nextQuotes.map((q) => q.id));
+        const prunePicks = (prev: Partial<Record<number, TermPick>>) => {
+          const out: Partial<Record<number, TermPick>> = { ...prev };
+          let changed = false;
+          for (const k of Object.keys(out)) {
+            const term = Number(k);
+            const pick = out[term];
+            if (pick?.kind === "quote" && !validIds.has(pick.quoteId)) {
+              delete out[term];
+              changed = true;
+            }
+          }
+          return changed ? out : prev;
+        };
+
+        if (selectedRequest.energyType === "NATURAL_GAS") {
+          setPickByTerm((prev) => {
+            const next = prunePicks(prev);
+            if (next !== prev) {
+              void persistComparisonPicksForRfp(selectedRfpId, { refreshList: false, overrideGas: next });
+            }
+            return next;
+          });
+        } else if (payload.comparisonBucket === "ELECTRIC_CAPACITY_PASS_THROUGH") {
+          setElectricPickPass((prev) => {
+            const next = prunePicks(prev);
+            if (next !== prev) {
+              void persistComparisonPicksForRfp(selectedRfpId, {
+                refreshList: false,
+                overrideDual: { fixed: electricPickFixedRef.current, passThrough: next },
+              });
+            }
+            return next;
+          });
+        } else {
+          setElectricPickFixed((prev) => {
+            const next = prunePicks(prev);
+            if (next !== prev) {
+              void persistComparisonPicksForRfp(selectedRfpId, {
+                refreshList: false,
+                overrideDual: { fixed: next, passThrough: electricPickPassRef.current },
+              });
+            }
+            return next;
+          });
+        }
+
+        toast({
+          message:
+            typeof data.deleted === "number" && data.deleted > 0
+              ? `Cleared ${data.deleted} quote row(s).`
+              : "Cell cleared.",
+          variant: "success",
+        });
+        void loadRfpRequests();
+      } finally {
+        setInsertQuoteRowBusy(false);
+      }
+    },
+    [selectedRfpId, selectedRequest, toast, fetchQuotes, persistComparisonPicksForRfp, loadRfpRequests]
   );
 
   const onRefreshConfirm = async () => {
@@ -526,13 +699,25 @@ export default function RfpQuotesPage() {
     if (!selectedRequest) return;
     setArchiveBusy(true);
     setArchiveMessage(null);
-    const pickSnap: QuoteWorkspaceSnapshotV1["pickByTerm"] = {};
-    for (const [k, v] of Object.entries(pickByTerm)) {
-      if (v) pickSnap[String(k)] = v;
-    }
+    const toSnap = (m: Partial<Record<number, TermPick>>) => {
+      const out: QuoteWorkspaceSnapshotV1["pickByTerm"] = {};
+      for (const [k, v] of Object.entries(m)) {
+        if (v) out[String(k)] = v;
+      }
+      return out;
+    };
+    const pickSnap: QuoteWorkspaceSnapshotV1["pickByTerm"] = toSnap(pickByTerm);
     const quoteWorkspaceSnapshot: QuoteWorkspaceSnapshotV1 = {
       version: 1,
-      pickByTerm: pickSnap,
+      pickByTerm: selectedRequest.energyType === "ELECTRIC" ? {} : pickSnap,
+      ...(selectedRequest.energyType === "ELECTRIC"
+        ? {
+            electricPicks: {
+              fixed: toSnap(electricPickFixed),
+              passThrough: toSnap(electricPickPass),
+            },
+          }
+        : {}),
       manualRows: [],
       extraTermMonths: [],
       capturedAt: new Date().toISOString(),
@@ -684,10 +869,24 @@ export default function RfpQuotesPage() {
                     }}
                     quotes={quotes}
                     pickByTerm={pickByTerm}
-                    onPick={onPick}
+                    onPick={onPickGas}
+                    electricTables={
+                      selectedRequest.energyType === "ELECTRIC"
+                        ? {
+                            quotesFixed: quotesElectricFixed,
+                            quotesPass: quotesElectricPass,
+                            pickFixed: electricPickFixed,
+                            pickPass: electricPickPass,
+                            onPickFixed: onPickElectricFixed,
+                            onPickPass: onPickElectricPass,
+                          }
+                        : undefined
+                    }
+                    energyDisplayTitle={energyLabel}
                     defaultPriceUnit={defaultUnit}
                     onInsertQuoteRow={handleInsertQuoteRow}
                     insertQuoteRowBusy={insertQuoteRowBusy}
+                    onClearQuoteRow={handleClearQuoteRow}
                     quotesLoading={loading}
                     manualRows={EMPTY_MANUAL_ROWS}
                     selectedEmailId={supplierReadEmailId}
@@ -700,6 +899,7 @@ export default function RfpQuotesPage() {
                   <QuoteComposeCustomerTab
                     rfpRequestId={selectedRequest.id}
                     defaultPriceUnit={defaultUnit}
+                    energyType={selectedRequest.energyType}
                     energyTypeLabel={energyLabel}
                     energyTypeSubjectSegment={energyLabelSubject}
                     resolvedCompanyName={resolvedRfpCompanyName}
@@ -710,6 +910,8 @@ export default function RfpQuotesPage() {
                     }}
                     quotes={quotes}
                     pickByTerm={pickByTerm}
+                    pickByTermElectricFixed={electricPickFixed}
+                    pickByTermElectricPass={electricPickPass}
                     manualRows={EMPTY_MANUAL_ROWS}
                     customerContact={selectedRequest.customerContact ?? null}
                     contractStartMonth={selectedRequest.contractStartMonth}

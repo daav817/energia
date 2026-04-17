@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ComposeBrokerInsertMenu } from "@/components/compose-broker-insert-menu";
 import { RichTextEditor } from "@/components/communications/RichTextEditor";
+import { GoogleDriveEmailAttachmentPickerDialog } from "@/components/communications/google-drive-email-attachment-picker-dialog";
 
 function extractEmail(str: string): string {
   const match = str.match(/<([^>]+)>/);
@@ -96,6 +97,7 @@ export function ComposeEmailForm({
   const [ccSuggestOpen, setCcSuggestOpen] = useState(false);
   const [bccSuggestOpen, setBccSuggestOpen] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [driveAttachOpen, setDriveAttachOpen] = useState(false);
   const toInputRef = useRef<HTMLInputElement>(null);
   const ccInputRef = useRef<HTMLInputElement>(null);
   const bccInputRef = useRef<HTMLInputElement>(null);
@@ -314,35 +316,22 @@ export function ComposeEmailForm({
   };
 
   const header = (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         {layout === "page" ? (
-          <>
-            <h1 className="text-3xl font-bold tracking-tight">Compose Email</h1>
-            <p className="text-muted-foreground mt-1">
-              Send emails to customers and suppliers via your Gmail account.
-              {replyId ? " Replying to an email." : forwardId ? " Forwarding an email." : ""}
-            </p>
-          </>
+          <h1 className="text-3xl font-bold tracking-tight">Compose Email</h1>
         ) : (
-          <>
-            <h2 className="text-lg font-semibold tracking-tight">Compose email</h2>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              {replyId ? "Reply" : forwardId ? "Forward" : "New message"}
-            </p>
-          </>
+          <h2 className="text-lg font-semibold tracking-tight">
+            {replyId ? "Reply" : forwardId ? "Forward" : "Compose email"}
+          </h2>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {layout === "dialog" && onClose ? (
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Close
+            Cancel
           </Button>
         ) : null}
-        <Button type="button" variant="outline" size="sm" onClick={triggerFileInput}>
-          <Paperclip className="mr-2 h-4 w-4" />
-          Attachments
-        </Button>
         <Button
           type="submit"
           form={formId}
@@ -364,115 +353,138 @@ export function ComposeEmailForm({
 
   return (
     <div className="space-y-6">
+      <GoogleDriveEmailAttachmentPickerDialog
+        open={driveAttachOpen}
+        onOpenChange={setDriveAttachOpen}
+        onPickFile={(file) => setAttachments((prev) => [...prev, file])}
+      />
       {header}
       <Card className={layout === "dialog" ? "border-0 shadow-none" : undefined}>
         <CardContent className={layout === "dialog" ? "px-0 pt-0" : "pt-6"}>
           {loadingReply && <p className="text-sm text-muted-foreground mb-4">Loading email…</p>}
-          <form id={formId} onSubmit={handleSend} className="space-y-4">
-            <div className="grid gap-2 relative">
-              <Label htmlFor={formId + "-to"}>To *</Label>
-              <Input
-                ref={toInputRef}
-                id={formId + "-to"}
-                placeholder="Start typing for suggestions (customers, suppliers, contacts)"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                onBlur={() => setTimeout(() => setToSuggestOpen(false), 150)}
-                onFocus={() => toSuggestions.length > 0 && setToSuggestOpen(true)}
-                required
-              />
-              {toSuggestOpen && toSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
-                  {toSuggestions.map((s) => (
-                    <button
-                      key={`${s.email}-${s.name}`}
-                      type="button"
-                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                      onClick={() => {
-                        const parts = to.split(",").slice(0, -1);
-                        const add = parts.length ? `, ${s.email}` : s.email;
-                        setTo((parts.join(", ") || "") + add);
-                        setToSuggestOpen(false);
-                      }}
-                    >
-                      <span className="font-medium">{s.name}</span>
-                      <span className="text-muted-foreground text-xs">{s.email}</span>
-                      {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+          <form id={formId} onSubmit={handleSend} className="space-y-3">
+            <div className="flex flex-wrap items-start gap-x-3 gap-y-1 sm:items-center">
+              <Label htmlFor={formId + "-to"} className="w-12 shrink-0 pt-2 text-sm sm:w-16 sm:pt-0">
+                To *
+              </Label>
+              <div className="relative min-w-0 flex-1">
+                <Input
+                  ref={toInputRef}
+                  id={formId + "-to"}
+                  className="h-9"
+                  placeholder="Start typing for suggestions (customers, suppliers, contacts)"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  onBlur={() => setTimeout(() => setToSuggestOpen(false), 150)}
+                  onFocus={() => toSuggestions.length > 0 && setToSuggestOpen(true)}
+                  required
+                />
+                {toSuggestOpen && toSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
+                    {toSuggestions.map((s) => (
+                      <button
+                        key={`${s.email}-${s.name}`}
+                        type="button"
+                        className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          const parts = to.split(",").slice(0, -1);
+                          const add = parts.length ? `, ${s.email}` : s.email;
+                          setTo((parts.join(", ") || "") + add);
+                          setToSuggestOpen(false);
+                        }}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground text-xs">{s.email}</span>
+                        {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="grid gap-2 relative">
-              <Label htmlFor={formId + "-cc"}>Cc</Label>
-              <Input
-                ref={ccInputRef}
-                id={formId + "-cc"}
-                placeholder="Optional - start typing for suggestions"
-                value={cc}
-                onChange={(e) => setCc(e.target.value)}
-                onBlur={() => setTimeout(() => setCcSuggestOpen(false), 150)}
-                onFocus={() => ccSuggestions.length > 0 && setCcSuggestOpen(true)}
-              />
-              {ccSuggestOpen && ccSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
-                  {ccSuggestions.map((s) => (
-                    <button
-                      key={`${s.email}-${s.name}`}
-                      type="button"
-                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                      onClick={() => {
-                        const parts = cc.split(",").slice(0, -1);
-                        const add = parts.length ? `, ${s.email}` : s.email;
-                        setCc((parts.join(", ") || "") + add);
-                        setCcSuggestOpen(false);
-                      }}
-                    >
-                      <span className="font-medium">{s.name}</span>
-                      <span className="text-muted-foreground text-xs">{s.email}</span>
-                      {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="flex flex-wrap items-start gap-x-3 gap-y-1 sm:items-center">
+              <Label htmlFor={formId + "-cc"} className="w-12 shrink-0 pt-2 text-sm sm:w-16 sm:pt-0">
+                Cc
+              </Label>
+              <div className="relative min-w-0 flex-1">
+                <Input
+                  ref={ccInputRef}
+                  id={formId + "-cc"}
+                  className="h-9"
+                  placeholder="Optional — suggestions as you type"
+                  value={cc}
+                  onChange={(e) => setCc(e.target.value)}
+                  onBlur={() => setTimeout(() => setCcSuggestOpen(false), 150)}
+                  onFocus={() => ccSuggestions.length > 0 && setCcSuggestOpen(true)}
+                />
+                {ccSuggestOpen && ccSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
+                    {ccSuggestions.map((s) => (
+                      <button
+                        key={`${s.email}-${s.name}`}
+                        type="button"
+                        className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          const parts = cc.split(",").slice(0, -1);
+                          const add = parts.length ? `, ${s.email}` : s.email;
+                          setCc((parts.join(", ") || "") + add);
+                          setCcSuggestOpen(false);
+                        }}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground text-xs">{s.email}</span>
+                        {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="grid gap-2 relative">
-              <Label htmlFor={formId + "-bcc"}>Bcc</Label>
-              <Input
-                ref={bccInputRef}
-                id={formId + "-bcc"}
-                placeholder="Optional - start typing for suggestions"
-                value={bcc}
-                onChange={(e) => setBcc(e.target.value)}
-                onBlur={() => setTimeout(() => setBccSuggestOpen(false), 150)}
-                onFocus={() => bccSuggestions.length > 0 && setBccSuggestOpen(true)}
-              />
-              {bccSuggestOpen && bccSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
-                  {bccSuggestions.map((s) => (
-                    <button
-                      key={`${s.email}-${s.name}-bcc`}
-                      type="button"
-                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                      onClick={() => {
-                        const parts = bcc.split(",").slice(0, -1);
-                        const add = parts.length ? `, ${s.email}` : s.email;
-                        setBcc((parts.join(", ") || "") + add);
-                        setBccSuggestOpen(false);
-                      }}
-                    >
-                      <span className="font-medium">{s.name}</span>
-                      <span className="text-muted-foreground text-xs">{s.email}</span>
-                      {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="flex flex-wrap items-start gap-x-3 gap-y-1 sm:items-center">
+              <Label htmlFor={formId + "-bcc"} className="w-12 shrink-0 pt-2 text-sm sm:w-16 sm:pt-0">
+                Bcc
+              </Label>
+              <div className="relative min-w-0 flex-1">
+                <Input
+                  ref={bccInputRef}
+                  id={formId + "-bcc"}
+                  className="h-9"
+                  placeholder="Optional — suggestions as you type"
+                  value={bcc}
+                  onChange={(e) => setBcc(e.target.value)}
+                  onBlur={() => setTimeout(() => setBccSuggestOpen(false), 150)}
+                  onFocus={() => bccSuggestions.length > 0 && setBccSuggestOpen(true)}
+                />
+                {bccSuggestOpen && bccSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover py-1 shadow-md max-h-48 overflow-auto">
+                    {bccSuggestions.map((s) => (
+                      <button
+                        key={`${s.email}-${s.name}-bcc`}
+                        type="button"
+                        className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          const parts = bcc.split(",").slice(0, -1);
+                          const add = parts.length ? `, ${s.email}` : s.email;
+                          setBcc((parts.join(", ") || "") + add);
+                          setBccSuggestOpen(false);
+                        }}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground text-xs">{s.email}</span>
+                        {s.source && <span className="text-xs text-primary/80">{s.source}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor={formId + "-subject"}>Subject</Label>
+            <div className="flex flex-wrap items-start gap-x-3 gap-y-1 sm:items-center">
+              <Label htmlFor={formId + "-subject"} className="w-12 shrink-0 pt-2 text-sm sm:w-16 sm:pt-0">
+                Subject
+              </Label>
               <Input
                 id={formId + "-subject"}
+                className="h-9 min-w-0 flex-1"
                 placeholder="Email subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
@@ -480,27 +492,32 @@ export function ComposeEmailForm({
             </div>
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label className="mb-0">Message</Label>
-                <ComposeBrokerInsertMenu disabled={sending} onInsert={insertBrokerAtCaret} />
+                <Label className="mb-0">Attached files</Label>
+                <div className="flex flex-wrap gap-1">
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={triggerFileInput}>
+                    <Paperclip className="mr-1 h-3.5 w-3.5" />
+                    Add files…
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setDriveAttachOpen(true)}
+                  >
+                    Google Drive…
+                  </Button>
+                </div>
               </div>
-              <RichTextEditor
-                initialHtml={bodyHtml}
-                resetKey={`compose-${composeEditorKey}`}
-                onChangeHtml={(html) => setBodyHtml(html)}
-                disabled={sending}
-                onAttachFiles={addFilesFromEditor}
-                insertSnippet={brokerInsertSnippet}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Attached files</Label>
               <div
-                className="rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-4 transition-colors hover:border-muted-foreground/40 hover:bg-muted/50"
+                className="rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-3 transition-colors hover:border-muted-foreground/40 hover:bg-muted/50"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
               >
-                <p className="text-sm text-muted-foreground mb-2">
-                  Drag and drop files here or use <strong>Attachments</strong> above.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Drag and drop files here, use <span className="font-medium text-foreground">Add files</span> or{" "}
+                  <span className="font-medium text-foreground">Google Drive</span>, or the attach control in the
+                  message editor.
                 </p>
                 {attachments.length > 0 ? (
                   <ul className="flex flex-wrap gap-2">
@@ -535,6 +552,20 @@ export function ComposeEmailForm({
                   <p className="text-xs text-muted-foreground">No attachments yet</p>
                 )}
               </div>
+            </div>
+            <div className="grid gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label className="mb-0">Message</Label>
+                <ComposeBrokerInsertMenu disabled={sending} onInsert={insertBrokerAtCaret} />
+              </div>
+              <RichTextEditor
+                initialHtml={bodyHtml}
+                resetKey={`compose-${composeEditorKey}`}
+                onChangeHtml={(html) => setBodyHtml(html)}
+                disabled={sending}
+                onAttachFiles={addFilesFromEditor}
+                insertSnippet={brokerInsertSnippet}
+              />
             </div>
             {result?.success && layout === "page" && (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">

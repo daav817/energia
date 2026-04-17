@@ -130,6 +130,12 @@ enum PriceUnit {
   DTH    // Dekatherm (gas)
 }
 
+/** When set, this quote row belongs to the electric "Fixed Capacity Adjust" vs "Capacity Pass-Through" comparison table. Null = single-table RFP (gas) or legacy electric rows (treated as fixed). */
+enum RfpQuoteComparisonBucket {
+  ELECTRIC_FIXED_CAPACITY_ADJUST
+  ELECTRIC_CAPACITY_PASS_THROUGH
+}
+
 model Contract {
   id               String     @id @default(cuid())
   customerId       String     @map("customer_id")
@@ -524,6 +530,7 @@ model RfpQuote {
   rate           Decimal    @db.Decimal(10, 6)
   priceUnit      PriceUnit  @map("price_unit")
   termMonths     Int        @map("term_months")
+  comparisonBucket RfpQuoteComparisonBucket? @map("comparison_bucket")
   brokerMargin   Decimal?   @map("broker_margin") @db.Decimal(10, 6)
   totalMargin    Decimal?   @map("total_margin") @db.Decimal(12, 2)
   estimatedContractValue Decimal? @map("estimated_contract_value") @db.Decimal(14, 2)

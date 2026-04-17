@@ -73,6 +73,8 @@ function buildQuoteEmailSubject(company: string, energySegment: string, brokerCo
   return `${c} ${e} Supply Quotes from ${b}`;
 }
 
+type Suggestion = { name: string; email: string; source?: string };
+
 type CustomerContact = { name: string; email: string | null } | null | undefined;
 
 type PersistedComposeDraft = {
@@ -87,12 +89,15 @@ type PersistedComposeDraft = {
 export function QuoteComposeCustomerTab({
   rfpRequestId,
   defaultPriceUnit,
+  energyType,
   energyTypeLabel,
   energyTypeSubjectSegment,
   resolvedCompanyName,
   rfp,
   quotes,
   pickByTerm,
+  pickByTermElectricFixed,
+  pickByTermElectricPass,
   manualRows,
   customerContact,
   contractStartMonth,
@@ -103,6 +108,7 @@ export function QuoteComposeCustomerTab({
 }: {
   rfpRequestId: string;
   defaultPriceUnit: string;
+  energyType: "ELECTRIC" | "NATURAL_GAS";
   energyTypeLabel: string;
   /** e.g. "Electric" | "Natural Gas" for the subject line */
   energyTypeSubjectSegment: string;
@@ -114,7 +120,12 @@ export function QuoteComposeCustomerTab({
     customer: { name: string; company: string | null } | null;
   };
   quotes: ComparisonRfpQuote[];
+  /** Natural gas (or legacy): single comparison picks */
   pickByTerm: Partial<Record<number, TermPick>>;
+  /** Electric: fixed-capacity-adjust table picks */
+  pickByTermElectricFixed?: Partial<Record<number, TermPick>>;
+  /** Electric: capacity pass-through table picks */
+  pickByTermElectricPass?: Partial<Record<number, TermPick>>;
   manualRows: ManualQuoteRow[];
   customerContact: CustomerContact;
   contractStartMonth: number | null;
@@ -150,6 +161,10 @@ export function QuoteComposeCustomerTab({
   const lastAppliedServerDraftCanonRef = useRef<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [noServerBaseline, setNoServerBaseline] = useState<string | null>(null);
+  const [toSuggestions, setToSuggestions] = useState<Suggestion[]>([]);
+  const [ccSuggestions, setCcSuggestions] = useState<Suggestion[]>([]);
+  const [toSuggestOpen, setToSuggestOpen] = useState(false);
+  const [ccSuggestOpen, setCcSuggestOpen] = useState(false);
   const draftRefForBaseline = useRef<PersistedComposeDraft>({
     to: "",
     cc: "",
@@ -160,6 +175,57 @@ export function QuoteComposeCustomerTab({
   });
 
   const annualUsage = useMemo(() => combinedAnnualUsageFromAccounts(rfp.accountLines), [rfp.accountLines]);
+
+  const fetchSuggestions = useCallback(async (q: string, setter: (s: Suggestion[]) => void) => {
+    if (!q || q.length < 2) {
+      setter([]);
+      return;
+    }
+    try {
+      const [dbRes, googleRes] = await Promise.all([
+        fetch(`/api/contacts/suggest?q=${encodeURIComponent(q)}&limit=10`),
+        fetch(`/api/contacts/google-suggest?q=${encodeURIComponent(q)}&limit=10`),
+      ]);
+      const dbData = await dbRes.json();
+      const googleData = await googleRes.json();
+      const dbList = Array.isArray(dbData) ? dbData : [];
+      const googleList = Array.isArray(googleData) ? googleData : [];
+      const seen = new Set<string>();
+      const merged: Suggestion[] = [];
+      for (const s of [...dbList, ...googleList]) {
+        const key = (s.email || "").toLowerCase();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          merged.push(s);
+        }
+      }
+      setter(merged.slice(0, 15));
+    } catch {
+      setter([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const lastPart = to.split(",").pop()?.trim() || "";
+    if (lastPart.length >= 2) {
+      void fetchSuggestions(lastPart, setToSuggestions);
+      setToSuggestOpen(true);
+    } else {
+      setToSuggestions([]);
+      setToSuggestOpen(false);
+    }
+  }, [to, fetchSuggestions]);
+
+  useEffect(() => {
+    const lastPart = cc.split(",").pop()?.trim() || "";
+    if (lastPart.length >= 2) {
+      void fetchSuggestions(lastPart, setCcSuggestions);
+      setCcSuggestOpen(true);
+    } else {
+      setCcSuggestions([]);
+      setCcSuggestOpen(false);
+    }
+  }, [cc, fetchSuggestions]);
 
   const serverDraftParsed = useMemo(() => {
     if (customerQuoteEmailDraft == null) return null;
@@ -485,64 +551,75 @@ export function QuoteComposeCustomerTab({
     applyTemplateBodyOnly(id);
   };
 
-  const sortedPickedTerms = useMemo(() => {
-    return Object.keys(pickByTerm)
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && pickByTerm[n])
-      .sort((a, b) => a - b);
-  }, [pickByTerm]);
+  const insertTableFromPicks = useCallback(
+    (picks: Partial<Record<number, TermPick>>, sectionTitle: string | null) => {
+      const terms = Object.keys(picks)
+        .map(Number)
+        .filter((n) => Number.isFinite(n) && picks[n])
+        .sort((a, b) => a - b);
+      const rows: Parameters<typeof buildCustomerQuotesTableHtml>[0] = [];
 
-  const insertQuotesTable = () => {
-    const rows: Parameters<typeof buildCustomerQuotesTableHtml>[0] = [];
+      for (const term of terms) {
+        const pick = picks[term];
+        if (!pick) continue;
+        let supplierName = "";
+        let rate = 0;
+        let unit = defaultPriceUnit;
+        if (pick.kind === "quote") {
+          const q = quotes.find((x) => x.id === pick.quoteId);
+          if (!q) continue;
+          supplierName = q.supplier.name;
+          rate = Number(q.rate);
+          unit = q.priceUnit || defaultPriceUnit;
+        } else {
+          const row = manualRows.find((m) => m.id === pick.rowId);
+          if (!row) continue;
+          const raw = row.rates[term];
+          const r = raw != null ? Number.parseFloat(String(raw)) : NaN;
+          if (!Number.isFinite(r)) continue;
+          supplierName = row.supplierName.trim() || "Supplier";
+          rate = r;
+          unit = row.units[term] || defaultPriceUnit;
+        }
+        const totalVal = totalContractValueUsd({ baseRatePerUnit: rate, termMonths: term, annualUsage });
+        const monthlyAvg = impliedMonthlyEnergyCostUsd({ baseRatePerUnit: rate, annualUsage });
 
-    for (const term of sortedPickedTerms) {
-      const pick = pickByTerm[term];
-      if (!pick) continue;
-      let supplierName = "";
-      let rate = 0;
-      let unit = defaultPriceUnit;
-      if (pick.kind === "quote") {
-        const q = quotes.find((x) => x.id === pick.quoteId);
-        if (!q) continue;
-        supplierName = q.supplier.name;
-        rate = Number(q.rate);
-        unit = q.priceUnit || defaultPriceUnit;
-      } else {
-        const row = manualRows.find((m) => m.id === pick.rowId);
-        if (!row) continue;
-        const raw = row.rates[term];
-        const r = raw != null ? Number.parseFloat(String(raw)) : NaN;
-        if (!Number.isFinite(r)) continue;
-        supplierName = row.supplierName.trim() || "Supplier";
-        rate = r;
-        unit = row.units[term] || defaultPriceUnit;
+        rows.push({
+          termLabel: formatTermLengthWithRange({
+            termMonths: term,
+            contractStartMonth,
+            contractStartYear,
+          }),
+          baseRateLabel: `$${rate.toFixed(5)} / ${unitLabelForEnergy(unit)}`,
+          supplierName,
+          totalContractValueLabel: `$${totalVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+          monthlyAverageLabel: `$${monthlyAvg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+        });
       }
-      const totalVal = totalContractValueUsd({ baseRatePerUnit: rate, termMonths: term, annualUsage });
-      const monthlyAvg = impliedMonthlyEnergyCostUsd({ baseRatePerUnit: rate, annualUsage });
 
-      rows.push({
-        termLabel: formatTermLengthWithRange({
-          termMonths: term,
-          contractStartMonth,
-          contractStartYear,
-        }),
-        baseRateLabel: `$${rate.toFixed(5)} / ${unitLabelForEnergy(unit)}`,
-        supplierName,
-        totalContractValueLabel: `$${totalVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
-        monthlyAverageLabel: `$${monthlyAvg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
-      });
-    }
+      if (rows.length === 0) {
+        insertHtmlAtCaret("<p><em>(No term columns selected for this table on the Quote Comparison tab.)</em></p>");
+        return;
+      }
 
-    if (rows.length === 0) {
-      insertHtmlAtCaret("<p><em>(No term columns selected on the Quote Comparison tab.)</em></p>");
-      return;
-    }
-
-    const table = buildCustomerQuotesTableHtml(rows);
-    const usageBracket = `${annualUsage.toLocaleString()} ${unitLabelForEnergy(defaultPriceUnit)}`;
-    const note = `<p style="font-size:12px;line-height:1.45;color:#666666;margin:10px 0 0 0;font-family:Arial, Helvetica, sans-serif;">Note:  The Total Contract Value and Monthly Average amounts are based upon the Annual Usage [${escapeHtml(usageBracket)}] taken from the submitted energy bills</p>`;
-    insertHtmlAtCaret(`<div style="margin:12px 0;">${table}${note}</div>`);
-  };
+      const table = buildCustomerQuotesTableHtml(rows);
+      const usageBracket = `${annualUsage.toLocaleString()} ${unitLabelForEnergy(defaultPriceUnit)}`;
+      const note = `<p style="font-size:12px;line-height:1.45;color:#666666;margin:10px 0 0 0;font-family:Arial, Helvetica, sans-serif;">Note:  The Total Contract Value and Monthly Average amounts are based upon the Annual Usage [${escapeHtml(usageBracket)}] taken from the submitted energy bills</p>`;
+      const header = sectionTitle
+        ? `<p style="font-weight:bold;margin:0 0 8px 0;font-family:Arial, Helvetica, sans-serif;">${escapeHtml(sectionTitle)}</p>`
+        : "";
+      insertHtmlAtCaret(`<div style="margin:12px 0;">${header}${table}${note}</div>`);
+    },
+    [
+      annualUsage,
+      contractStartMonth,
+      contractStartYear,
+      defaultPriceUnit,
+      insertHtmlAtCaret,
+      manualRows,
+      quotes,
+    ]
+  );
 
   async function handleQuoteTestSend() {
     const addr = quoteTestEmail.trim();
@@ -884,21 +961,73 @@ export function QuoteComposeCustomerTab({
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             <div className="grid gap-0.5">
               <Label className="text-[11px] font-medium text-muted-foreground">To</Label>
-              <Input
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                placeholder="customer@example.com"
-                className="h-7 text-xs"
-              />
+              <div className="relative min-w-0">
+                <Input
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  onBlur={() => setTimeout(() => setToSuggestOpen(false), 150)}
+                  onFocus={() => toSuggestions.length > 0 && setToSuggestOpen(true)}
+                  placeholder="Start typing for suggestions (customers, suppliers, contacts)"
+                  className="h-7 text-xs"
+                  autoComplete="off"
+                />
+                {toSuggestOpen && toSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover py-1 shadow-md">
+                    {toSuggestions.map((s) => (
+                      <button
+                        key={`${s.email}-${s.name}`}
+                        type="button"
+                        className="flex w-full flex-col items-start px-3 py-2 text-left text-xs hover:bg-muted"
+                        onClick={() => {
+                          const parts = to.split(",").slice(0, -1);
+                          const add = parts.length ? `, ${s.email}` : s.email;
+                          setTo((parts.join(", ") || "") + add);
+                          setToSuggestOpen(false);
+                        }}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground text-[10px]">{s.email}</span>
+                        {s.source ? <span className="text-[10px] text-primary/80">{s.source}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid gap-0.5">
               <Label className="text-[11px] font-medium text-muted-foreground">CC</Label>
-              <Input
-                value={cc}
-                onChange={(e) => setCc(e.target.value)}
-                placeholder="optional, comma-separated"
-                className="h-7 text-xs"
-              />
+              <div className="relative min-w-0">
+                <Input
+                  value={cc}
+                  onChange={(e) => setCc(e.target.value)}
+                  placeholder="Optional — suggestions as you type"
+                  className="h-7 text-xs"
+                  autoComplete="off"
+                  onBlur={() => setTimeout(() => setCcSuggestOpen(false), 150)}
+                  onFocus={() => ccSuggestions.length > 0 && setCcSuggestOpen(true)}
+                />
+                {ccSuggestOpen && ccSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover py-1 shadow-md">
+                    {ccSuggestions.map((s) => (
+                      <button
+                        key={`${s.email}-${s.name}-cc`}
+                        type="button"
+                        className="flex w-full flex-col items-start px-3 py-2 text-left text-xs hover:bg-muted"
+                        onClick={() => {
+                          const parts = cc.split(",").slice(0, -1);
+                          const add = parts.length ? `, ${s.email}` : s.email;
+                          setCc((parts.join(", ") || "") + add);
+                          setCcSuggestOpen(false);
+                        }}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground text-[10px]">{s.email}</span>
+                        {s.source ? <span className="text-[10px] text-primary/80">{s.source}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid gap-0.5 sm:col-span-2">
               <Label className="text-[11px] font-medium text-muted-foreground">Subject</Label>
@@ -930,15 +1059,38 @@ export function QuoteComposeCustomerTab({
                 onInsert={insertBrokerAtCaret}
                 triggerClassName="h-6 px-2 text-[10px] [&_svg]:mr-1 [&_svg]:h-3 [&_svg]:w-3"
               />
-              <Button
-                type="button"
-                size="sm"
-                className="h-6 px-2 text-[10px]"
-                onClick={insertQuotesTable}
-                disabled={sending || testingQuoteEmail}
-              >
-                Insert quotes table
-              </Button>
+              {energyType === "NATURAL_GAS" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={() => insertTableFromPicks(pickByTerm, null)}
+                  disabled={sending || testingQuoteEmail}
+                >
+                  Insert quotes table
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => insertTableFromPicks(pickByTermElectricFixed ?? {}, "Fixed Capacity Adjust")}
+                    disabled={sending || testingQuoteEmail}
+                  >
+                    Insert Fixed Capacity Adjust table
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => insertTableFromPicks(pickByTermElectricPass ?? {}, "Capacity Pass-Through")}
+                    disabled={sending || testingQuoteEmail}
+                  >
+                    Insert Capacity Pass-Through table
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

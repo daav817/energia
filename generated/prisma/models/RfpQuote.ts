@@ -50,6 +50,7 @@ export type RfpQuoteMinAggregateOutputType = {
   rate: runtime.Decimal | null
   priceUnit: $Enums.PriceUnit | null
   termMonths: number | null
+  comparisonBucket: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
   estimatedContractValue: runtime.Decimal | null
@@ -69,6 +70,7 @@ export type RfpQuoteMaxAggregateOutputType = {
   rate: runtime.Decimal | null
   priceUnit: $Enums.PriceUnit | null
   termMonths: number | null
+  comparisonBucket: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
   estimatedContractValue: runtime.Decimal | null
@@ -88,6 +90,7 @@ export type RfpQuoteCountAggregateOutputType = {
   rate: number
   priceUnit: number
   termMonths: number
+  comparisonBucket: number
   brokerMargin: number
   totalMargin: number
   estimatedContractValue: number
@@ -125,6 +128,7 @@ export type RfpQuoteMinAggregateInputType = {
   rate?: true
   priceUnit?: true
   termMonths?: true
+  comparisonBucket?: true
   brokerMargin?: true
   totalMargin?: true
   estimatedContractValue?: true
@@ -144,6 +148,7 @@ export type RfpQuoteMaxAggregateInputType = {
   rate?: true
   priceUnit?: true
   termMonths?: true
+  comparisonBucket?: true
   brokerMargin?: true
   totalMargin?: true
   estimatedContractValue?: true
@@ -163,6 +168,7 @@ export type RfpQuoteCountAggregateInputType = {
   rate?: true
   priceUnit?: true
   termMonths?: true
+  comparisonBucket?: true
   brokerMargin?: true
   totalMargin?: true
   estimatedContractValue?: true
@@ -269,6 +275,7 @@ export type RfpQuoteGroupByOutputType = {
   rate: runtime.Decimal
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin: runtime.Decimal | null
   totalMargin: runtime.Decimal | null
   estimatedContractValue: runtime.Decimal | null
@@ -311,6 +318,7 @@ export type RfpQuoteWhereInput = {
   rate?: Prisma.DecimalFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFilter<"RfpQuote"> | $Enums.PriceUnit
   termMonths?: Prisma.IntFilter<"RfpQuote"> | number
+  comparisonBucket?: Prisma.EnumRfpQuoteComparisonBucketNullableFilter<"RfpQuote"> | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -333,6 +341,7 @@ export type RfpQuoteOrderByWithRelationInput = {
   rate?: Prisma.SortOrder
   priceUnit?: Prisma.SortOrder
   termMonths?: Prisma.SortOrder
+  comparisonBucket?: Prisma.SortOrderInput | Prisma.SortOrder
   brokerMargin?: Prisma.SortOrderInput | Prisma.SortOrder
   totalMargin?: Prisma.SortOrderInput | Prisma.SortOrder
   estimatedContractValue?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -358,6 +367,7 @@ export type RfpQuoteWhereUniqueInput = Prisma.AtLeast<{
   rate?: Prisma.DecimalFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFilter<"RfpQuote"> | $Enums.PriceUnit
   termMonths?: Prisma.IntFilter<"RfpQuote"> | number
+  comparisonBucket?: Prisma.EnumRfpQuoteComparisonBucketNullableFilter<"RfpQuote"> | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -380,6 +390,7 @@ export type RfpQuoteOrderByWithAggregationInput = {
   rate?: Prisma.SortOrder
   priceUnit?: Prisma.SortOrder
   termMonths?: Prisma.SortOrder
+  comparisonBucket?: Prisma.SortOrderInput | Prisma.SortOrder
   brokerMargin?: Prisma.SortOrderInput | Prisma.SortOrder
   totalMargin?: Prisma.SortOrderInput | Prisma.SortOrder
   estimatedContractValue?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -407,6 +418,7 @@ export type RfpQuoteScalarWhereWithAggregatesInput = {
   rate?: Prisma.DecimalWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitWithAggregatesFilter<"RfpQuote"> | $Enums.PriceUnit
   termMonths?: Prisma.IntWithAggregatesFilter<"RfpQuote"> | number
+  comparisonBucket?: Prisma.EnumRfpQuoteComparisonBucketNullableWithAggregatesFilter<"RfpQuote"> | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.DecimalNullableWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.DecimalNullableWithAggregatesFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -423,6 +435,7 @@ export type RfpQuoteCreateInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -445,6 +458,7 @@ export type RfpQuoteUncheckedCreateInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -461,6 +475,7 @@ export type RfpQuoteUpdateInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -483,6 +498,7 @@ export type RfpQuoteUncheckedUpdateInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -502,6 +518,7 @@ export type RfpQuoteCreateManyInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -518,6 +535,7 @@ export type RfpQuoteUpdateManyMutationInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -537,6 +555,7 @@ export type RfpQuoteUncheckedUpdateManyInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -566,6 +585,7 @@ export type RfpQuoteCountOrderByAggregateInput = {
   rate?: Prisma.SortOrder
   priceUnit?: Prisma.SortOrder
   termMonths?: Prisma.SortOrder
+  comparisonBucket?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
   estimatedContractValue?: Prisma.SortOrder
@@ -593,6 +613,7 @@ export type RfpQuoteMaxOrderByAggregateInput = {
   rate?: Prisma.SortOrder
   priceUnit?: Prisma.SortOrder
   termMonths?: Prisma.SortOrder
+  comparisonBucket?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
   estimatedContractValue?: Prisma.SortOrder
@@ -612,6 +633,7 @@ export type RfpQuoteMinOrderByAggregateInput = {
   rate?: Prisma.SortOrder
   priceUnit?: Prisma.SortOrder
   termMonths?: Prisma.SortOrder
+  comparisonBucket?: Prisma.SortOrder
   brokerMargin?: Prisma.SortOrder
   totalMargin?: Prisma.SortOrder
   estimatedContractValue?: Prisma.SortOrder
@@ -757,11 +779,16 @@ export type RfpQuoteUncheckedUpdateManyWithoutRfpRequestNestedInput = {
   deleteMany?: Prisma.RfpQuoteScalarWhereInput | Prisma.RfpQuoteScalarWhereInput[]
 }
 
+export type NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput = {
+  set?: $Enums.RfpQuoteComparisonBucket | null
+}
+
 export type RfpQuoteCreateWithoutSupplierInput = {
   id?: string
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -782,6 +809,7 @@ export type RfpQuoteUncheckedCreateWithoutSupplierInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -830,6 +858,7 @@ export type RfpQuoteScalarWhereInput = {
   rate?: Prisma.DecimalFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFilter<"RfpQuote"> | $Enums.PriceUnit
   termMonths?: Prisma.IntFilter<"RfpQuote"> | number
+  comparisonBucket?: Prisma.EnumRfpQuoteComparisonBucketNullableFilter<"RfpQuote"> | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.DecimalNullableFilter<"RfpQuote"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -846,6 +875,7 @@ export type RfpQuoteCreateWithoutContractInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -866,6 +896,7 @@ export type RfpQuoteUncheckedCreateWithoutContractInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -908,6 +939,7 @@ export type RfpQuoteCreateWithoutRfpRequestInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -928,6 +960,7 @@ export type RfpQuoteUncheckedCreateWithoutRfpRequestInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -972,6 +1005,7 @@ export type RfpQuoteCreateManySupplierInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -988,6 +1022,7 @@ export type RfpQuoteUpdateWithoutSupplierInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1008,6 +1043,7 @@ export type RfpQuoteUncheckedUpdateWithoutSupplierInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1026,6 +1062,7 @@ export type RfpQuoteUncheckedUpdateManyWithoutSupplierInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1044,6 +1081,7 @@ export type RfpQuoteCreateManyContractInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1060,6 +1098,7 @@ export type RfpQuoteUpdateWithoutContractInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1080,6 +1119,7 @@ export type RfpQuoteUncheckedUpdateWithoutContractInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1098,6 +1138,7 @@ export type RfpQuoteUncheckedUpdateManyWithoutContractInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1116,6 +1157,7 @@ export type RfpQuoteCreateManyRfpRequestInput = {
   rate: runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit: $Enums.PriceUnit
   termMonths: number
+  comparisonBucket?: $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1132,6 +1174,7 @@ export type RfpQuoteUpdateWithoutRfpRequestInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1152,6 +1195,7 @@ export type RfpQuoteUncheckedUpdateWithoutRfpRequestInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1170,6 +1214,7 @@ export type RfpQuoteUncheckedUpdateManyWithoutRfpRequestInput = {
   rate?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   priceUnit?: Prisma.EnumPriceUnitFieldUpdateOperationsInput | $Enums.PriceUnit
   termMonths?: Prisma.IntFieldUpdateOperationsInput | number
+  comparisonBucket?: Prisma.NullableEnumRfpQuoteComparisonBucketFieldUpdateOperationsInput | $Enums.RfpQuoteComparisonBucket | null
   brokerMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   totalMargin?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   estimatedContractValue?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
@@ -1191,6 +1236,7 @@ export type RfpQuoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   rate?: boolean
   priceUnit?: boolean
   termMonths?: boolean
+  comparisonBucket?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
   estimatedContractValue?: boolean
@@ -1213,6 +1259,7 @@ export type RfpQuoteSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   rate?: boolean
   priceUnit?: boolean
   termMonths?: boolean
+  comparisonBucket?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
   estimatedContractValue?: boolean
@@ -1235,6 +1282,7 @@ export type RfpQuoteSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   rate?: boolean
   priceUnit?: boolean
   termMonths?: boolean
+  comparisonBucket?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
   estimatedContractValue?: boolean
@@ -1257,6 +1305,7 @@ export type RfpQuoteSelectScalar = {
   rate?: boolean
   priceUnit?: boolean
   termMonths?: boolean
+  comparisonBucket?: boolean
   brokerMargin?: boolean
   totalMargin?: boolean
   estimatedContractValue?: boolean
@@ -1268,7 +1317,7 @@ export type RfpQuoteSelectScalar = {
   updatedAt?: boolean
 }
 
-export type RfpQuoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "rfpRequestId" | "supplierId" | "contractId" | "rate" | "priceUnit" | "termMonths" | "brokerMargin" | "totalMargin" | "estimatedContractValue" | "isBestOffer" | "sourceEmailId" | "receivedAt" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpQuote"]>
+export type RfpQuoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "rfpRequestId" | "supplierId" | "contractId" | "rate" | "priceUnit" | "termMonths" | "comparisonBucket" | "brokerMargin" | "totalMargin" | "estimatedContractValue" | "isBestOffer" | "sourceEmailId" | "receivedAt" | "notes" | "createdAt" | "updatedAt", ExtArgs["result"]["rfpQuote"]>
 export type RfpQuoteInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   rfpRequest?: boolean | Prisma.RfpQuote$rfpRequestArgs<ExtArgs>
   supplier?: boolean | Prisma.SupplierDefaultArgs<ExtArgs>
@@ -1300,6 +1349,7 @@ export type $RfpQuotePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     rate: runtime.Decimal
     priceUnit: $Enums.PriceUnit
     termMonths: number
+    comparisonBucket: $Enums.RfpQuoteComparisonBucket | null
     brokerMargin: runtime.Decimal | null
     totalMargin: runtime.Decimal | null
     estimatedContractValue: runtime.Decimal | null
@@ -1742,6 +1792,7 @@ export interface RfpQuoteFieldRefs {
   readonly rate: Prisma.FieldRef<"RfpQuote", 'Decimal'>
   readonly priceUnit: Prisma.FieldRef<"RfpQuote", 'PriceUnit'>
   readonly termMonths: Prisma.FieldRef<"RfpQuote", 'Int'>
+  readonly comparisonBucket: Prisma.FieldRef<"RfpQuote", 'RfpQuoteComparisonBucket'>
   readonly brokerMargin: Prisma.FieldRef<"RfpQuote", 'Decimal'>
   readonly totalMargin: Prisma.FieldRef<"RfpQuote", 'Decimal'>
   readonly estimatedContractValue: Prisma.FieldRef<"RfpQuote", 'Decimal'>

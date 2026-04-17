@@ -33,6 +33,7 @@ import { ComposeEmailForm } from "@/components/communications/compose-email-form
 import { FolderTree, buildFolderTree, type FolderNode } from "@/components/communications/FolderTree";
 import { MoveToFolderDialog } from "@/components/communications/MoveToFolderDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useAppToast } from "@/components/app-toast-provider";
 
 type Label = { id: string; name: string; type: string; messagesUnread?: number; messagesTotal?: number };
 type EmailMessage = {
@@ -201,6 +202,7 @@ function setPinnedIds(ids: string[]) {
 }
 
 export default function InboxPage() {
+  const toast = useAppToast();
   const [labels, setLabels] = useState<Label[]>([]);
   const [selectedLabel, setSelectedLabel] = useState("INBOX");
   const [emails, setEmails] = useState<EmailMessage[]>([]);
@@ -290,6 +292,7 @@ export default function InboxPage() {
     }
   });
   const [composeOpen, setComposeOpen] = useState(false);
+  const [composeReplyId, setComposeReplyId] = useState<string | null>(null);
   const [composeSession, setComposeSession] = useState(0);
   const [searchResultsFilter, setSearchResultsFilter] = useState("");
   const [hasHydratedCachedPage, setHasHydratedCachedPage] = useState(false);
@@ -929,7 +932,14 @@ export default function InboxPage() {
       if (document.visibilityState !== "visible") return;
       void (async () => {
         try {
-          await fetch("/api/emails/poll?sync=1");
+          const pollRes = await fetch("/api/emails/poll?sync=1");
+          const pollData = (await pollRes.json().catch(() => ({}))) as { newInDb?: number };
+          if (typeof pollData.newInDb === "number" && pollData.newInDb > 0) {
+            toast({
+              message: `${pollData.newInDb} new message(s) synced from Gmail. Your lists refresh in the background.`,
+              variant: "info",
+            });
+          }
         } catch {
           return;
         }
@@ -979,7 +989,7 @@ export default function InboxPage() {
       })();
     }, INBOX_AUTO_REFRESH_MS);
     return () => window.clearInterval(interval);
-  }, [selectedLabel, labels, fetchEmails, fetchLabels, fetchUnread]);
+  }, [selectedLabel, labels, fetchEmails, fetchLabels, fetchUnread, toast]);
 
   const collapseAllSearchFolders = () => {
     setSearchFolderOpen(
@@ -1097,7 +1107,9 @@ export default function InboxPage() {
   };
 
   const handleReply = (msg: { id: string }) => {
-    window.location.href = `/compose?reply=${msg.id}`;
+    setComposeReplyId(msg.id);
+    setComposeSession((n) => n + 1);
+    setComposeOpen(true);
   };
 
   const handleForward = (msg: { id: string }) => {
@@ -1177,6 +1189,7 @@ export default function InboxPage() {
           type="button"
           className="shrink-0"
           onClick={() => {
+            setComposeReplyId(null);
             setComposeSession((n) => n + 1);
             setComposeOpen(true);
           }}
@@ -1186,20 +1199,31 @@ export default function InboxPage() {
         </Button>
       </div>
       <div className="flex flex-1 min-h-0 gap-0 w-full min-w-0 items-stretch overflow-hidden">
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent className="max-w-[min(96vw,720px)] w-[96vw] max-h-[min(92vh,880px)] flex flex-col gap-0 overflow-hidden p-0">
+      <Dialog
+        open={composeOpen}
+        onOpenChange={(o) => {
+          setComposeOpen(o);
+          if (!o) setComposeReplyId(null);
+        }}
+      >
+        <DialogContent className="max-w-[min(96vw,920px)] w-[min(96vw,920px)] max-h-[min(90vh,900px)] flex flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="sr-only">
-            <DialogTitle>Compose email</DialogTitle>
+            <DialogTitle>{composeReplyId ? "Reply to email" : "Compose email"}</DialogTitle>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <ComposeEmailForm
-              key={composeSession}
+              key={`${composeSession}-${composeReplyId ?? "new"}`}
               formId="energia-compose-inbox-dialog"
               layout="dialog"
+              replyId={composeReplyId}
               navigateToInboxAfterSend={false}
-              onClose={() => setComposeOpen(false)}
+              onClose={() => {
+                setComposeOpen(false);
+                setComposeReplyId(null);
+              }}
               onSent={() => {
                 setComposeOpen(false);
+                setComposeReplyId(null);
                 void fetchEmails(selectedLabel, undefined, { keepSelection: true });
               }}
             />

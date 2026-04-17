@@ -540,14 +540,21 @@ export function EmailDetailPanel({
               const base = `/api/emails/${email.id}/attachments/${att.attachmentId}?filename=${encodeURIComponent(
                 att.filename
               )}&mimeType=${encodeURIComponent(att.mimeType)}`;
+              const isExcel =
+                /\.xlsx$/i.test(att.filename || "") ||
+                /spreadsheetml|ms-excel/i.test(att.mimeType || "");
+              const openHref = isExcel
+                ? `/api/emails/attachments/open-in-google-sheets?messageId=${encodeURIComponent(email.id)}&attachmentId=${encodeURIComponent(att.attachmentId)}&filename=${encodeURIComponent(att.filename || "workbook.xlsx")}`
+                : base;
               const sizeKb =
                 att.size && att.size > 0 ? `${Math.round(att.size / 1024)} KB` : undefined;
               return (
                 <li key={att.attachmentId} className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
                   <a
-                    href={base}
+                    href={openHref}
                     target="_blank"
                     rel="noopener noreferrer"
+                    title={isExcel ? "Opens in Google Sheets (imports a copy to your Drive)" : undefined}
                     className="inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-muted transition-colors min-w-0"
                   >
                     <Paperclip className="h-4 w-4 shrink-0" />
