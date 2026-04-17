@@ -1,6 +1,6 @@
 # Energia — CRM & energy brokerage web application
 
-**Audience:** This document is written for engineers (including CRM platform specialists) who want to **run the system locally** and **judge full-stack implementation**: UI/UX and client-side behavior on one hand, APIs, persistence, and integrations on the other.
+**Audience:** This document is written for engineers who want to **run the system locally**: client-side UI/UX, APIs, persistence, and integrations.
 
 **What this repo is:** A **Next.js** application for managing **customers, suppliers, contracts, commissions, tasks, communications (Gmail), scheduling, RFP/quote workflows, and related energy-brokerage data**. The stack is intentionally mainstream for maintainable full-stack TypeScript work.
 
